@@ -2,7 +2,7 @@
 name: strongly
 description: >-
   Help the user build on and operate the Strongly.AI platform through its REST
-  API — deploying apps (behind the Strongly proxy, with JWT identity and
+  API, deploying apps (behind the Strongly proxy, with JWT identity and
   artifacts), provisioning addons and data sources, running agents and
   workflows, and using MLOps, the model registry, and the AI Gateway. Use this
   whenever the user mentions Strongly, strongly.ai, a Strongly app/agent/
@@ -17,7 +17,7 @@ managed Kubernetes. Everything a user can do in the UI is also reachable through
 one REST API at `/api/v1`. Your job is to help the user drive that API correctly.
 
 This file is the map. Deep, per-feature detail lives in `references/<feature>.md`
-and should be read **on demand** — load a reference only when the task is about
+and should be read **on demand**, load a reference only when the task is about
 that feature.
 
 ## Golden rules
@@ -25,7 +25,7 @@ that feature.
 1. **Only use real endpoints.** Every path in this skill maps to a real
    `/api/v1` route. Do not invent endpoints, fields, or query params. If you
    need something not documented here, discover it with a `list`/`GET` call or
-   tell the user it may not be exposed — never guess a URL.
+   tell the user it may not be exposed, never guess a URL.
 2. **Ground answers in the user's actual resources.** Before recommending an
    addon, model, or workflow, `GET` the relevant list and name what the user
    really has. Do not assume a resource exists.
@@ -35,7 +35,7 @@ that feature.
    ready/running/complete before you claim success or use the resource.
 4. **Never handle the user's secrets for them.** The user creates their own API
    key; you use it, you never mint or ask them to paste a password. Treat the
-   API key as sensitive — never put it in a URL or log it.
+   API key as sensitive, never put it in a URL or log it.
 5. **No fabricated success.** If a call errors or a build fails, report the
    status and the error honestly. Do not paper over a failure.
 
@@ -44,11 +44,11 @@ that feature.
 Auth works two different ways depending on your execution context. Figure out
 which one you're in **before** doing anything else.
 
-**Inside Strongly** — you are running in a Strongly **workspace** (e.g. Claude
+**Inside Strongly**, you are running in a Strongly **workspace** (e.g. Claude
 Code or Codex in a Strongly workspace) or inside a deployed **app**. Tell by the
 environment: `STRONGLY_API_URL` and/or `STRONGLY_SERVICES` are set.
 - The platform base URL is already in the environment: **`$STRONGLY_API_URL`**
-  (e.g. `http://strongly-web.strongly.svc.cluster.local:3000`) — its REST API is
+  (e.g. `http://strongly-web.strongly.svc.cluster.local:3000`), its REST API is
   `$STRONGLY_API_URL/api/v1`.
 - **Auth is handled for you.** The platform injects the caller's bearer token on
   these in-cluster calls, so you do **not** set an `Authorization` header, and you
@@ -61,14 +61,14 @@ environment: `STRONGLY_API_URL` and/or `STRONGLY_SERVICES` are set.
 curl -s "$STRONGLY_API_URL/api/v1/apps"
 ```
 
-**Outside Strongly** — you are running anywhere else (Claude Code on a laptop, a
+**Outside Strongly**, you are running anywhere else (Claude Code on a laptop, a
 CI job, any external client). None of the `STRONGLY_*` env vars are set.
 - You must supply the **host**: `<HOST>/api/v1`, where `<HOST>` is the user's
   Strongly deployment (e.g. `https://app.strongly.ai`, or their self-hosted host).
   Ask the user for it; never hardcode a public one.
 - Authenticate with an API key header: **`X-API-Key: <key>`** on every request.
   The user creates a key in the UI under **Settings → API Keys** (a.k.a.
-  Profile → Security → API Keys). You never mint or ask them to paste a password —
+  Profile → Security → API Keys). You never mint or ask them to paste a password , 
   only the API key.
 
 ```bash
@@ -76,7 +76,7 @@ CI job, any external client). None of the `STRONGLY_*` env vars are set.
 curl -s -H "X-API-Key: $STRONGLY_API_KEY" "$HOST/api/v1/apps"
 ```
 
-Either way the request shape (paths, bodies, envelope) is identical — only the
+Either way the request shape (paths, bodies, envelope) is identical, only the
 base URL and auth differ. Below, `$BASE` means `$STRONGLY_API_URL/api/v1` inside
 Strongly or `$HOST/api/v1` outside.
 
@@ -96,16 +96,16 @@ ObjectIds; pass them in the path (`/api/v1/apps/<id>`).
 
 ## The two things that make Strongly apps different
 
-If the task involves **apps**, three platform mechanics matter — full detail in
+If the task involves **apps**, three platform mechanics matter, full detail in
 `references/apps.md`, but the essentials:
 
 - **The Strongly proxy.** Deployed apps are reached only through the platform
-  proxy at a relative base path given by the `STRONGLY_URL` env var — never a
+  proxy at a relative base path given by the `STRONGLY_URL` env var, never a
   bare port. Apps must serve from that base path (this is the usual cause of a
   blank React screen). The proxy is also the trust boundary.
 - **Identity via one header.** The proxy injects the signed-in user as a JWT in
   `X-Strongly-User-Token` (and convenience `X-Strongly-User-*` headers). Apps
-  **decode** it (they never see the signing secret) to know who the user is —
+  **decode** it (they never see the signing secret) to know who the user is , 
   no login screen.
 - **Wiring via `STRONGLY_SERVICES`.** Connected addons, data sources, AI models,
   and workflows arrive as a JSON env var `STRONGLY_SERVICES`. The app reads

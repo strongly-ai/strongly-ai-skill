@@ -32,7 +32,7 @@ while true; do
   echo "    build: $BS"
   case "$BS" in
     completed) break ;;
-    failed)    echo "!! build failed — logs:"; api "$HOST/api/v1/apps/$APP_ID/build-logs?level=error" | jq -r '.data'; exit 1 ;;
+    failed)    echo "!! build failed, logs:"; api "$HOST/api/v1/apps/$APP_ID/build-logs?level=error" | jq -r '.data'; exit 1 ;;
     *)         sleep 10 ;;
   esac
 done
@@ -47,5 +47,5 @@ for _ in $(seq 1 60); do
   esac
 done
 
-echo "!! App did not reach a running state in time — check: $HOST/api/v1/apps/$APP_ID/status" >&2
+echo "!! App did not reach a running state in time, check: $HOST/api/v1/apps/$APP_ID/status" >&2
 exit 1

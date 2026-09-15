@@ -6,20 +6,20 @@ reach it through the platform; the app gets the signed-in user's identity, its
 connected services, and managed compute for free.
 
 Read this when the task is: deploying/updating an app, **making an app render
-correctly behind the proxy** (the single biggest source of bugs — CSS/JS not
+correctly behind the proxy** (the single biggest source of bugs, CSS/JS not
 loading, blank screen), reading the signed-in user, wiring an app to services, or
 saving/serving artifacts.
 
 > **Canonical working example: the `kanban` marketplace app.** Every proxy,
 > asset, auth, and cache pattern below is taken from it. When in doubt, mirror
-> kanban — it is the reference implementation that renders correctly through the
+> kanban, it is the reference implementation that renders correctly through the
 > proxy.
 
 **Auth** follows the two-context rule in `SKILL.md`: outside Strongly you send
 `X-API-Key` to `$HOST/api/v1`; inside Strongly (or from a workspace) the platform
 is `$STRONGLY_API_URL/api/v1` and the bearer is auto-injected. Below, `$BASE` is
 whichever applies. (This is the app talking TO the platform. Separately, the
-proxy tells the app WHO the end user is — see [Identity](#identity) — and that is
+proxy tells the app WHO the end user is, see [Identity](#identity), and that is
 always a JWT, never an API key.)
 
 ---
@@ -39,7 +39,7 @@ drive everything:
 The failure everyone hits: a SPA built for `/` emits root-absolute asset URLs
 (`/assets/x.js`), which under the proxy prefix resolve wrong → **blank page, or
 CSS/JS 404, or the opaque "Importing a module script failed."** The kanban recipe
-below eliminates all of it. Do every step — they are load-bearing.
+below eliminates all of it. Do every step, they are load-bearing.
 
 ### 1a. Build with a RELATIVE base (Vite)
 
@@ -51,14 +51,14 @@ export default defineConfig({ base: './', /* … */ });
 `base: './'` makes Vite emit **relative** asset URLs (`./assets/x.js`) instead of
 `/assets/x.js`, so they resolve under any prefix.
 
-### 1b. Client: derive the base from the URL you're actually at — no fallbacks
+### 1b. Client: derive the base from the URL you're actually at, no fallbacks
 
 Do **not** read `import.meta.env.BASE_URL` for runtime paths (it is `'./'` and
-silently produces a blank app). Derive the prefix from the browser location — one
+silently produces a blank app). Derive the prefix from the browser location, one
 source of truth for the router basename, API base, and any link prefix:
 
 ```ts
-// runtimeBase.ts  (from kanban — copy it)
+// runtimeBase.ts  (from kanban, copy it)
 const PROXY_PREFIX = /^(\/api\/proxy\/[^/]+)/;
 export const getRuntimeBase = (p = location.pathname) => (p.match(PROXY_PREFIX)?.[1] ?? '');
 export const getBasename = (p = location.pathname) => getRuntimeBase(p) || '/';   // router
@@ -82,14 +82,14 @@ app.use('/assets', express.static(path.join(pub, 'assets'), { maxAge: '1d', etag
 app.use(express.static(pub, { index: false }));           // favicon, etc.
 app.use('/api', apiLimiter, authMiddleware, apiRouter);   // API auth AFTER static
 
-// STRONGLY_URL is ALWAYS set by the platform. If it's missing, FAIL LOUD — do not
+// STRONGLY_URL is ALWAYS set by the platform. If it's missing, FAIL LOUD, do not
 // default to '' (that ships a silently broken UI with wrong asset paths).
 if (!process.env.STRONGLY_URL) { console.error('FATAL: STRONGLY_URL not set'); process.exit(1); }
 const base = process.env.STRONGLY_URL;
 
 // A static-looking path that reaches the SPA fallback does NOT exist on disk.
 // Returning index.html (HTML) for a `.js` request is what makes the browser throw
-// "Importing a module script failed" — it asked for JS and got a document. This
+// "Importing a module script failed", it asked for JS and got a document. This
 // happens right after a redeploy when a cached shell requests OLD chunk hashes.
 // 404 them so it fails cleanly instead of masquerading as a crash.
 const STATIC = /\.(?:js|mjs|css|map|json|png|jpe?g|gif|svg|ico|webp|avif|woff2?|ttf|eot|wasm)$/i;
@@ -166,12 +166,12 @@ deploys: `POST /apps` (JSON) with `repository` + `branch`, then `deploy`.
 
 ## 3. Identity
 
-The proxy signs the user in and passes identity as a **signed JWT** — the app
+The proxy signs the user in and passes identity as a **signed JWT**, the app
 reads it, never builds a login screen. It arrives one of two ways, both the same
 token:
 
-- **`X-Strongly-User-Token`** — set by the proxy for end-user browser requests.
-- **`Authorization: Bearer <jwt>`** — set for server-to-server / agent calls
+- **`X-Strongly-User-Token`**, set by the proxy for end-user browser requests.
+- **`Authorization: Bearer <jwt>`**, set for server-to-server / agent calls
   (e.g. a Strongly agent acting in your app as its owning user).
 
 Read either. Verify if the signing secret is present in the pod, otherwise decode
@@ -197,14 +197,14 @@ app.use('/api', (req, _res, next) => {
 
 Convenience headers also exist (`X-Strongly-User-Id/Email/Name/Roles`,
 `X-Strongly-Org-Id`); the JWT is canonical. Common roles: `admin`, `developer`,
-`app` — map them to your app's roles.
+`app`, map them to your app's roles.
 
 ---
 
 ## 4. Wiring: `STRONGLY_SERVICES`
 
 Everything you connect (addons, data sources, AI models, workflows) arrives as one
-JSON env var. Read connections from it — never hardcode a host or key.
+JSON env var. Read connections from it, never hardcode a host or key.
 
 ```js
 const s = JSON.parse(process.env.STRONGLY_SERVICES || '{}');
@@ -214,11 +214,11 @@ const ai = s.aiModels?.[0];                                 // { provider, model
 ```
 
 - Match on **`configId`** (stable, from your deploy config), not `id` (`mongodb-abc123`).
-- Respect **`internal: true`** addons (the app's own store) — hide them from any
+- Respect **`internal: true`** addons (the app's own store), hide them from any
   user-facing "pick a database" UI.
 - Degrade honestly if a service is absent; don't fabricate one.
 
-You choose what's wired at create time — the create/upload routes accept `addons`,
+You choose what's wired at create time, the create/upload routes accept `addons`,
 `dataSources`, `aiModels`, `workflows` arrays of ids (discover via
 `GET $BASE/addons`, `/datasources`, `/ai-models`, `/workflows`). Connected
 workflows appear under `STRONGLY_SERVICES.services.workflows` so the app can
@@ -234,7 +234,7 @@ app's ephemeral disk, then hand the user a **short-lived pre-signed URL** so the
 download goes browser → S3, not streamed back through the app and proxy.
 
 The app calls the platform API for this. **Inside Strongly the bearer is
-auto-injected** (see `SKILL.md`) — the app doesn't manage a key; it calls
+auto-injected** (see `SKILL.md`), the app doesn't manage a key; it calls
 `$STRONGLY_API_URL/api/v1/...` and auth is handled. (Outside Strongly, an
 `X-API-Key` is used.)
 
@@ -248,7 +248,7 @@ curl -s -X POST "$STRONGLY_API_URL/api/v1/artifacts" -H 'Content-Type: applicati
 ```
 
 Serving pattern behind the proxy: the app's own endpoint (which knows the user
-from §3) mints a download URL and **302-redirects** the browser to it — the heavy
+from §3) mints a download URL and **302-redirects** the browser to it, the heavy
 bytes go browser → S3 directly, only a small redirect passes through the app.
 
 ```js
@@ -328,20 +328,20 @@ Field reference:
 |---|---|
 | `name` / `displayName` / `version` / `type` / `description` | Identity. `type` is `"app"`. |
 | `steps[]` | The deploy-wizard steps shown to the user (`id` ∈ `permissions`, `resources`, `addons`, `ml-models`, `ai-models`), each `required` or not. |
-| `permissions` | `allowPublic`, `allowUserSelection`, `defaultPublic` — who can reach the app. |
+| `permissions` | `allowPublic`, `allowUserSelection`, `defaultPublic`, who can reach the app. |
 | `resources` | `defaults` + selectable `options` for `cpu`, `memory`, `disk`, `instances`. |
 | `addons[]` | Managed stores to provision: `id` (this becomes the `configId` you match in `STRONGLY_SERVICES`), `type`, `required`, `allowExisting`, `internal` (hide from users), `defaults`/`options`, `backupConfig`. |
-| `aiGateway` | `{ required, minModels, maxModels, supportedProviders }` — AI models the app can use. |
+| `aiGateway` | `{ required, minModels, maxModels, supportedProviders }`, AI models the app can use. |
 | `models[]` | ML models to deploy alongside the app (`artifact`, `framework`, `inference.endpoint`). |
-| `environmentVariables` | `{ configurable, defaults }` — non-secret config injected as env vars. |
-| `healthCheck` | `{ path, port, initialDelay, period, timeout, failureThreshold }` — the readiness path (serve it, see §1). |
+| `environmentVariables` | `{ configurable, defaults }`, non-secret config injected as env vars. |
+| `healthCheck` | `{ path, port, initialDelay, period, timeout, failureThreshold }`, the readiness path (serve it, see §1). |
 | `seedData` | Optional one-time init script run on deploy. |
 
 The manifest and the REST deploy work together: your **bundle** (`Dockerfile` +
 source + `deploy.json`) is what you upload in §2. `deploy.json` declares what the
 platform provisions; the app reads those provisioned connections at runtime from
 `STRONGLY_SERVICES`. `addons[].id` in the manifest is the `configId` you match on
-in code — keep them in sync.
+in code, keep them in sync.
 
 ---
 

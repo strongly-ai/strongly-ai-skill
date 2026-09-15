@@ -47,7 +47,7 @@ curl -s "${auth[@]}" "$BASE/marketplace/items/$ITEM_ID" | jq '.data'
 Before deploying, inspect the offering:
 
 ```bash
-# The deploy.json the offering ships (the deploy wizard it declares — see references/apps.md §6)
+# The deploy.json the offering ships (the deploy wizard it declares, see references/apps.md §6)
 curl -s "${auth[@]}" "$BASE/marketplace/items/$ITEM_ID/deploy-config" | jq '.data'
 
 # License text, and reviews
@@ -82,7 +82,7 @@ so you configure the deploy against what actually exists, never a guessed id.
 
 ```bash
 # Existing provisioned addons (running/deploying) + compatible object-store data
-# sources, grouped by type — things you can CONNECT to the offering.
+# sources, grouped by type, things you can CONNECT to the offering.
 curl -s "${auth[@]}" "$BASE/marketplace/available-addons" | jq '.data'
 
 # AI models available to attach to the offering.
