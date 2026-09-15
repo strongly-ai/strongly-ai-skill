@@ -27,8 +27,9 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # see SKILL.md
 ```
 
 Scopes: `governance:read` / `governance:write` on `/governance/*`;
-`guardrails:read` / `guardrails:write` on `/guardrails/*`. Every response is the
-standard envelope (`data` on success, `error.message` on failure).
+`guardrails:read` / `guardrails:write` on `/guardrails/*`. Every JSON response is
+the standard envelope (`data` on success, `error.message` on failure); the sole
+exception is the evidence download (section 3), which streams raw file bytes.
 
 ---
 

@@ -29,8 +29,8 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
 
 **Async rule:** creating or starting a workspace, cluster, or volume returns
 immediately and finishes later. Always poll the matching `status` endpoint until
-it reports running (or the PVC is bound) before you use the resource. Never report
-success on the create call alone.
+it reports running or ready before you use the resource. Never report success on
+the create call alone.
 
 ---
 
@@ -53,17 +53,16 @@ disk 20GB).
 | `POST /workspaces/:id/start` | `workspaces:write` | Start a stopped workspace. |
 | `POST /workspaces/:id/stop` | `workspaces:write` | Stop a running workspace. |
 | `POST /workspaces/:id/restart` | `workspaces:write` | Restart. |
-| `GET /workspaces/:id/status` | `workspaces:read` | Live status from the backend / Kubernetes (poll this). |
+| `GET /workspaces/:id/status` | `workspaces:read` | Live status (poll this until running). |
 | `GET /workspaces/:id/metrics` | `workspaces:read` | CPU / memory usage. |
 | `GET /workspaces/:id/logs` | `workspaces:read` | Container logs. `type` is `build`, `deploy`, or `pod` (default `pod`). |
 | `POST /workspaces/:id/sync` | `workspaces:write` | Sync the workspace to persistent storage. |
-| `POST /workspaces/:id/exec` | (owner JWT) | Run a shell command in the workspace. Body `{ command, timeoutSec?, cwd? }`, returns `{ stdout, stderr, exitCode, timedOut, truncated }`. This is the agent `code_execution` transport, not an auto-generated tool. |
 
 Optional wiring on `POST /workspaces` (all optional): `projectId` (clones the
-project files to `/project` and mounts its volumes), `dataSources`, `addons`,
-`aiGateways`, `workflows` (arrays of ids), `environmentVariables` (object),
-`codeSessionEnabled` (inject a terminal sidecar so an assistant can drive it),
-`environmentId`, `customResources`, `customDockerfile` (required when
+project files to `/project` and mounts its volumes; see `references/projects.md`),
+`dataSources`, `addons`, `aiGateways`, `workflows` (arrays of ids),
+`environmentVariables` (object), `codeSessionEnabled` (add a terminal an assistant
+can drive), `environmentId`, `customResources`, `customDockerfile` (required when
 `environmentType` is `custom`), `cluster` (section 3), and `capacity_type: "spot"`
 / `useSpotInstances` for spot capacity.
 
@@ -164,9 +163,9 @@ curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
 
 ## 5. Volumes
 
-A data volume is persistent storage bound to a project (backed by a PVC, synced to
-S3). Create it against a `projectId`, upload files with a presigned URL, then mount
-it into a workspace via the workspace's `projectId`.
+A data volume is persistent storage bound to a project (synced to S3). Create it
+against a `projectId` (see `references/projects.md`), upload files with a presigned
+URL, then mount it into a workspace via the workspace's `projectId`.
 
 | Method + path | Scope | Purpose |
 |---|---|---|
@@ -175,7 +174,7 @@ it into a workspace via the workspace's `projectId`.
 | `POST /volumes/:id/upload-url` | `volumes:write` | Presigned PUT URL for a file. Required: `filename`; optional `contentType` (default `text/csv`). Returns `uploadUrl`, `key`, `bucket`. |
 | `GET /volumes/shared` | `volumes:read` | List shared volumes visible to the user. |
 | `GET /volumes/:id` | `volumes:read` | Get one. |
-| `GET /volumes/:id/status` | `volumes:read` | PVC lifecycle: `pvc_phase`, `capacity`, `used_bytes`, `last_sync_at` (poll this). |
+| `GET /volumes/:id/status` | `volumes:read` | Storage status: `pvc_phase`, `capacity`, `used_bytes`, `last_sync_at` (poll this). |
 | `PUT /volumes/:id` | `volumes:write` | Update `label`, `description`, `sizeGB`. |
 | `DELETE /volumes/:id` | `volumes:write` | Delete. |
 | `POST /volumes/:id/sync` | `volumes:write` | Sync the volume to S3. |
@@ -203,8 +202,8 @@ A code session drives a coding-assistant CLI (Claude Code by default, or `codex`
 over a workspace terminal. It runs in a fresh standalone workspace, in a new
 workspace inside an existing project (`projectId`), or attached to an existing
 code-session-enabled workspace (`workspaceId`). The terminal runs the assistant
-TUI, not a bash shell: send natural-language tasks with `send_code_input`, read
-output with `get_code_output`.
+TUI, not a bash shell: send natural-language tasks with
+`POST /code-sessions/:id/input`, read output with `GET /code-sessions/:id/output`.
 
 | Method + path | Scope | Purpose |
 |---|---|---|
@@ -234,8 +233,8 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 
 Login is the user's own Claude account: Strongly supplies no credential. Relay the
 `authUrl` as a clickable link, take the code the user pastes back, and submit it
-with `login-code`. For Codex (`useTerminal:true`), drive `codex login` through
-`send_code_input` / `get_code_output`.
+with `login-code`. For Codex (`useTerminal:true`), drive `codex login` through the
+terminal endpoints (`POST /code-sessions/:id/input`, `GET /code-sessions/:id/output`).
 
 ---
 
@@ -246,5 +245,5 @@ with `login-code`. For Codex (`useTerminal:true`), drive `codex login` through
 - [ ] Custom-image environments: poll `GET /environments/:id` for `build_status: "success"` before binding.
 - [ ] Attach a Ray / Dask / Spark cluster via the `cluster` object on `POST /workspaces`, not a separate endpoint.
 - [ ] Pre-warm a pool with a valid `workloadType` and `count` in 1-5.
-- [ ] Volumes: create against a `projectId`, upload via the presigned `uploadUrl` (bytes go browser to S3), poll `/volumes/:id/status` for PVC phase.
+- [ ] Volumes: create against a `projectId`, upload via the presigned `uploadUrl` (bytes go browser to S3), poll `/volumes/:id/status` until `pvc_phase` reports bound.
 - [ ] Code sessions: send natural-language tasks (not raw shell) to the assistant terminal; login uses the user's own Claude account; deploy an app via `/code-sessions/:id/deploy` and see `references/apps.md`.

@@ -4,12 +4,14 @@ The Strongly **Marketplace** is a catalog of ready-to-run **offerings** (apps an
 agents). A user browses the catalog, reads an offering's deploy config, license,
 and reviews, then **deploys** it into their own account. A deployed offering
 becomes a normal Strongly **app** (built, deployed to Kubernetes, served behind
-the proxy), so once it is running you manage it exactly like any other app.
+the proxy), so once it is running you manage it exactly like any other app. The
+platform also ships installable **plugins** (platform extensions such as DataHub)
+that you install into your account rather than deploy as an app; see §6.
 
 Read this when the task is: browsing/searching the catalog, inspecting an
 offering before install, **deploying an offering and polling it to done**,
-listing what the user already deployed, or reporting metered **usage** from a
-running offering.
+listing what the user already deployed, reporting metered **usage** from a
+running offering, or installing/managing a **plugin**.
 
 > The catalog calls each listing a "marketplace item"; the usage API calls the
 > same thing an "offering" (its `offeringId` is the app's `appName`). They are
@@ -20,8 +22,9 @@ running offering.
 to `$HOST/api/v1`; inside Strongly the bearer is auto-injected at
 `$STRONGLY_API_URL/api/v1`. Below, `$BASE` is whichever applies, and
 `auth=(-H "X-API-Key: $STRONGLY_API_KEY")` outside Strongly. Read scopes are
-`marketplace:read`; deploy and reviews need `marketplace:deploy`; usage needs
-`offering-usage:write`; the listing-management routes need `marketplace:admin`.
+`marketplace:read`; deploy, reviews, and plugin install/enable/disable/uninstall
+need `marketplace:deploy`; usage needs `offering-usage:write`; the
+listing-management routes need `marketplace:admin`.
 
 ---
 
@@ -130,8 +133,9 @@ curl -s "${auth[@]}" "$BASE/marketplace/deployments/$ITEM_ID" | jq '.data'
 ```
 
 `status` values: `complete`, `failed`, `none` (nothing in progress and not yet
-deployed), or the current in-progress step label. On `failed`, read the `error`
-field. Progress `currentStep` maps to `percentage` as:
+deployed), or an in-progress status while the build runs (`stepMessage` carries
+the human-readable step). On `failed`, read the `error` field. Progress
+`currentStep` maps to `percentage` as:
 
 | currentStep | % | Stage |
 |---|---|---|
@@ -212,7 +216,62 @@ Responses and rules:
 
 ---
 
-## 6. Manage listings (admin only)
+## 6. Plugins: installable platform extensions
+
+A **plugin** is a platform extension you install into your account (not deployed
+as an app). Each plugin declares a config schema and feature toggles; once
+installed and enabled it augments the platform. The current example is
+**DataHub**, which pushes workflow lineage and ML model / AutoML / drift metadata
+to a DataHub catalog. Plugins live under `/plugins/*`.
+
+Managing plugins is restricted: in single-tenant only an admin may install or
+manage them; in multitenant an admin or a developer may (scoped to their org). A
+call without that access returns **403**.
+
+```bash
+# Browse the plugin catalog (each entry: id, displayName, description,
+# configSchema[], features[]).
+curl -s "${auth[@]}" "$BASE/plugins" | jq '.data.plugins'
+
+# What is already installed (secrets are never returned).
+curl -s "${auth[@]}" "$BASE/plugins/instances" | jq '.data.instances'
+```
+
+Install by plugin `id`. `values` is a flat map keyed by the plugin's
+`configSchema` fields; `features` is a map of feature id to boolean (defaults
+apply when omitted). Re-installing an already-installed plugin updates its config
+and re-enables it. Required config fields are enforced.
+
+```bash
+# Install / configure DataHub (values.datahubBaseUrl + values.authMode).
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"values":{"datahubBaseUrl":"http://datahub-gms:8080","authMode":"pat","datahubToken":"<pat>"},
+       "features":{"lineage":true,"modelSync":true}}' \
+  "$BASE/plugins/datahub/install" | jq '.data'
+
+# Toggle without uninstalling, then uninstall.
+curl -s -X POST "${auth[@]}" "$BASE/plugins/datahub/disable" | jq '.data'
+curl -s -X POST "${auth[@]}" "$BASE/plugins/datahub/enable"  | jq '.data'
+curl -s -X DELETE "${auth[@]}" "$BASE/plugins/datahub"       | jq '.data'
+```
+
+Errors on install: a missing required config field is a **400** (`config-invalid`);
+an unknown plugin id is a **404** (`plugin-not-found`); no access is a **403**.
+Enable/disable/uninstall on a plugin that is not installed is a **404**
+(`NOT_INSTALLED`).
+
+| Method | Path | Scope | Purpose |
+|---|---|---|---|
+| GET | `/plugins` | `marketplace:read` | List installable plugins (schema + features) |
+| GET | `/plugins/instances` | `marketplace:read` | List installed plugin instances the caller can see |
+| POST | `/plugins/:id/install` | `marketplace:deploy` | Install/configure a plugin (`values`, `features`); returns 201 |
+| POST | `/plugins/:id/enable` | `marketplace:deploy` | Enable an installed plugin |
+| POST | `/plugins/:id/disable` | `marketplace:deploy` | Disable an installed plugin without uninstalling |
+| DELETE | `/plugins/:id` | `marketplace:deploy` | Uninstall a plugin |
+
+---
+
+## 7. Manage listings (admin only)
 
 Creating/editing catalog listings is `marketplace:admin`. Create requires
 `name`, `description`, `vendor`, `type` (`app` or `agent`), `vertical`.
@@ -233,3 +292,4 @@ Creating/editing catalog listings is `marketplace:admin`. Create requires
 - [ ] Poll `/marketplace/deployments/:id/status` (by the marketplace item id) until `status` is `complete`; never claim success before that; read `error` on `failed`.
 - [ ] Once complete, treat `result.appId` as a normal app and use `references/apps.md` (`/apps` routes, proxy, identity, manifest).
 - [ ] Usage events: one per use, unique `idempotencyKey`, positive `quantity`; a 200 `deduplicated:true` is success, not an error.
+- [ ] Plugins: browse `GET /plugins`, install by id with `values` matching the plugin's `configSchema` (`marketplace:deploy`); enable/disable/uninstall the same way; managing them needs admin (or developer in multitenant).

@@ -59,7 +59,11 @@ help getting work done on Strongly, whether you are:
 | Governance: policies, gates, evidence, guardrails | [`governance.md`](strongly/references/governance.md) |
 | FinOps: costs, budgets, resource groups, schedules | [`finops.md`](strongly/references/finops.md) |
 | Marketplace: browse and deploy offerings | [`marketplace.md`](strongly/references/marketplace.md) |
-| Library: memory, rules, prompts, tasks, skills, preferences | [`library.md`](strongly/references/library.md) |
+| Library: memory, rules, prompts, tasks, skills, preferences, pools | [`library.md`](strongly/references/library.md) |
+| Imprints: installable skill + memory bundles | [`imprints.md`](strongly/references/imprints.md) |
+| A/B testing: compare model variants with live traffic | [`ab-testing.md`](strongly/references/ab-testing.md) |
+| Avatars: 3D, portrait, and real-time lip-sync avatars | [`avatars.md`](strongly/references/avatars.md) |
+| Account, org, and notifications | [`account.md`](strongly/references/account.md) |
 | Python SDK: the `strongly` package, the same API in Python | [`python-sdk.md`](strongly/references/python-sdk.md) |
 
 ## How it works

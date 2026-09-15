@@ -243,7 +243,7 @@ Checklist: HuggingFace base model only; run `model-requirements` +
 
 ---
 
-## 5. Feature store  (external auth: `X-API-Key`; an organization is required)
+## 5. Feature store  (external auth: `X-API-Key`; data-plane calls require an organization)
 
 Register feature definitions and read features for training or serving. These
 routes are REST-only (no agent tool wrappers). Data-plane calls delegate to the
@@ -275,8 +275,9 @@ curl -s "${auth[@]}" -X POST "$BASE/feature-store/online-features" \
 ```
 
 Checklist: `apply` before you read; use `online-features` for serving and
-`historical-features` for training; `materialize` fills the online store; a call
-without an organization is rejected.
+`historical-features` for training; `materialize` fills the online store; the
+data-plane calls (online/historical-features, materialize, write, push) reject a
+call made without an organization.
 
 ---
 
@@ -328,5 +329,5 @@ Model discovery, provider keys, and guardrails: `references/ai-gateway.md`.
 - [ ] AutoML: always send `hardware` (`cpu_count`, `memory_gb`, `disk_gb`); pick the exact file and target column first.
 - [ ] Drift: classification predictions carry `probabilities`; baseline `labeledPredictions` needs 30+ samples; feed ground truth by `entityId`.
 - [ ] Fine-tuning: HuggingFace base models only; `validate-config` before `create`.
-- [ ] Feature store: `apply` before reading; an organization is required.
+- [ ] Feature store: `apply` before reading; the data-plane calls require an organization.
 - [ ] Registry/gateway overlap: promote and deploy point to `references/model-registry.md` and `references/ai-gateway.md`, not duplicated here.

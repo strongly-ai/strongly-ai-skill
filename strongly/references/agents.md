@@ -154,11 +154,12 @@ curl -s "${auth[@]}" "$BASE/agents/$AGENT_ID/status" | jq -r '.data.status'
 # starting -> running -> healthy   (poll until "healthy")
 ```
 
-Once the pod is up, `GET /agents/:id/status` proxies the pod's live `/health`, so
+Once the pod is up, `GET /agents/:id/status` reflects the pod's live health, so
 a truly ready agent reports `healthy`. Other values are `starting`, `running`
 (briefly, before the health probe passes), `stopping`, `stopped`, and `error`.
-`GET /agents` and `GET /agents/:id` report a coarser `running`/`stopped` from the
-pod record.
+`GET /agents` and `GET /agents/:id` report only the raw pod-record status
+(`starting`, `running`, or `stopped`), never the live `healthy`, so poll
+`GET /agents/:id/status` for readiness.
 
 **Why the poll is non-negotiable.** `POST /agents/:id/chat` returns
 `409 agent-not-running` only when there is NO pod at all. A pod in `starting` is

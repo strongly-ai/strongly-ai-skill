@@ -116,8 +116,8 @@ curl -s -X POST "${auth[@]}" "$BASE/addons/$ADDON_ID/recover"   | jq '.data'   #
 
 After `start`, `restart`, or `recover`, poll `GET /addons/:id/status` until
 running before using the addon again. `stop` frees compute while keeping the
-data volume, so a stopped addon can be started later. These three actions
-require the `addons:deploy` scope.
+data volume, so a stopped addon can be started later. All four actions (`start`,
+`stop`, `restart`, `recover`) require the `addons:deploy` scope.
 
 ---
 

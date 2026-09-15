@@ -76,7 +76,7 @@ recoverable without deleting, use `archive` then `restore`.
 A project is created against one of two filesystem types, set by `filesystemType`
 at create time:
 
-- **`strongly`** (default): a platform-managed EFS **data volume**. Nothing else
+- **`strongly`** (default): a platform-managed **data volume**. Nothing else
   to supply.
 - **`github`**: a git repo. You **must** also pass `githubConfig`, or the create
   call fails:

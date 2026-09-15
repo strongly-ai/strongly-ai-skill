@@ -58,7 +58,7 @@ Wire real connections, not invented ones. List what the user actually has:
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/workflow-nodes` | List/search node types (`search`, `category`, `type`, `workflowType`, `isSystem`, `limit`, `offset`) |
+| GET | `/workflow-nodes` | List/search node types (`search`, `category`, `type`, `workflowType`, `active`, `isSystem`, `limit`, `offset`) |
 | GET | `/workflow-nodes/:type/schema` | Full config schema + I/O for a type (`?category` to disambiguate) |
 | GET | `/workflow-nodes/:id` | One node type by id |
 | GET | `/workflow-nodes/suggest-mappings` | Compare two types: source output fields, target input fields, suggested mappings (`sourceType`, `targetType`, optional categories) |
@@ -67,6 +67,11 @@ Wire real connections, not invented ones. List what the user actually has:
 | GET | `/workflow-nodes/services/models` | AI models the gateway will serve (ranked) |
 | GET | `/workflow-nodes/services/datasource-fields/:type` | Credential fields a datasource type needs |
 | POST · PUT · DELETE | `/workflow-nodes` · `/workflow-nodes/:id` | Register/update/delete a REUSABLE custom node type. For one-off logic inside a single workflow, prefer the built-in `code` node instead. |
+| POST | `/workflow-nodes/:id/duplicate` | Copy an existing node type into a new editable custom node ("copy & edit"), then edit it with `PUT` |
+
+Data sources, addons, and models come from their own areas
+(`references/datasources.md`, `references/addons.md`, `references/ai-gateway.md`);
+the `services/*` routes above just list what is connectable as a node here.
 
 The `llm` node's live output is at **`data.response`** (the model text), and its
 model goes under **`config.model`** as a real model id from
@@ -118,6 +123,7 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 |---|---|---|
 | POST | `/workflows` | Create (only `name` required; `description`, `status`, `workflowType`, `nodes`, `connections`, `tags`, `settings`) |
 | GET | `/workflows` | List (`search`, `status`, `tag`, `limit`, `offset`); summaries only, no graph |
+| GET | `/workflows/stats` | Workflow counts by status (total / active / paused / draft / archived) |
 | GET | `/workflows/:id` | Full detail including all nodes and connections |
 | PUT | `/workflows/:id` | Partial update (`name`, `description`, `status`, `tags`, `settings`, `deploymentEnvironmentId`) |
 | DELETE | `/workflows/:id` | Delete (409 if deployed or running: undeploy and stop first) |
@@ -127,13 +133,19 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 | PUT | `/workflows/:id/nodes/:nodeId` | Set a node's `config` / `label` |
 | DELETE | `/workflows/:id/nodes/:nodeId` | Remove a node and its connections |
 | PUT | `/workflows/:id/nodes/:nodeId/input-mappings` | Set `inputMappings` (`{ targetField: "data.sourceField" }`) |
-| POST | `/workflows/:id/connections` | Connect nodes (`sourceNodeId`, `targetNodeId`, `sourcePort`, `targetPort`; agent nodes use `targetPort` `"ai"` or `"tools"`) |
+| PUT | `/workflows/:id/nodes/:nodeId/passthrough-values` | Set `passThroughValues` that copy straight from input to output (`values`) |
+| POST | `/workflows/:id/connections` | Connect nodes (`sourceNodeId`, `targetNodeId`, `sourcePort`, `targetPort`; agent nodes use `targetPort` `"ai"` or `"tools"`; streaming feedback edges pair `feedback` with `maxIterations`) |
 | DELETE | `/workflows/:id/connections/:connectionId` | Remove a connection (use a REAL id from `GET /workflows/:id`; never invent one) |
 | POST | `/workflows/:id/layout` | Auto-arrange nodes left-to-right |
 
 Templates: `GET /workflows/templates`, `POST /workflows/from-template`
-(`templateId`), `POST /workflows/:id/save-as-template`. Sharing/versions:
-`GET·POST /workflows/:id/share`, `GET·POST /workflows/:id/versions`.
+(`templateId`), `POST /workflows/:id/save-as-template`. Sharing:
+`GET·POST /workflows/:id/share`, `DELETE /workflows/:id/share/:userId`.
+Versions: `GET·POST /workflows/:id/versions` (a commit takes a `message`; the
+platform assigns the integer `versionNumber`), `GET /workflows/:id/versions/:versionId`
+(one version plus its full `.strongly.json` definition), and
+`POST /workflows/:id/deploy-version` (`versionId`) to roll back or promote a saved
+version as the live deployment (202; poll status).
 
 ---
 
@@ -179,7 +191,7 @@ curl -s "${auth[@]}" "$BASE/executions/$EID" | jq '.data.outputs'
 curl -s "${auth[@]}" "$BASE/executions/$EID/spans?status=failed" | jq '.data'
 ```
 
-A workflow is caps at **3 in-flight executions**; a 4th returns `429
+A workflow is capped at **3 in-flight executions**; a 4th returns `429
 concurrency-limit`. These are your disposable test runs, so cancel one
 (`POST /executions/:id/cancel`) and re-run the same input rather than waiting.
 
@@ -189,10 +201,11 @@ concurrency-limit`. These are your disposable test runs, so cancel one
 |---|---|---|
 | POST | `/workflows/:id/execute` | Test-run with `triggerInputs`; returns `{executionId, status, outputs, invocation?}` |
 | POST | `/workflows/:id/enqueue` | Run via a queue-trigger node (`message`, `priority`) |
+| POST | `/workflows/:id/email-trigger` | Run via an email-trigger node (`from`, `to`, `subject`, `body_text`) |
 | GET | `/executions` | List runs (`workflow_id`, `status`, `trigger_type`, `since`, `until`, `limit`, `offset`) |
 | GET | `/executions/:id` | Full execution: definition + per-node `outputs` |
 | GET | `/executions/:id/progress` | Status + progress; **settles** the run and returns the outputs preview on completion |
-| GET | `/executions/:id/spans` | Per-node spans; read `error_message` here on failure (`node_id`, `status`, `slim`, `limit`) |
+| GET | `/executions/:id/spans` | Per-node spans; read `error_message` here on failure (`node_id`, `name`, `status`, `slim`, `limit`) |
 | GET | `/executions/:id/logs` | Execution logs (`level`, `limit`) |
 | POST | `/executions/:id/stop` | Graceful stop (only when `running`) |
 | POST | `/executions/:id/cancel` | Hard-cancel any non-terminal run; idempotent |
@@ -224,8 +237,9 @@ whose `secretConfigured` is false, set `config.secret` first or callers get a 40
 | GET | `/workflows/:id/status` | Deployment status, pod/replica health, and the `invocation` block |
 | POST | `/workflows/:id/stop` | Scale to zero, $0 cost, deployment preserved (202) |
 | POST | `/workflows/:id/start` | Scale a stopped workflow back up (202; `replicas`) |
-| POST | `/workflows/:id/undeploy` | Tear down the K8s pod |
-| PUT | `/workflows/:id/status` | Set lifecycle status (`draft`, `active`, `paused`, `archived`) |
+| POST | `/workflows/:id/undeploy` | Tear down the pod |
+| PUT | `/workflows/:id/status` | Set the workflow status (`draft`, `active`, `paused`, `archived`) |
+| GET · PUT | `/workflows/:id/lifecycle` | Get / set the lifecycle policy (`always-on`, `idle-shutdown`, `on-demand`, `scheduled-window`; PUT takes `type`, `idleTimeoutMinutes`, `schedule`) |
 | GET | `/workflows/:id/logs` | Recent worker pod logs (`lines`, `container`) |
 | GET | `/workflows/:id/metrics` | Aggregated run metrics (`window` = `1h`/`24h`/`7d`/`30d`) |
 
@@ -260,7 +274,7 @@ curl -s -X DELETE "${auth[@]}" "$BASE/streaming-sessions/$SID"
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/streaming-workflows` · `/streaming-workflows/:id` | List / get streaming workflows |
-| POST | `/streaming-workflows/:id/deploy` | Deploy (202; body `cpu`, `memory`, `disk`, `gpu`, `idle_timeout_seconds`, `max_session_duration_seconds`, `max_concurrent_sessions`) |
+| POST | `/streaming-workflows/:id/deploy` | Deploy (202; body `cpu`, `memory`, `disk`, `gpu`, `gpu_type`, `idle_timeout_seconds`, `max_session_duration_seconds`, `max_concurrent_sessions`) |
 | POST | `/streaming-workflows/:id/undeploy` | Tear down; return to draft |
 | GET | `/streaming-workflows/:id/deployments` · `/sessions` | Deployments (readiness) / sessions for a workflow |
 | POST | `/streaming-sessions` | Start a session (`workflowId` required); returns `session_id`, `ws_url`, `ws_token` |
@@ -269,6 +283,37 @@ curl -s -X DELETE "${auth[@]}" "$BASE/streaming-sessions/$SID"
 | POST | `/streaming-sessions/:id/inject` | Inject a text message (`text` required, `role`) |
 | DELETE | `/streaming-sessions/:id` | End the live session |
 | GET | `/streaming-sessions/:id/transcript` · `/logs` · `/recordings` · `/errors` · `/handoffs` | Inspect a session; `errors` is the first stop when a voice session misbehaves |
+
+---
+
+## 7. Export / import
+
+A workflow is portable as a single `.strongly.json` document: every node with its
+full config, the connections, settings, scopes, workflow type, mode, environment
+pin, and metadata. It is the same artefact a version commit holds (the definition
+returned by `GET /workflows/:id/versions/:versionId`, section 2).
+
+```bash
+# Export -> the .strongly.json body (the response also sets Content-Disposition
+# for a browser download).
+curl -s "${auth[@]}" "$BASE/workflows/$WID/export" | jq '.data' > workflow.strongly.json
+
+# Import is two calls. FIRST (no resolvedDeps) VALIDATES and returns the
+# dependencies it needs mapped (data sources, addons, models, custom nodes).
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d "{\"exportData\": $(cat workflow.strongly.json)}" \
+  "$BASE/workflows/import" | jq '.data'
+
+# SECOND, with resolvedDeps filled in, EXECUTES the import (201) and creates the
+# new workflow.
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"exportData": {...}, "resolvedDeps": {...}}' "$BASE/workflows/import" | jq '.data'
+```
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/workflows/:id/export` | Export the workflow as a `.strongly.json` document |
+| POST | `/workflows/import` | Import from `.strongly.json` (`exportData`; call once to validate + list dependencies, again with `resolvedDeps` to create the workflow) |
 
 ---
 

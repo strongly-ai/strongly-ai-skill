@@ -19,8 +19,9 @@ inside Strongly (workspace or app) the bearer is auto-injected at
 BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # key needs model-registry:read/write
 ```
 
-Read-only calls need `model-registry:read`; everything that changes a model
-(upload, register, version, deploy, predict, delete) needs `model-registry:write`.
+Read-only calls (list, get, status, list versions) need `model-registry:read`;
+everything that changes a model (upload, register, update, version, deploy,
+stop/start, predict, delete) needs `model-registry:write`.
 
 ---
 
@@ -65,7 +66,7 @@ S3KEY=$(echo "$UP" | jq -r '.data.s3Key')
 
 `manifest` and `manifestRaw` come back populated only when the bundle is a zip
 with a valid `strongly.manifest.yaml`. Keep the whole `data` object, you pass its
-`artifact` and (for zips) `manifest` straight into register.
+`s3Key` (as `artifact: { s3Key }`) and, for zips, `manifest` straight into register.
 
 ### 2b. Register the model entry
 
@@ -181,6 +182,7 @@ Deploy body fields, from the route:
   for autoscale-from-zero.
 - **`instanceType`**: Karpenter instance type override.
 - **`resources`**: `{ cpu, memory, cpuLimit, memoryLimit, gpu, gpu_type, replicas }`.
+- **`environmentVariables`**: non-secret env vars injected into the serving pod.
 
 **Poll before claiming success.** Deploy returns immediately. The registry-side
 lifecycle is on `GET /model-registry/models/:id/status`; once deployed, the live

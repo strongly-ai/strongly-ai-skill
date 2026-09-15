@@ -21,8 +21,11 @@ Strongly:
 BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
 ```
 
-Every endpoint below is a real `/api/v1` route. Reads need the
-`datasources:read` scope; writes need `datasources:write`.
+Every endpoint below is a real `/api/v1` route. Only the four mutations, create
+(`POST /datasources`), update (`PUT /datasources/:id`), delete
+(`DELETE /datasources/:id`), and share (`PUT /datasources/:id/permissions`), need
+the `datasources:write` scope; every other call, including the active
+`POST /datasources/:id/test` probe, needs `datasources:read`.
 
 ---
 
@@ -102,7 +105,8 @@ Update accepts the same fields as create (`name`, `label`, `type`, `credentials`
 Two distinct calls, do not mix them up:
 
 - **Active probe** `POST /datasources/:id/test` opens a live connection now and
-  returns the result. Run this after create or after changing credentials.
+  returns the result. Run this after create or after changing credentials. It
+  takes `datasources:read` (it probes, it does not mutate the row), not `write`.
 - **Health snapshot** `GET /datasources/:id/status` is read-only. It returns
   whatever the most recent test recorded on the row (`status`, `lastTestedAt`,
   `lastError`, `type`, `updatedAt`) without opening a new connection.

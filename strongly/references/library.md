@@ -31,17 +31,20 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # outside Strong
 - **Scopes.** Reads need `<primitive>:read`, writes need `<primitive>:write`
   (`memory:read`, `rules:write`, `tasks:read`, …). A missing scope returns `403`.
 - **Visibility is user-level:** owner, then rows shared with you, then public.
-  Every primitive exposes `POST /:id/share` and `/:id/unshare` (a `userId`) and a
-  `POST /:id/toggle-public`. Memory adds org-global promotion.
+  Memory, rules, tasks, and preferences expose `POST /:id/share` and `/:id/unshare`
+  (a `userId`) plus `POST /:id/toggle-public`; memory adds org-global promotion.
+  Prompts and skills have no per-row share endpoints.
 - **`linkedIds` = agent membership.** Pass agent `workflowId`s to attach a row to
   agents (a row can belong to many). On **list/GET** filters, `linkedIds` is AND
   (a row must belong to ALL supplied ids). On **recall** endpoints
   (`/search`, `/applicable`, `/relevant`) it is ANY (match rows in any linked pool).
 - **`tags`** on list endpoints are comma-separated with AND semantics (a row must
   carry every supplied tag).
-- **Versioning.** Memory, rules, prompts, and skills keep full version history;
-  each has `GET /:id/versions`, a single-version read, and a restore that appends a
-  new version rather than mutating history.
+- **Versioning.** Memory, rules, prompts, and skills keep full version history:
+  each has `GET /:id/versions` plus a restore that appends a new version rather than
+  mutating history. Memory and rules also expose a single-version read
+  (`GET /:id/versions/:n`) and restore by path (`POST /:id/versions/:n/restore`);
+  prompts and skills restore via `POST /:id/restore` with `versionNumber` in the body.
 - **Retrieval blocks.** `POST /memory/search`, `POST /rules/applicable`,
   `POST /skills/relevant`, and `POST /preferences/relevant` each return both the
   matched rows and a canonical markdown `contextBlock` an agent drops straight into

@@ -131,6 +131,10 @@ Read the matching reference before doing detailed work in that area:
 | **FinOps** (costs, budgets, resource groups, schedules) | `references/finops.md` | `/finops` |
 | **Marketplace** (browse & deploy offerings, metered usage) | `references/marketplace.md` | `/marketplace`, `/offering-usage` |
 | **Library primitives** (memory, rules, prompts, tasks, skills, preferences, pools) | `references/library.md` | `/memory`, `/rules`, `/prompts`, `/tasks`, `/skills`, `/preferences`, `/pools` |
+| **Imprints** (installable skill + memory bundles) | `references/imprints.md` | `/imprints` |
+| **A/B testing** (compare model variants with live traffic + experiments) | `references/ab-testing.md` | `/ab-tests` |
+| **Avatars** (talking avatars: 3D, portrait, real-time lip-sync) | `references/avatars.md` | `/avatars` |
+| **Account, org, notifications** (profile, members, credits, invitations, alerts) | `references/account.md` | `/users`, `/organizations`, `/notifications` |
 | Doing any of the above **in Python** (e.g. inside a workspace or a training script) | `references/python-sdk.md` | the `strongly` package (`pip install strongly-ai`) |
 
 Prefixes are a hint, not the contract: the reference for each area lists the exact
