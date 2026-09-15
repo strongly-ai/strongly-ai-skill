@@ -39,26 +39,51 @@ that feature.
 5. **No fabricated success.** If a call errors or a build fails, report the
    status and the error honestly. Do not paper over a failure.
 
-## Authentication and base URL
+## Authentication: first decide WHERE you are running
 
-- **Base URL:** `<HOST>/api/v1`, where `<HOST>` is the user's Strongly deployment
-  (e.g. `https://app.strongly.ai`, or their self-hosted host). Always ask for /
-  confirm the host; don't hardcode a public one.
-- **Auth header:** send the platform API key as `X-API-Key: <key>` on every
-  request. (A user JWT via `Authorization: Bearer <jwt>` also works for
-  interactive sessions, but API-key is the norm for programmatic use.)
-- **Getting a key:** the user creates one in the UI under **Settings → API Keys**
-  (a.k.a. Profile → Security → API Keys). Keys carry **scopes**
-  (`apps:write`, `apps:deploy`, `workflows:write`, `artifacts:read`, …); a call
-  returns `403 scope-required` if the key lacks the scope. Tell the user which
-  scope to add rather than working around it.
+Auth works two different ways depending on your execution context. Figure out
+which one you're in **before** doing anything else.
+
+**Inside Strongly** — you are running in a Strongly **workspace** (e.g. Claude
+Code or Codex in a Strongly workspace) or inside a deployed **app**. Tell by the
+environment: `STRONGLY_API_URL` and/or `STRONGLY_SERVICES` are set.
+- The platform base URL is already in the environment: **`$STRONGLY_API_URL`**
+  (e.g. `http://strongly-web.strongly.svc.cluster.local:3000`) — its REST API is
+  `$STRONGLY_API_URL/api/v1`.
+- **Auth is handled for you.** The platform injects the caller's bearer token on
+  these in-cluster calls, so you do **not** set an `Authorization` header, and you
+  do **not** ask the user for a key or host. (`$STRONGLY_API_KEY` is also present
+  in the workspace env if you prefer to send it explicitly, but you don't need
+  to.) Just call the API.
 
 ```bash
-# Every call follows this shape:
-curl -s -H "X-API-Key: $STRONGLY_API_KEY" \
-     -H "Content-Type: application/json" \
-     "$HOST/api/v1/apps"
+# Inside Strongly: use the injected base URL, no auth header needed.
+curl -s "$STRONGLY_API_URL/api/v1/apps"
 ```
+
+**Outside Strongly** — you are running anywhere else (Claude Code on a laptop, a
+CI job, any external client). None of the `STRONGLY_*` env vars are set.
+- You must supply the **host**: `<HOST>/api/v1`, where `<HOST>` is the user's
+  Strongly deployment (e.g. `https://app.strongly.ai`, or their self-hosted host).
+  Ask the user for it; never hardcode a public one.
+- Authenticate with an API key header: **`X-API-Key: <key>`** on every request.
+  The user creates a key in the UI under **Settings → API Keys** (a.k.a.
+  Profile → Security → API Keys). You never mint or ask them to paste a password —
+  only the API key.
+
+```bash
+# Outside Strongly: explicit host + API key.
+curl -s -H "X-API-Key: $STRONGLY_API_KEY" "$HOST/api/v1/apps"
+```
+
+Either way the request shape (paths, bodies, envelope) is identical — only the
+base URL and auth differ. Below, `$BASE` means `$STRONGLY_API_URL/api/v1` inside
+Strongly or `$HOST/api/v1` outside.
+
+**Scopes.** API keys carry scopes (`apps:write`, `apps:deploy`,
+`workflows:write`, `artifacts:read`, …); a call returns `403 scope-required` if
+the key lacks one. Tell the user which scope to add rather than working around
+it. (In-cluster callers inherit the caller's own permissions.)
 
 **Response envelope.** Success is `{ "success": true, "data": … }` (lists add
 `pagination`). Errors are `{ "success": false, "error": { "code", "message" } }`

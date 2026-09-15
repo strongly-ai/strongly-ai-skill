@@ -5,337 +5,282 @@ builds, deploys to Kubernetes, and serves **behind the Strongly proxy**. Users
 reach it through the platform; the app gets the signed-in user's identity, its
 connected services, and managed compute for free.
 
-Read this reference when the task is: deploying or updating an app, making an app
-work behind the proxy, reading the signed-in user, wiring an app to addons/
-data sources/models, or saving and serving artifacts.
+Read this when the task is: deploying/updating an app, **making an app render
+correctly behind the proxy** (the single biggest source of bugs — CSS/JS not
+loading, blank screen), reading the signed-in user, wiring an app to services, or
+saving/serving artifacts.
 
-Everything here uses the base URL and `X-API-Key` auth from `SKILL.md`. Set once:
+> **Canonical working example: the `kanban` marketplace app.** Every proxy,
+> asset, auth, and cache pattern below is taken from it. When in doubt, mirror
+> kanban — it is the reference implementation that renders correctly through the
+> proxy.
 
-```bash
-HOST="https://app.strongly.ai"      # the user's Strongly host
-export STRONGLY_API_KEY="sk-..."    # from Settings → API Keys (scopes: apps:write, apps:deploy)
-api() { curl -s -H "X-API-Key: $STRONGLY_API_KEY" "$HOST/api/v1$@"; }
-```
-
----
-
-## 1. Deploy an app via the REST API
-
-The whole flow is: **upload a bundle → deploy → poll the build → poll the pod.**
-Do not report success until the pod is running.
-
-### Bundle
-
-A bundle is a `.zip` of your app source containing a **`Dockerfile`** (the
-platform builds the image from it). Include only what the image needs; keep it
-small. The framework/runtime are inferred from the bundle — you rarely set them.
-
-### First deploy (create + upload in one call)
-
-`POST /api/v1/apps/upload` — `multipart/form-data`, scope `apps:write`.
-
-| Field | Notes |
-|---|---|
-| `file` | the `.zip` bundle (required unless you only want an empty app record) |
-| `name` | app name |
-| `description` | optional |
-| `resources` | JSON **string**, any of `{ memory, cpu, disk, gpu, gpu_type }`, e.g. `'{"memory":"1Gi","cpu":"500m"}'` |
-| `environment` | JSON **string** of env vars, e.g. `'{"LOG_LEVEL":"info"}'` |
-| `framework` / `runtime` | build hints; pass only if inference is wrong |
-
-```bash
-curl -s -H "X-API-Key: $STRONGLY_API_KEY" \
-  -F "name=my-app" \
-  -F 'resources={"memory":"1Gi","cpu":"500m"}' \
-  -F "file=@bundle.zip;type=application/zip" \
-  "$HOST/api/v1/apps/upload"
-# -> { "success": true, "data": { "_id": "<APP_ID>", ... } }
-```
-
-This **creates** the app. Now build + deploy it:
-
-```bash
-curl -s -X POST -H "X-API-Key: $STRONGLY_API_KEY" \
-  "$HOST/api/v1/apps/<APP_ID>/deploy"
-```
-
-`deploy` builds the Docker image and creates the Kubernetes deployment + service.
-It returns immediately — the build runs asynchronously.
-
-### Subsequent versions (upload + deploy in one call)
-
-`POST /api/v1/apps/:id/upload` — `multipart/form-data`, scope `apps:deploy`.
-Uploads a new bundle to an existing app **and deploys it** in one step. Optional
-`environment` (JSON string), and `capacity_type=spot` to use spot instances.
-
-```bash
-curl -s -H "X-API-Key: $STRONGLY_API_KEY" \
-  -F "file=@bundle.zip;type=application/zip" \
-  "$HOST/api/v1/apps/<APP_ID>/upload"
-# response includes deploy result, or { ..., "deployError": "..." } if deploy failed
-```
-
-### Poll the build, then the pod
-
-```bash
-# 1) build status: queued | building | completed | failed
-api "/apps/<APP_ID>/build-status" | jq '.data'
-
-# 2) if failed, read WHY (compiler / pip / npm output) — never redeploy blind:
-api "/apps/<APP_ID>/build-logs?level=error" | jq -r '.data'
-
-# 3) once build is completed, poll the running pod until healthy:
-api "/apps/<APP_ID>/status" | jq '.data'   # replicas, pod health, resources
-
-# 4) runtime errors in the RUNNING pod (a failed build has no pod — use build-logs there):
-api "/apps/<APP_ID>/logs?level=error" | jq -r '.data'
-```
-
-Only claim the app is live once `build-status = completed` **and** `status`
-shows the pod running/healthy.
-
-### Lifecycle & config
-
-| Action | Call |
-|---|---|
-| List / get | `GET /apps` · `GET /apps/:id` |
-| Update metadata | `PUT /apps/:id` |
-| Set env vars | `PUT /apps/:id/env` |
-| Set access | `PUT /apps/:id/permissions` |
-| Start / stop / restart | `POST /apps/:id/start` · `/stop` · `/restart` |
-| Metrics | `GET /apps/:id/metrics` |
-| Delete | `DELETE /apps/:id` |
-
-> Git-based deploys: `POST /api/v1/apps` (JSON) accepts `repository` + `branch`
-> instead of a bundle, then `deploy` builds from the repo.
+**Auth** follows the two-context rule in `SKILL.md`: outside Strongly you send
+`X-API-Key` to `$HOST/api/v1`; inside Strongly (or from a workspace) the platform
+is `$STRONGLY_API_URL/api/v1` and the bearer is auto-injected. Below, `$BASE` is
+whichever applies. (This is the app talking TO the platform. Separately, the
+proxy tells the app WHO the end user is — see [Identity](#identity) — and that is
+always a JWT, never an API key.)
 
 ---
 
-## 2. Serve correctly behind the proxy
+## 1. Serve correctly behind the proxy  ← get this right first
 
-Deployed apps are **never** reached on a bare port — all traffic goes through the
-platform proxy at a **relative base path** the app is told at runtime:
+Deployed apps are reached **only** through the platform proxy at a relative base
+path, e.g. `/api/proxy/app-xyz123/`. The app is never on a bare origin. Two facts
+drive everything:
 
-| Env var | Meaning | Example |
-|---|---|---|
-| `STRONGLY_URL` | the app's relative proxy base path | `/api/proxy/app-xyz123` |
-| `STRONGLY_HOST` | platform host | `https://app.strongly.ai` |
-| `STRONGLY_APP_ID` | the app's id | `app-xyz123` |
+- The proxy **strips its prefix** before the request reaches your app: the
+  browser asks for `/api/proxy/app-xyz/assets/x.js`, your app receives
+  `/assets/x.js`.
+- The platform sets **`STRONGLY_URL`** = that prefix (e.g. `/api/proxy/app-xyz`),
+  plus `STRONGLY_HOST` and `STRONGLY_APP_ID`.
 
-`STRONGLY_URL` is **relative on purpose** so the same build works from
-`localhost`, staging, and production. The app must serve all routes and assets
-from that base path.
+The failure everyone hits: a SPA built for `/` emits root-absolute asset URLs
+(`/assets/x.js`), which under the proxy prefix resolve wrong → **blank page, or
+CSS/JS 404, or the opaque "Importing a module script failed."** The kanban recipe
+below eliminates all of it. Do every step — they are load-bearing.
 
-**The #1 app bug is a blank screen** — a SPA served at `/api/proxy/app-xyz/` but
-routing as if it were at `/`. Fix it by injecting the base path at runtime and
-telling the router about it:
+### 1a. Build with a RELATIVE base (Vite)
 
-```js
-// server: inject runtime config into index.html
-const cfg = {
-  STRONGLY_URL: process.env.STRONGLY_URL || '',
-  STRONGLY_HOST: process.env.STRONGLY_HOST || '',
-  STRONGLY_APP_ID: process.env.STRONGLY_APP_ID || '',
-};
-html = html.replace('</head>',
-  `<script>window.__RUNTIME_CONFIG__=${JSON.stringify(cfg)}</script></head>`);
+```ts
+// vite.config.ts
+export default defineConfig({ base: './', /* … */ });
+```
+
+`base: './'` makes Vite emit **relative** asset URLs (`./assets/x.js`) instead of
+`/assets/x.js`, so they resolve under any prefix.
+
+### 1b. Client: derive the base from the URL you're actually at — no fallbacks
+
+Do **not** read `import.meta.env.BASE_URL` for runtime paths (it is `'./'` and
+silently produces a blank app). Derive the prefix from the browser location — one
+source of truth for the router basename, API base, and any link prefix:
+
+```ts
+// runtimeBase.ts  (from kanban — copy it)
+const PROXY_PREFIX = /^(\/api\/proxy\/[^/]+)/;
+export const getRuntimeBase = (p = location.pathname) => (p.match(PROXY_PREFIX)?.[1] ?? '');
+export const getBasename = (p = location.pathname) => getRuntimeBase(p) || '/';   // router
+export const getApiBase  = (p = location.pathname) => `${getRuntimeBase(p)}/api`; // fetch base
 ```
 
 ```tsx
-// client: React Router honours the base path
-const basePath = (window as any).__RUNTIME_CONFIG__?.STRONGLY_URL || '';
-<BrowserRouter basename={basePath}><App /></BrowserRouter>
+<BrowserRouter basename={getBasename()}>…</BrowserRouter>
+// fetch(`${getApiBase()}/boards`)  ->  /api/proxy/app-xyz/api/boards behind the proxy, /api locally
 ```
 
-Build API calls against `STRONGLY_URL` too (`${STRONGLY_URL}/api/...`), never a
-hardcoded origin. Always expose a health endpoint (e.g. `GET /health → 200`).
+### 1c. Server: serve assets, require the prefix, don't hand HTML to the module loader
+
+The single-container pattern (kanban `Dockerfile`): `vite build` → copy `dist` to
+`server/public`, node serves static **and** API on one port.
+
+```js
+// Static BEFORE auth (assets must not require a login). Proxy already stripped
+// the prefix, so serve at /assets, not /${STRONGLY_URL}/assets.
+app.use('/assets', express.static(path.join(pub, 'assets'), { maxAge: '1d', etag: true }));
+app.use(express.static(pub, { index: false }));           // favicon, etc.
+app.use('/api', apiLimiter, authMiddleware, apiRouter);   // API auth AFTER static
+
+// STRONGLY_URL is ALWAYS set by the platform. If it's missing, FAIL LOUD — do not
+// default to '' (that ships a silently broken UI with wrong asset paths).
+if (!process.env.STRONGLY_URL) { console.error('FATAL: STRONGLY_URL not set'); process.exit(1); }
+const base = process.env.STRONGLY_URL;
+
+// A static-looking path that reaches the SPA fallback does NOT exist on disk.
+// Returning index.html (HTML) for a `.js` request is what makes the browser throw
+// "Importing a module script failed" — it asked for JS and got a document. This
+// happens right after a redeploy when a cached shell requests OLD chunk hashes.
+// 404 them so it fails cleanly instead of masquerading as a crash.
+const STATIC = /\.(?:js|mjs|css|map|json|png|jpe?g|gif|svg|ico|webp|avif|woff2?|ttf|eot|wasm)$/i;
+app.get('*', (req, res, next) =>
+  (req.path.startsWith('/assets/') || STATIC.test(req.path))
+    ? res.status(404).type('text/plain').send('Not found') : next());
+
+// SPA fallback: inject a <base href> + rewrite asset paths to the prefix, and
+// NEVER cache the shell (it names hashed chunks; a cached shell + new build = the
+// stale-shell error above). The hashed chunks themselves stay immutably cached.
+app.get('*', (req, res) => {
+  let html = fs.readFileSync(path.join(pub, 'index.html'), 'utf8');
+  const cfg = JSON.stringify({ STRONGLY_URL: base, STRONGLY_HOST: process.env.STRONGLY_HOST || '',
+                               STRONGLY_APP_ID: process.env.STRONGLY_APP_ID || '', API_URL: '/api' })
+                   .replace(/</g, '\\u003c');
+  html = html
+    .replace('</head>', `<script>window.__RUNTIME_CONFIG__=${cfg}</script></head>`)
+    .replace('<head>', `<head><base href="${base}/">`)
+    .replace(/(src|href)="\.?\/assets\//g, `$1="${base}/assets/`)
+    .replace(/href="\.?\/favicon/g, `href="${base}/favicon`);
+  res.set('Cache-Control', 'no-store').send(html);
+});
+```
+
+Always expose `GET /health → 200`.
+
+### 1c checklist (why each line exists)
+- `base: './'` → assets are relative, not root-absolute.
+- Static served at `/assets`, **before** auth → CSS/JS load without a login.
+- `STRONGLY_URL` required, fail loud → no silently-broken UI.
+- 404 static-looking paths in the fallback → kills "module script failed".
+- `<base href>` + asset rewrite → every relative URL resolves under the prefix.
+- `Cache-Control: no-store` on the shell → no stale-shell after redeploy.
 
 ---
 
-## 3. Identity: read the signed-in user (JWT)
+## 2. Deploy an app via the REST API
 
-The platform signs the user in **before** the request reaches the app and passes
-their identity in **one header**, a signed JWT:
+Flow: **upload a bundle → deploy → poll the build → poll the pod.** Never report
+success until the pod is running. Set once (outside Strongly):
 
-```
-Browser ──▶ Strongly proxy ──▶ your app
-                 └─ adds: X-Strongly-User-Token: <signed JWT>
-```
-
-Payload is small and flat:
-
-```json
-{ "user": { "id": "...", "email": "...", "name": "...", "role": "..." } }
+```bash
+export STRONGLY_API_KEY=sk-...            # Settings → API Keys (apps:write, apps:deploy)
+BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
 ```
 
-**Decode, do not verify.** Use the standard `jsonwebtoken` library and call
-`jwt.decode()` — **not** `jwt.verify()`. The signing secret
-(`STRONGLY_JWT_SECRET`) lives only in the platform, never in app containers. The
-proxy is the trust boundary: it will not forward a request without a valid token,
-so the token you receive is already trustworthy, and platform backend services
-re-verify on real data paths. A forged token could only change a name on screen,
-never grant data access.
+A bundle is a `.zip` of your source **with a `Dockerfile`**; keep it small.
+
+```bash
+# First deploy: create + upload (multipart). Fields: name, description,
+# resources (JSON string), environment (JSON string), framework/runtime (hints).
+APP_ID=$(curl -s "${auth[@]}" \
+  -F name=my-app -F 'resources={"memory":"1Gi","cpu":"500m"}' \
+  -F "file=@bundle.zip;type=application/zip" \
+  "$BASE/apps/upload" | jq -r '.data._id')
+
+curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/deploy"     # builds image + deploys
+
+# Subsequent versions: upload+deploy in one call
+curl -s "${auth[@]}" -F "file=@bundle.zip;type=application/zip" "$BASE/apps/$APP_ID/upload"
+
+# Poll: build (queued|building|completed|failed) THEN pod
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/build-status" | jq '.data'
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/build-logs?level=error" | jq -r '.data'  # on failure
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/status" | jq '.data'                     # pod health
+```
+
+Lifecycle: `GET /apps` · `GET/PUT /apps/:id` · `PUT /apps/:id/env` ·
+`PUT /apps/:id/permissions` · `POST /apps/:id/start|stop|restart` ·
+`GET /apps/:id/logs` · `GET /apps/:id/metrics` · `DELETE /apps/:id`. Git-based
+deploys: `POST /apps` (JSON) with `repository` + `branch`, then `deploy`.
+
+---
+
+## 3. Identity
+
+The proxy signs the user in and passes identity as a **signed JWT** — the app
+reads it, never builds a login screen. It arrives one of two ways, both the same
+token:
+
+- **`X-Strongly-User-Token`** — set by the proxy for end-user browser requests.
+- **`Authorization: Bearer <jwt>`** — set for server-to-server / agent calls
+  (e.g. a Strongly agent acting in your app as its owning user).
+
+Read either. Verify if the signing secret is present in the pod, otherwise decode
+(the secret lives only in platform services; network isolation is the trust
+boundary). Identity is under `claims.user` (or `claims.owner`):
 
 ```js
-// server/middleware/auth.js
-const jwt = require('jsonwebtoken');
-module.exports = (req, _res, next) => {
-  const raw = req.headers['x-strongly-user-token'];
-  req.user = null;
-  if (raw) {
-    try { req.user = jwt.decode(raw)?.user ?? null; } catch { req.user = null; }
-  }
-  next();               // NO fallback: missing/malformed token => req.user stays null
-};
+// auth.js (from kanban)
+import jwt from 'jsonwebtoken';
+const readClaims = (t) => { if (!t) return null;
+  const s = process.env.STRONGLY_JWT_SECRET;
+  try { return s ? jwt.verify(t, s) : jwt.decode(t); }   // bad signature w/ secret => reject
+  catch { return null; } };
+const extractToken = (req) => req.headers['x-strongly-user-token']
+  || (req.headers.authorization?.match(/^Bearer\s+(.+)/i)?.[1]) || null;
+
+app.use('/api', (req, _res, next) => {
+  const c = readClaims(extractToken(req));
+  req.user = c?.user || c?.owner || null;   // NO invented user; null when absent
+  next();
+});
 ```
 
-Never invent a user. If there's no token (e.g. running locally with no platform
-in front), the honest state is "not signed in."
-
-**Convenience headers.** The proxy also injects plain headers if you prefer not
-to decode: `X-Strongly-User-Id`, `X-Strongly-User-Email`, `X-Strongly-User-Name`,
-`X-Strongly-User-Roles` (comma-separated), `X-Strongly-Org-Id`. The JWT is
-canonical; the headers are a shortcut for simple cases.
-
-**Roles.** Common platform roles are `admin`, `developer`, `app`. Map them to
-your app's own roles rather than checking Strongly role strings all over the code:
-
-```js
-const ROLE = { admin: 'Admin', developer: 'Editor', app: 'Viewer' };
-const appRole = ROLE[(req.user?.role || '').toLowerCase()] || 'Viewer';
-```
-
-**Local dev.** With no platform in front, mint a dev token (`jwt.sign({user:{…}},
-'dev-secret')`) and attach it as `X-Strongly-User-Token` via your dev proxy, so
-you can exercise the signed-in path. Keep it opt-in (behind an env var) so the
-default local state is honestly "not signed in."
+Convenience headers also exist (`X-Strongly-User-Id/Email/Name/Roles`,
+`X-Strongly-Org-Id`); the JWT is canonical. Common roles: `admin`, `developer`,
+`app` — map them to your app's roles.
 
 ---
 
 ## 4. Wiring: `STRONGLY_SERVICES`
 
-Everything you connect to an app (addons, data sources, AI models, workflows)
-arrives as a single JSON env var, `STRONGLY_SERVICES`. Read connection details
-from there — never hardcode a host or key.
-
-```json
-{
-  "addons":      [{ "id":"mongodb-abc123", "configId":"mongodb", "type":"mongodb",
-                    "internal":false, "connectionString":"mongodb://…", "host":"…", "port":27017,
-                    "database":"appdb", "username":"…", "password":"…" }],
-  "dataSources": [{ "id":"analytics-db", "type":"postgres", "connectionString":"postgresql://…" }],
-  "aiModels":    [{ "id":"claude", "provider":"anthropic", "model":"claude-…",
-                    "endpoint":"https://…/v1", "apiKey":"sk-…" }],
-  "mlModels":    [{ "id":"rate-predictor", "endpoint":"http://…/predict", "protocol":"rest" }]
-}
-```
+Everything you connect (addons, data sources, AI models, workflows) arrives as one
+JSON env var. Read connections from it — never hardcode a host or key.
 
 ```js
-const services = JSON.parse(process.env.STRONGLY_SERVICES || '{}');
-const db  = services.addons?.find(a => a.configId === 'mongodb');   // match on configId, NOT id
-const ai  = services.aiModels?.[0];
-const conn = db?.connectionString;
+const s = JSON.parse(process.env.STRONGLY_SERVICES || '{}');
+const db = s.addons?.find(a => a.configId === 'mongodb');   // match configId, NOT id (id is dynamic)
+const conn = db?.connectionString;                          // prefer connectionString
+const ai = s.aiModels?.[0];                                 // { provider, model, endpoint, apiKey }
 ```
 
-Best practices:
+- Match on **`configId`** (stable, from your deploy config), not `id` (`mongodb-abc123`).
+- Respect **`internal: true`** addons (the app's own store) — hide them from any
+  user-facing "pick a database" UI.
+- Degrade honestly if a service is absent; don't fabricate one.
 
-- **Match on `configId`, not `id`.** `id` is dynamic (`mongodb-abc123`); `configId`
-  is the stable name you chose. Matching on `id` will not find the addon.
-- **Prefer `connectionString`** when present; only reconstruct from
-  host/port/user/pass if it's missing.
-- **Respect `internal: true`.** Internal addons are the app's own store (e.g.
-  Superset's metadata DB) and must be hidden from user-facing "pick a database"
-  features. Filter them out where users choose data.
-- **Degrade honestly.** If a service isn't present, say so; don't fabricate one.
-
-You choose what's wired at create time — `POST /api/v1/apps` (and the upload
-routes) accept `addons`, `dataSources`, `aiModels`, and `workflows` arrays of ids
-(discover ids via `GET /api/v1/addons`, `/datasources`, `/ai-models`,
-`/workflows`). Connected workflows are surfaced under
-`STRONGLY_SERVICES.services.workflows` so the app can trigger them.
+You choose what's wired at create time — the create/upload routes accept `addons`,
+`dataSources`, `aiModels`, `workflows` arrays of ids (discover via
+`GET $BASE/addons`, `/datasources`, `/ai-models`, `/workflows`). Connected
+workflows appear under `STRONGLY_SERVICES.services.workflows` so the app can
+trigger them.
 
 ---
 
-## 5. Artifacts best practices (with the proxy)
+## 5. Artifacts (the Library API)
 
-An **artifact** is a file the app produces for the user — a report, dashboard
-export, generated PDF/HTML, a document. Store artifacts in the platform's Library
-(S3-backed, SSE-KMS encrypted) instead of on the app's ephemeral disk, then hand
-the user a **short-lived pre-signed URL** so the download goes straight to S3 and
-does not stream a large body back through your app and the proxy.
+An **artifact** is a file the app produces for the user (report, export, PDF/HTML,
+document). Store it in the platform Library (S3-backed, encrypted) instead of the
+app's ephemeral disk, then hand the user a **short-lived pre-signed URL** so the
+download goes browser → S3, not streamed back through the app and proxy.
 
-**Save** — `POST /api/v1/artifacts`, scope `artifacts:write`:
-
-```bash
-curl -s -X POST -H "X-API-Key: $STRONGLY_API_KEY" -H "Content-Type: application/json" \
-  -d '{
-        "title": "Q3 report",
-        "artifact_type": "report",
-        "contentType": "application/pdf",
-        "encoding": "base64",
-        "content": "'"$(base64 -i report.pdf)"'"
-      }' \
-  "$HOST/api/v1/artifacts"
-# -> { "success": true, "data": { "_id": "<ARTIFACT_ID>" } }
-```
-
-- `encoding`: `base64` for binary (default), `utf8` for text (HTML/markdown).
-- `content` is uploaded to S3; only metadata is stored in Mongo.
-
-**Serve** — `GET /api/v1/artifacts/:id/download-url` (scope `artifacts:read`)
-returns a pre-signed URL, default TTL 5 min, `ttlSeconds` up to **900**:
+The app calls the platform API for this. **Inside Strongly the bearer is
+auto-injected** (see `SKILL.md`) — the app doesn't manage a key; it calls
+`$STRONGLY_API_URL/api/v1/...` and auth is handled. (Outside Strongly, an
+`X-API-Key` is used.)
 
 ```bash
-api "/artifacts/<ARTIFACT_ID>/download-url?ttlSeconds=600" | jq -r '.data.url'
+# Save: POST $BASE/artifacts  (artifacts:write)
+curl -s -X POST "$STRONGLY_API_URL/api/v1/artifacts" -H 'Content-Type: application/json' \
+  -d '{"title":"Q3 report","artifact_type":"report","contentType":"application/pdf",
+       "encoding":"base64","content":"'"$(base64 -i report.pdf)"'"}'   # -> data._id
+
+# Serve: GET $BASE/artifacts/:id/download-url?ttlSeconds=600  (max 900) -> pre-signed URL
 ```
 
-Pattern for a proxied app: the app's own endpoint (behind the proxy, so it knows
-the signed-in user) calls the platform API with its `X-API-Key`, mints a
-download URL, and **redirects the browser** to it (302). The heavy bytes flow
-browser → S3 directly; your app and the proxy only pass a small redirect.
+Serving pattern behind the proxy: the app's own endpoint (which knows the user
+from §3) mints a download URL and **302-redirects** the browser to it — the heavy
+bytes go browser → S3 directly, only a small redirect passes through the app.
 
 ```js
 app.get('/download/:id', async (req, res) => {
-  if (!req.user) return res.status(401).end();               // identity from §3
-  const r = await fetch(`${process.env.STRONGLY_HOST}/api/v1/artifacts/${req.params.id}/download-url`,
-                        { headers: { 'X-API-Key': process.env.STRONGLY_API_KEY } });
-  const { data } = await r.json();
-  res.redirect(302, data.url);                                // browser → S3, not through the app
+  if (!req.user) return res.status(401).end();
+  const r = await fetch(`${process.env.STRONGLY_API_URL}/api/v1/artifacts/${req.params.id}/download-url`);
+  res.redirect(302, (await r.json()).data.url);   // bearer auto-injected in-cluster
 });
 ```
 
-Other operations: `GET /artifacts` (list/gallery), `GET /artifacts/:id`
-(metadata), `GET /artifacts/:id/versions` + `POST /artifacts/:id/restore`
-(versioning), `PATCH /artifacts/:id`, `DELETE /artifacts/:id`, and
-`POST /artifacts/:id/share` · `/unshare` · `/toggle-public` · `/toggle-org-share`
-for sharing.
-
-> Give the app its own API key as an env var (`STRONGLY_API_KEY`) so it can call
-> the platform API for artifacts. That key is the app's, not the end user's —
-> the end user is identified by the JWT from §3, the API key authorizes the app's
-> platform calls.
+Also: `GET /artifacts` (gallery), `/artifacts/:id/versions` + `/restore`,
+`PATCH`/`DELETE`, and `/share` · `/unshare` · `/toggle-public` · `/toggle-org-share`.
 
 ---
 
-## 6. `deploy.json` (wizard / marketplace apps)
+## 6. `deploy.json` (marketplace apps)
 
-The REST flow above is the direct path. Apps meant to be **published as
-marketplace offerings** add a `deploy.json` at the bundle root that declares the
-deployment wizard: `steps`, `permissions`, `resources` (defaults + options),
-`addons`, `aiGateway`, `models` (ML), `environmentVariables`, `healthCheck`, and
-optional `seedData`. The platform renders those as the user-facing deploy wizard
-and provisions the declared services (delivered back via `STRONGLY_SERVICES`).
-Reach for `deploy.json` only when packaging a reusable, user-configurable offering;
-a one-off app just needs a `Dockerfile` and the REST calls above.
+Apps published as marketplace offerings add a `deploy.json` at the bundle root
+declaring the deploy wizard: `steps`, `permissions`, `resources`, `addons`,
+`aiGateway`, `models`, `environmentVariables`, `healthCheck`, `seedData`. The
+platform renders it as the user's deploy wizard and provisions the declared
+services (delivered back via `STRONGLY_SERVICES`). A one-off app just needs a
+`Dockerfile` + the REST calls in §2.
 
 ---
 
 ## Checklist
-
-- [ ] Bundle has a `Dockerfile`; it's small.
-- [ ] App serves every route/asset from `STRONGLY_URL`; router has the base path.
-- [ ] Health endpoint returns 200.
-- [ ] Identity read by **decoding** `X-Strongly-User-Token`; no invented user, no `verify()`.
-- [ ] Services read from `STRONGLY_SERVICES`, matched on `configId`, internal addons filtered.
-- [ ] Artifacts saved to the Library; downloads via short-lived pre-signed URL (302), not streamed through the app.
-- [ ] After deploy: build-status `completed` **and** pod `status` healthy before declaring success; on build failure, read build-logs.
+- [ ] Vite `base: './'`; client base derived from the URL (no `import.meta.env.BASE_URL`).
+- [ ] Server: static `/assets` before auth; `STRONGLY_URL` required (fail loud); 404 static-looking paths in the SPA fallback; `<base href>` + asset rewrite; `Cache-Control: no-store` on the shell.
+- [ ] `GET /health → 200`.
+- [ ] Identity by reading `X-Strongly-User-Token` **or** `Authorization: Bearer`; verify-if-secret-else-decode; no invented user.
+- [ ] Services from `STRONGLY_SERVICES`, matched on `configId`, internal addons hidden.
+- [ ] Artifacts saved to the Library; downloads via 302 to a short-lived pre-signed URL.
+- [ ] After deploy: build `completed` AND pod healthy before declaring success; read build-logs on failure.
+- [ ] When unsure about any of this, compare against the **kanban** app.
