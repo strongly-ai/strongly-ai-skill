@@ -115,17 +115,25 @@ If the task involves **apps**, three platform mechanics matter — full detail i
 
 Read the matching reference before doing detailed work in that area:
 
-| The user is asking about… | Read | Key REST prefixes |
+| The user is asking about… | Read | Key REST prefixes (under `$BASE`) |
 |---|---|---|
-| Deploying/serving **apps**, proxy, JWT identity, artifacts | `references/apps.md` | `/apps`, `/artifacts` |
-| **Addons** (managed Postgres/Mongo/Redis/…) | `references/addons.md` | `/addons` |
-| **Data sources** (connect external DBs/warehouses/object stores) | `references/datasources.md` | `/datasources`, `/data-forge` |
-| **Agents** (deploy & chat with Strongly Agents) | `references/agents.md` | `/agents`, `/agents/:id/messages` |
-| **Workflows** (build/run node graphs, batch + streaming) | `references/workflows.md` | `/workflows`, `/workflow-nodes`, `/executions` |
-| **MLOps** (AutoML, experiments, drift, fine-tuning, feature store) | `references/mlops.md` | `/automl`, `/experiments`, `/drift-detection`, `/fine-tuning`, `/feature-store` |
-| **Model registry** (register/version/promote models) | `references/model-registry.md` | `/model-registry` |
-| **AI Gateway** (call 3rd-party & self-hosted models, keys, guardrails) | `references/ai-gateway.md` | `/ai-models`, `/ai-inference`, `/ai-provider-keys`, `/guardrails` |
+| Deploying/serving **apps**, the proxy, JWT identity, the manifest, artifacts | `references/apps.md` | `/apps`, `/artifacts` |
+| **Addons** (managed Postgres/Mongo/Redis/… provisioned by Strongly) | `references/addons.md` | `/addons`, `/addon-types` |
+| **Data sources** (connect EXTERNAL DBs/warehouses/object stores; data prep) | `references/datasources.md` | `/datasources`, `/data-forge` |
+| **Agents** (deploy & chat with Strongly Agents) | `references/agents.md` | `/agents` |
+| **Workflows** (build/run node graphs, batch + streaming) | `references/workflows.md` | `/workflows`, `/workflow-nodes`, `/executions`, `/streaming-workflows` |
+| **MLOps** (AutoML, experiments, drift, fine-tuning, feature store, inference) | `references/mlops.md` | `/automl`, `/experiments`, `/drift`, `/fine-tuning`, `/feature-store` |
+| **Model registry** (register/version/deploy models) | `references/model-registry.md` | `/model-registry` |
+| **AI Gateway** (call 3rd-party & self-hosted models, keys, guardrails, analytics) | `references/ai-gateway.md` | `/ai/models`, `/ai/provider-keys`, `/ai/chat/completions`, `/guardrails` |
+| **Compute** (workspaces, environments, clusters, node pools, volumes, code sessions) | `references/compute.md` | `/workspaces`, `/environments`, `/compute`, `/volumes`, `/code-sessions` |
+| **Projects** (project + filesystem + Kanban board) | `references/projects.md` | `/projects`, `/board-cards` |
+| **Governance** (policies, gates, evidence, guardrails) | `references/governance.md` | `/governance`, `/guardrails` |
+| **FinOps** (costs, budgets, resource groups, schedules) | `references/finops.md` | `/finops` |
+| **Marketplace** (browse & deploy offerings, metered usage) | `references/marketplace.md` | `/marketplace`, `/offering-usage` |
+| **Library primitives** (memory, rules, prompts, tasks, skills, preferences) | `references/library.md` | `/memory`, `/rules`, `/prompts`, `/tasks`, `/skills`, `/preferences` |
+| Doing any of the above **in Python** (e.g. inside a workspace or a training script) | `references/python-sdk.md` | the `strongly` package (`pip install strongly-ai`) |
 
-When you're unsure which area a request falls in, list the relevant resource
-first (`GET /api/v1/apps`, `/agents`, `/workflows`, …) to orient, then load the
-reference.
+Prefixes are a hint, not the contract: the reference for each area lists the exact
+paths, methods, and params. Do not guess a path from the prefix. When you're
+unsure which area a request falls in, list the relevant resource first
+(`GET $BASE/apps`, `/agents`, `/workflows`, …) to orient, then load the reference.

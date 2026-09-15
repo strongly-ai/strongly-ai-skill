@@ -13,16 +13,23 @@ internals. If you maintain Strongly itself, this is not that documentation.
 
 ```
 strongly/
-  SKILL.md              # always-loaded: auth, base URL, the proxy/JWT model, routing
+  SKILL.md              # always-loaded: two-context auth, base URL, proxy/JWT model, routing
   references/           # loaded on demand, one file per feature area
-    apps.md             # proxy, JWT identity, artifacts, deploy via REST
-    addons.md           # (coming)
-    datasources.md      # (coming)
-    agents.md           # (coming)
-    workflows.md        # (coming)
-    mlops.md            # (coming)
-    model-registry.md   # (coming)
-    ai-gateway.md       # (coming)
+    apps.md             # proxy (from kanban), JWT identity, manifest, artifacts, deploy via REST
+    addons.md           # managed Postgres/Mongo/Redis/... provisioned by Strongly
+    datasources.md      # connect external DBs/warehouses/object stores; data prep
+    agents.md           # deploy & chat with Strongly Agents
+    workflows.md        # build/run node graphs, batch + streaming
+    mlops.md            # AutoML, experiments, drift, fine-tuning, feature store
+    model-registry.md   # register/version/deploy models
+    ai-gateway.md       # third-party + self-hosted models, keys, guardrails, analytics
+    compute.md          # workspaces, environments, clusters, node pools, volumes, code sessions
+    projects.md         # project + filesystem + Kanban board
+    governance.md       # policies, gates, evidence, guardrails
+    finops.md           # costs, budgets, resource groups, schedules
+    marketplace.md      # browse & deploy offerings, metered usage
+    library.md          # memory, rules, prompts, tasks, skills, preferences
+    python-sdk.md       # the `strongly` Python SDK (wraps the same REST API)
   examples/             # runnable snippets referenced by the guides
 ```
 
