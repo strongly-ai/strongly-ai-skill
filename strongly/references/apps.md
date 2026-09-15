@@ -264,14 +264,84 @@ Also: `GET /artifacts` (gallery), `/artifacts/:id/versions` + `/restore`,
 
 ---
 
-## 6. `deploy.json` (marketplace apps)
+## 6. The Strongly manifest (`deploy.json`)
 
-Apps published as marketplace offerings add a `deploy.json` at the bundle root
-declaring the deploy wizard: `steps`, `permissions`, `resources`, `addons`,
-`aiGateway`, `models`, `environmentVariables`, `healthCheck`, `seedData`. The
-platform renders it as the user's deploy wizard and provisions the declared
-services (delivered back via `STRONGLY_SERVICES`). A one-off app just needs a
-`Dockerfile` + the REST calls in §2.
+`deploy.json` at the **bundle root** is the app's manifest. It declares the deploy
+wizard the platform shows the user and what to provision; the provisioned
+connections come back to the running app via `STRONGLY_SERVICES` (§4). Required
+for a marketplace offering; optional for a one-off app (which just needs a
+`Dockerfile` + the REST calls in §2, and gets default resources).
+
+Full structure, grounded in the working **kanban** manifest:
+
+```json
+{
+  "name": "kanban",
+  "displayName": "Kanban",
+  "version": "1.0.1",
+  "type": "app",
+  "description": "Project management board with real-time collaboration",
+
+  "steps": [
+    { "id": "permissions", "title": "Access Control", "required": true },
+    { "id": "resources",   "title": "App Resources",  "required": true },
+    { "id": "addons",      "title": "Database",       "required": true }
+  ],
+
+  "permissions": {
+    "allowPublic": true, "allowUserSelection": true, "defaultPublic": false
+  },
+
+  "resources": {
+    "defaults": { "cpu": "0.5", "memory": "1GB", "disk": "5GB", "instances": 1 },
+    "options":  { "cpu": ["0.5","1","2"], "memory": ["1GB","2GB","4GB"],
+                  "disk": ["5GB","10GB","20GB"], "instances": [1,2,3] }
+  },
+
+  "addons": [
+    {
+      "id": "mongodb", "type": "mongodb", "required": true,
+      "label": "Board Database", "allowExisting": true,
+      "defaults": { "cpu": "0.5", "memory": "1GB", "disk": "10GB", "replicas": 1 },
+      "options":  { "cpu": ["0.5","1","2"], "memory": ["1GB","2GB","4GB"], "disk": ["10GB","25GB","50GB"] },
+      "backupConfig": { "configurable": true, "defaultEnabled": true,
+                        "defaultSchedule": "daily", "defaultRetention": 7,
+                        "scheduleOptions": ["hourly","daily","weekly"] }
+    }
+  ],
+
+  "aiGateway": { "required": false },
+
+  "environmentVariables": {
+    "configurable": false,
+    "defaults": { "NODE_ENV": "production" }
+  },
+
+  "healthCheck": { "path": "/health", "port": 8080, "initialDelay": 30,
+                   "period": 30, "timeout": 10, "failureThreshold": 3 }
+}
+```
+
+Field reference:
+
+| Key | Purpose |
+|---|---|
+| `name` / `displayName` / `version` / `type` / `description` | Identity. `type` is `"app"`. |
+| `steps[]` | The deploy-wizard steps shown to the user (`id` ∈ `permissions`, `resources`, `addons`, `ml-models`, `ai-models`), each `required` or not. |
+| `permissions` | `allowPublic`, `allowUserSelection`, `defaultPublic` — who can reach the app. |
+| `resources` | `defaults` + selectable `options` for `cpu`, `memory`, `disk`, `instances`. |
+| `addons[]` | Managed stores to provision: `id` (this becomes the `configId` you match in `STRONGLY_SERVICES`), `type`, `required`, `allowExisting`, `internal` (hide from users), `defaults`/`options`, `backupConfig`. |
+| `aiGateway` | `{ required, minModels, maxModels, supportedProviders }` — AI models the app can use. |
+| `models[]` | ML models to deploy alongside the app (`artifact`, `framework`, `inference.endpoint`). |
+| `environmentVariables` | `{ configurable, defaults }` — non-secret config injected as env vars. |
+| `healthCheck` | `{ path, port, initialDelay, period, timeout, failureThreshold }` — the readiness path (serve it, see §1). |
+| `seedData` | Optional one-time init script run on deploy. |
+
+The manifest and the REST deploy work together: your **bundle** (`Dockerfile` +
+source + `deploy.json`) is what you upload in §2. `deploy.json` declares what the
+platform provisions; the app reads those provisioned connections at runtime from
+`STRONGLY_SERVICES`. `addons[].id` in the manifest is the `configId` you match on
+in code — keep them in sync.
 
 ---
 
