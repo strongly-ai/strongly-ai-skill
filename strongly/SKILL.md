@@ -48,7 +48,7 @@ which one you're in **before** doing anything else.
 Code or Codex in a Strongly workspace) or inside a deployed **app**. Tell by the
 environment: `STRONGLY_API_URL` and/or `STRONGLY_SERVICES` are set.
 - The platform base URL is already in the environment: **`$STRONGLY_API_URL`**
-  (e.g. `http://strongly-web.strongly.svc.cluster.local:3000`), its REST API is
+  (an in-cluster address the platform sets); its REST API is
   `$STRONGLY_API_URL/api/v1`.
 - **Auth is handled for you.** The platform injects the caller's bearer token on
   these in-cluster calls, so you do **not** set an `Authorization` header, and you
@@ -68,8 +68,8 @@ CI job, any external client). None of the `STRONGLY_*` env vars are set.
   Ask the user for it; never hardcode a public one.
 - Authenticate with an API key header: **`X-API-Key: <key>`** on every request.
   The user creates a key in the UI under **Settings → API Keys** (a.k.a.
-  Profile → Security → API Keys). You never mint or ask them to paste a password , 
-  only the API key.
+  Profile → Security → API Keys). You never mint one or ask them to paste a
+  password, only the API key.
 
 ```bash
 # Outside Strongly: explicit host + API key.
@@ -94,10 +94,10 @@ failure.
 `offset`, `sort`, and usually `search`. Resource ids are 24-char hex Mongo
 ObjectIds; pass them in the path (`/api/v1/apps/<id>`).
 
-## The two things that make Strongly apps different
+## The three things that make Strongly apps different
 
-If the task involves **apps**, three platform mechanics matter, full detail in
-`references/apps.md`, but the essentials:
+If the task involves **apps**, three platform mechanics matter. Full detail is in
+`references/apps.md`; the essentials:
 
 - **The Strongly proxy.** Deployed apps are reached only through the platform
   proxy at a relative base path given by the `STRONGLY_URL` env var, never a
@@ -105,7 +105,7 @@ If the task involves **apps**, three platform mechanics matter, full detail in
   blank React screen). The proxy is also the trust boundary.
 - **Identity via one header.** The proxy injects the signed-in user as a JWT in
   `X-Strongly-User-Token` (and convenience `X-Strongly-User-*` headers). Apps
-  **decode** it (they never see the signing secret) to know who the user is , 
+  **decode** it (they never see the signing secret) to know who the user is, with
   no login screen.
 - **Wiring via `STRONGLY_SERVICES`.** Connected addons, data sources, AI models,
   and workflows arrive as a JSON env var `STRONGLY_SERVICES`. The app reads
