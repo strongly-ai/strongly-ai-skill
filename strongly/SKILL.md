@@ -130,7 +130,7 @@ Read the matching reference before doing detailed work in that area:
 | **Governance** (policies, gates, evidence, guardrails) | `references/governance.md` | `/governance`, `/guardrails` |
 | **FinOps** (costs, budgets, resource groups, schedules) | `references/finops.md` | `/finops` |
 | **Marketplace** (browse & deploy offerings, metered usage) | `references/marketplace.md` | `/marketplace`, `/offering-usage` |
-| **Library primitives** (memory, rules, prompts, tasks, skills, preferences) | `references/library.md` | `/memory`, `/rules`, `/prompts`, `/tasks`, `/skills`, `/preferences` |
+| **Library primitives** (memory, rules, prompts, tasks, skills, preferences, pools) | `references/library.md` | `/memory`, `/rules`, `/prompts`, `/tasks`, `/skills`, `/preferences`, `/pools` |
 | Doing any of the above **in Python** (e.g. inside a workspace or a training script) | `references/python-sdk.md` | the `strongly` package (`pip install strongly-ai`) |
 
 Prefixes are a hint, not the contract: the reference for each area lists the exact

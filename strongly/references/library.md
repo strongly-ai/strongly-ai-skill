@@ -286,6 +286,38 @@ Checklist:
 
 ---
 
+## 7. Pools (named bundles of primitives)
+
+A **pool** is a named collection that groups Library primitives (memory, skills,
+and the rest) so they can be shared or reused as a unit. You attach a primitive to
+a pool by putting the pool id in that primitive's `linkedIds`. Scopes: `custom` (a
+private bundle), `imprint` (a distributable skills+memory bundle), `org-global`
+(the single pool every agent in the org reads), `agent`.
+
+| Endpoint | Purpose | Notes |
+|---|---|---|
+| `GET /pools` | List pools you can see | `?scope=custom\|imprint\|org-global\|agent`, `?counts=true` for per-primitive usage counts (`memory:read`) |
+| `POST /pools` | Create a named pool; returns its id | body: `name*, description, scope` (`custom` default, or `imprint`) (`memory:write`) |
+| `POST /pools/ensure-org-global` | Get-or-create the org-global pool | promote a memory here so the whole org sees it (`memory:read`) |
+| `GET /pools/:id` | Get one pool with usage counts | (`memory:read`) |
+| `PUT /pools/:id` · `DELETE /pools/:id` | Update / delete a pool | (`memory:write`) |
+
+Pools ride the `memory:read` / `memory:write` scopes (they are part of the
+memory/skill bundle system). The returned pool id is what you pass in `linkedIds`
+when creating the memory, skills, etc. that should belong to the bundle.
+
+```bash
+POOL_ID=$(curl -s -X POST "${auth[@]}" "$BASE/pools" -H 'Content-Type: application/json' \
+  -d '{"name":"Helicopter Piloting","scope":"imprint"}' | jq -r '.data.poolId')
+# attach primitives to it via linkedIds: ["$POOL_ID"] when you create them
+```
+
+Checklist:
+- [ ] Create or find the pool first, then put its id in `linkedIds` on the primitives that belong to it.
+- [ ] `scope:"imprint"` for a distributable skills+memory bundle; `ensure-org-global` for the org-wide pool.
+
+---
+
 ## Checklist (all primitives)
 - [ ] Right scope on the key: `<primitive>:read` for reads, `<primitive>:write` for writes.
 - [ ] Attach rows to agents with `linkedIds` (agent `workflowId`); AND on list filters, ANY on recall.
