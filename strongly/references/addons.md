@@ -151,9 +151,11 @@ curl -s -X POST   "${auth[@]}" "$BASE/addons/$ADDON_ID/connect/$APP_ID" | jq '.d
 curl -s -X DELETE "${auth[@]}" "$BASE/addons/$ADDON_ID/connect/$APP_ID" | jq '.data'
 ```
 
-`connect` injects the addon credentials into the app environment;
-`disconnect` removes them. The addon must be running first. For how the app
-consumes the connection at runtime, see `references/apps.md`.
+`connect` links the addon to the app and, when the app is already running, rolls
+it (zero-downtime) so it immediately picks the addon up in `STRONGLY_SERVICES`;
+`disconnect` unlinks it and rolls it back out. The addon must be running first.
+For how the app consumes the connection at runtime, see `references/apps.md`
+section 4 (it appears under `services.addons.<type>`).
 
 ---
 

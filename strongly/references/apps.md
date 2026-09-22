@@ -152,8 +152,10 @@ Always expose `GET /health → 200`.
 
 ## 2. Deploy an app via the REST API
 
-Flow: **upload a bundle → deploy → poll the build → poll the pod.** Never report
-success until the pod is running. Set once (outside Strongly):
+Flow: **upload a bundle (this BUILDS the image, asynchronously) → wait for the
+build to complete → deploy → poll the pod.** `deploy` is rejected while the build
+is still `pending`, so you must poll `build-status` to `completed` before you call
+it. Never report success until the pod is running. Set once (outside Strongly):
 
 ```bash
 export STRONGLY_API_KEY=sk-...            # Settings → API Keys (apps:write, apps:deploy)
@@ -163,22 +165,24 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
 A bundle is a `.zip` of your source **with a `Dockerfile`**; keep it small.
 
 ```bash
-# First deploy: create + upload (multipart). Fields: name, description,
-# resources (JSON string), environment (JSON string), framework/runtime (hints).
+# 1) Create + upload the bundle (multipart). The upload BUILDS the image
+#    asynchronously. Fields: name, description, resources (JSON string).
 APP_ID=$(curl -s "${auth[@]}" \
   -F name=my-app -F 'resources={"memory":"1Gi","cpu":"500m"}' \
   -F "file=@bundle.zip;type=application/zip" \
   "$BASE/apps/upload" | jq -r '.data._id')
 
-curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/deploy"     # builds image + deploys
+# 2) Poll the build to completed BEFORE deploying (queued|building|completed|failed).
+#    deploy errors out if you call it while the build is still pending.
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/build-status" | jq -r '.data.status'      # until "completed"
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/build-logs?level=error" | jq -r '.data'   # on "failed"
 
-# Subsequent versions: upload+deploy in one call
+# 3) Deploy the built image, then poll the pod to healthy.
+curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/deploy"
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/status" | jq '.data'                      # until state=running, ready_replicas=1
+
+# Subsequent versions: upload again (rebuilds async), poll build to completed, deploy again.
 curl -s "${auth[@]}" -F "file=@bundle.zip;type=application/zip" "$BASE/apps/$APP_ID/upload"
-
-# Poll: build (queued|building|completed|failed) THEN pod
-curl -s "${auth[@]}" "$BASE/apps/$APP_ID/build-status" | jq '.data'
-curl -s "${auth[@]}" "$BASE/apps/$APP_ID/build-logs?level=error" | jq -r '.data'  # on failure
-curl -s "${auth[@]}" "$BASE/apps/$APP_ID/status" | jq '.data'                     # pod health
 ```
 
 Lifecycle: `GET /apps` · `GET/PUT /apps/:id` · `PUT /apps/:id/env` ·
