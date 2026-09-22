@@ -4,12 +4,12 @@ Strongly **compute** is managed infrastructure a user runs interactively or wire
 into their work: **workspaces** (a JupyterLab or VS Code IDE in the cluster),
 saved **environments** (reusable hardware tiers and custom images), attached
 **compute clusters** (Ray, Dask, Spark), **node pools** (pre-warmed capacity per
-workload), **volumes** (persistent project storage), and **code sessions** (a
+workload), **volumes** (a git code half plus a per-file versioned data half), and **code sessions** (a
 coding-assistant CLI driven over a workspace terminal).
 
 Read this when the task is: creating or starting a workspace, sizing it from a
 saved environment or a custom image, attaching a distributed cluster, pre-warming
-nodes for a workload, provisioning or uploading to a data volume, or running
+nodes for a workload, provisioning a volume and mounting it into a workspace, or running
 Claude Code / Codex in a workspace through a code session.
 
 A **workspace is where Claude Code or Codex runs and code executes** (once this
@@ -27,7 +27,7 @@ export STRONGLY_API_KEY=sk-...        # Settings -> API Keys
 BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
 ```
 
-**Async rule:** creating or starting a workspace, cluster, or volume returns
+**Async rule:** creating or starting a workspace or cluster returns
 immediately and finishes later. Always poll the matching `status` endpoint until
 it reports running or ready before you use the resource. Never report success on
 the create call alone.
@@ -56,7 +56,7 @@ disk 20GB).
 | `GET /workspaces/:id/status` | `workspaces:read` | Live status (poll this until running). |
 | `GET /workspaces/:id/metrics` | `workspaces:read` | CPU / memory usage. |
 | `GET /workspaces/:id/logs` | `workspaces:read` | Container logs. `type` is `build`, `deploy`, or `pod` (default `pod`). |
-| `POST /workspaces/:id/sync` | `workspaces:write` | Sync the workspace to persistent storage. |
+| `POST /workspaces/:id/sync` | `workspaces:write` | Flush every attached volume to durable storage: commit + push each code half (git) and commit the writable data changes as a new version. A workspace is ephemeral, so sync before you stop or delete it (section 5). |
 
 Optional wiring on `POST /workspaces` (all optional): `projectId` (clones the
 project files to `/project` and mounts its volumes; see `references/projects.md`),
@@ -163,35 +163,63 @@ curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
 
 ## 5. Volumes
 
-A data volume is persistent storage bound to a project (synced to S3). Create it
-against a `projectId` (see `references/projects.md`), upload files with a presigned
-URL, then mount it into a workspace via the workspace's `projectId`.
+A volume is one resource with two halves that mount together. The **code half** is a
+git repository; the **data half** is a per-file versioned file store (writing a file
+creates a new version of that file, reads return the latest or a pinned version).
+There is no single whole-volume version, each file carries its own head version.
+
+`code.filesystemType` picks how the code half is backed:
+- **`github`**: an external GitHub repo. Pass `repoUrl`, `branch`, and an optional
+  `sshKeyId` (an SSH key the user already registered in their profile). Commits and
+  pushes sync to that GitHub repo.
+- **`strongly`**: a platform-hosted git repo, nothing else to supply.
+
+A volume's **scope** is `local` (belongs to one project, pass `projectId`) or
+`shared` (org-wide, usable across projects). Names are unique within an org and
+scope.
+
+**Mount.** Attach a volume to a workspace and, on the workspace's next start, it
+mounts at `/volumes/<scope>/<name>/code` and `/volumes/<scope>/<name>/data`
+(e.g. `/volumes/local/my-vol/code`, `/volumes/shared/datasets/data`).
+
+**Sync.** The code half is plain git: in the workspace terminal `git commit`,
+`git push`, and `git pull` work with no credential prompt (the platform
+authenticates you). For a `github` volume this syncs to the external GitHub repo.
+The data half versions per file: writing or overwriting a file commits a new
+version of just that file. A workspace is ephemeral compute, so edits under a
+mounted volume are lost on stop or delete unless synced to the durable volume. To
+flush everything at once, `POST /workspaces/:id/sync` (section 1) commits and
+pushes each attached code half and commits the writable data changes as a new
+version; sync before you end work or stop the workspace.
+
+**Share.** Share a volume (read or write) through the unified sharing model and both
+halves follow the share. It works across organizations: a sharee in another org can
+clone the code half and read or write the data half from their own workspace, with
+no extra credential setup.
 
 | Method + path | Scope | Purpose |
 |---|---|---|
-| `GET /volumes` | `volumes:read` | List. Filters: `search`, `type`, `projectId`, `limit`, `offset`, `sort`. |
-| `POST /volumes` | `volumes:write` | Create. Required: `projectId`, `label`, `sizeGB`. |
-| `POST /volumes/:id/upload-url` | `volumes:write` | Presigned PUT URL for a file. Required: `filename`; optional `contentType` (default `text/csv`). Returns `uploadUrl`, `key`, `bucket`. |
-| `GET /volumes/shared` | `volumes:read` | List shared volumes visible to the user. |
+| `GET /volumes` | `volumes:read` | List. Filters: `scope`, `projectId`, `limit`, `offset`. |
+| `POST /volumes` | `volumes:write` | Create. Body: `name`, `scope`, `projectId?` (required when `scope` is `local`), `description?`, `code` (`{ filesystemType, repoUrl?, branch?, sshKeyId? }`). |
 | `GET /volumes/:id` | `volumes:read` | Get one. |
-| `GET /volumes/:id/status` | `volumes:read` | Storage status: `pvc_phase`, `capacity`, `used_bytes`, `last_sync_at` (poll this). |
-| `PUT /volumes/:id` | `volumes:write` | Update `label`, `description`, `sizeGB`. |
+| `GET /volumes/:id/data/files` | `volumes:read` | List data-half files. Each entry: `{ path, name, size, version, updatedAt, updatedBy }` (`version` is that file's head). |
+| `POST /volumes/:id/attach` | `volumes:write` | Attach to a workspace: `workspaceId`, optional `dataVersion` (pins the data half to that version, default latest). Mounts on the workspace's next start. |
+| `POST /volumes/:id/detach` | `volumes:write` | Detach from a workspace: `workspaceId`. |
 | `DELETE /volumes/:id` | `volumes:write` | Delete. |
-| `POST /volumes/:id/sync` | `volumes:write` | Sync the volume to S3. |
-| `POST /volumes/:id/make-shared` | `volumes:write` | Share the volume across projects. |
-| `POST /volumes/:id/make-private` | `volumes:write` | Reverse it back to a project volume. |
 
 ```bash
-# Create a volume, get an upload URL, PUT the bytes directly to S3.
+# Create a shared volume backed by a platform-hosted git repo.
 VOL=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"projectId":"'"$PROJECT_ID"'","label":"training-data","sizeGB":10}' \
+  -d '{"name":"datasets","scope":"shared","description":"team data",
+       "code":{"filesystemType":"strongly"}}' \
   "$BASE/volumes" | jq -r '.data._id')
 
-URL=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"filename":"dataset.csv","contentType":"text/csv"}' \
-  "$BASE/volumes/$VOL/upload-url" | jq -r '.data.uploadUrl')
+# Attach it to a workspace; it mounts at /volumes/shared/datasets/{code,data} on next start.
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"workspaceId":"'"$WS"'"}' "$BASE/volumes/$VOL/attach"
 
-curl -s -X PUT --data-binary @dataset.csv "$URL"
+# List the data-half files, each with its own head version.
+curl -s "${auth[@]}" "$BASE/volumes/$VOL/data/files" | jq '.data'
 ```
 
 ---
@@ -245,5 +273,5 @@ terminal endpoints (`POST /code-sessions/:id/input`, `GET /code-sessions/:id/out
 - [ ] Custom-image environments: poll `GET /environments/:id` for `build_status: "success"` before binding.
 - [ ] Attach a Ray / Dask / Spark cluster via the `cluster` object on `POST /workspaces`, not a separate endpoint.
 - [ ] Pre-warm a pool with a valid `workloadType` and `count` in 1-5.
-- [ ] Volumes: create against a `projectId`, upload via the presigned `uploadUrl` (bytes go browser to S3), poll `/volumes/:id/status` until `pvc_phase` reports bound.
+- [ ] Volumes: one resource with a git code half and a per-file versioned data half; create with `name`, `scope`, and `code.filesystemType` (`github` or `strongly`), plus `projectId` for a `local` volume; attach to a workspace and it mounts at `/volumes/<scope>/<name>/{code,data}` on next start.
 - [ ] Code sessions: send natural-language tasks (not raw shell) to the assistant terminal; login uses the user's own Claude account; deploy an app via `/code-sessions/:id/deploy` and see `references/apps.md`.

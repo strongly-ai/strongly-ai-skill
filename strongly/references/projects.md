@@ -113,7 +113,9 @@ curl -s "${auth[@]}" "$BASE/projects/$PID/workspaces?limit=20" | jq '.data'
 attach so its workspaces and ML jobs can read/write shared data (e.g. a training
 dataset). Create the volume first (compute API), then attach it here; the volume
 must belong to the same organization. Detaching only unlinks the volume, it does
-not delete it.
+not delete it. Each volume is one resource with two halves, a git code half and a
+per-file versioned data half, that mount together when a workspace uses it; see
+`references/compute.md`.
 
 ```bash
 curl -s "${auth[@]}" "$BASE/projects/$PID/volumes" | jq '.data'
