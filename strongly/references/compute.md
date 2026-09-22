@@ -273,6 +273,35 @@ Login is the user's own Claude account: Strongly supplies no credential. Relay t
 with `login-code`. For Codex (`useTerminal:true`), drive `codex login` through the
 terminal endpoints (`POST /code-sessions/:id/input`, `GET /code-sessions/:id/output`).
 
+**The `react-starter` scaffold is deploy-ready.** It seeds a verified Strongly
+starter app that already solves serving behind the proxy: a proxy-safe relative
+base path, the signed-in-user identity read, a `STRONGLY_SERVICES` client, and a
+`/health` endpoint (see `references/apps.md`). Claude Code EXTENDS it, so you do
+not hand-write the proxy recipe. `deploy` returns the new app id:
+`{ sessionId, appId, deploymentId, buildId, status }`.
+
+### Deploy an app that needs a database (Postgres, etc.)
+
+`POST /code-sessions/:id/deploy` builds the app from your workspace code ALONE
+(name + description). It does NOT attach any addon, data source, or model, so the
+app ships with no database unless you wire one. Do it as an explicit step, in
+order:
+
+1. Provision the store and wait for running (`references/addons.md`):
+   `POST $BASE/addons {label, type:"postgres", cpu, memory, disk}`, then poll
+   `GET $BASE/addons/:id/status` until running. (`postgres`, not `postgresql`.)
+2. Build the app to READ its connection from `STRONGLY_SERVICES`, never hardcode a
+   host or key; `react-starter` already reads it (see `references/apps.md` section 4).
+3. Deploy the session, capture `appId` from the response, and poll the app build
+   and pod to healthy (`references/apps.md` section 2).
+4. Attach the store to the running app: `POST $BASE/addons/:id/connect/:appId`
+   (`references/addons.md` section 7). The app now sees it in
+   `STRONGLY_SERVICES.addons` (match on `configId`), no redeploy needed.
+
+For a marketplace-style app whose users pick the database in the deploy wizard,
+declare it in `deploy.json` `addons[]` instead (`references/apps.md` section 6);
+for a one-off code-session deploy, the `connect/:appId` step above is the path.
+
 ---
 
 ## Checklist
@@ -284,3 +313,4 @@ terminal endpoints (`POST /code-sessions/:id/input`, `GET /code-sessions/:id/out
 - [ ] Pre-warm a pool with a valid `workloadType` and `count` in 1-5.
 - [ ] Volumes: one resource with a git code half and a per-file versioned data half; create with `name`, `scope`, and `code.filesystemType` (`github` or `strongly`), plus `projectId` for a `local` volume; attach to a workspace and it mounts at `/volumes/<scope>/<name>/{code,data}` on next start.
 - [ ] Code sessions: send natural-language tasks (not raw shell) to the assistant terminal; login uses the user's own Claude account; deploy an app via `/code-sessions/:id/deploy` and see `references/apps.md`.
+- [ ] A code-session deploy wires NO services: after it, attach a database with `POST $BASE/addons/:id/connect/:appId` (or declare it in `deploy.json` for a wizard deploy); the app reads the connection from `STRONGLY_SERVICES`.
