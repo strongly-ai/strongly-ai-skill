@@ -24,6 +24,30 @@ always a JWT, never an API key.)
 
 ---
 
+## 0. Gather requirements first (ASK the user, don't assume)
+
+Before you scaffold, build, or deploy an app, ASK the user the questions that
+decide its deploy config, rather than guessing. Wiring a service in from the start
+is one deploy; discovering it was needed later is a rebuild. At minimum:
+
+- **Does it need a database?** And what kind: relational (`postgres`, `mysql`),
+  document (`mongodb`), cache (`redis`), vector, ...? A yes means provision a
+  managed addon and wire it (see `references/addons.md` + §4). Never silently ship
+  a stateless app the user expected to persist data.
+- **Who can reach it?** Only them, everyone in their org, or the public? (maps to
+  the app's permissions / manifest `permissions`).
+- **Does it call AI models?** Chat, embeddings, speech, image, ...? If so, which
+  models to wire through the AI Gateway (see §4 + `references/ai-gateway.md`).
+- **Does it read data the user already has** (an existing database, warehouse, or
+  bucket)? That is a data **source**, not a new addon (see `references/datasources.md`).
+- **Rough size and always-on?** Resources, and whether it must run 24/7.
+
+Confirm these up front so the app is scaffolded and deployed with the right
+services wired the first time. If the user's request is ambiguous ("build me a
+todo app"), ask the database/access questions before you start, not after.
+
+---
+
 ## 1. Serve correctly behind the proxy  ← get this right first
 
 Deployed apps are reached **only** through the platform proxy at a relative base
