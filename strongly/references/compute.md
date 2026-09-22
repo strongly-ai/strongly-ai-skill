@@ -197,12 +197,21 @@ halves follow the share. It works across organizations: a sharee in another org 
 clone the code half and read or write the data half from their own workspace, with
 no extra credential setup.
 
+**Data half over REST.** The data half is fully readable and writable without a
+workspace, per file: list files, read one file's version history, download a
+specific version's bytes, write or upload a file as a new version, and delete
+(tombstone) a file, all through the endpoints below.
+
 | Method + path | Scope | Purpose |
 |---|---|---|
 | `GET /volumes` | `volumes:read` | List. Filters: `scope`, `projectId`, `limit`, `offset`. |
 | `POST /volumes` | `volumes:write` | Create. Body: `name`, `scope`, `projectId?` (required when `scope` is `local`), `description?`, `code` (`{ filesystemType, repoUrl?, branch?, sshKeyId? }`). |
 | `GET /volumes/:id` | `volumes:read` | Get one. |
 | `GET /volumes/:id/data/files` | `volumes:read` | List data-half files. Each entry: `{ path, name, size, version, updatedAt, updatedBy }` (`version` is that file's head). |
+| `GET /volumes/:id/data/files/versions` | `volumes:read` | One file's version history, newest first. Query `path`. |
+| `GET /volumes/:id/data/files/content` | `volumes:read` | Download a file's bytes, base64-encoded. Query `path`, optional `version` (default latest). |
+| `POST /volumes/:id/data/files` | `volumes:write` | Write a file as a new version. Body `path`, plus `content` (text) or `contentBase64` (binary), optional `message`. |
+| `DELETE /volumes/:id/data/files` | `volumes:write` | Delete (tombstone) a file. Query `path`, optional `message`. |
 | `POST /volumes/:id/attach` | `volumes:write` | Attach to a workspace: `workspaceId`, optional `dataVersion` (pins the data half to that version, default latest). Mounts on the workspace's next start. |
 | `POST /volumes/:id/detach` | `volumes:write` | Detach from a workspace: `workspaceId`. |
 | `DELETE /volumes/:id` | `volumes:write` | Delete. |
