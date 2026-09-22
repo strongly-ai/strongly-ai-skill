@@ -204,25 +204,51 @@ Convenience headers also exist (`X-Strongly-User-Id/Email/Name/Roles`,
 ## 4. Wiring: `STRONGLY_SERVICES`
 
 Everything you connect (addons, data sources, AI models, workflows) arrives as one
-JSON env var. Read connections from it, never hardcode a host or key.
+JSON env var. Read connections from it, never hardcode a host or key. The shape is
+a category tree under a top-level **`services`** object; addons and data sources
+are keyed **by type**, each holding an **array** (you can connect more than one of
+a type), and each entry carries its connection under `.connection` and any secrets
+under `.auth.credentials`:
 
 ```js
-const s = JSON.parse(process.env.STRONGLY_SERVICES || '{}');
-const db = s.addons?.find(a => a.configId === 'mongodb');   // match configId, NOT id (id is dynamic)
-const conn = db?.connectionString;                          // prefer connectionString
-const ai = s.aiModels?.[0];                                 // { provider, model, endpoint, apiKey }
+const s = (JSON.parse(process.env.STRONGLY_SERVICES || '{}')).services || {};
+
+// ADDON (a managed store you provisioned), e.g. postgres. addons.<type> is an
+// array: take [0], or match on configId when a type has more than one.
+const pg   = s.addons?.postgres?.[0];               // or ?.find(a => a.configId === 'orders-db')
+const conn = pg?.connection?.connection_string;     // also pg.connection.uri; host/port/database on .connection
+const user = pg?.auth?.credentials?.username;       // password in pg.auth.credentials.password
+// pg.internal === true => the app's OWN metadata store; hide it from any user "pick a database" list.
+
+// DATA SOURCE (an external connection), same type-keyed shape, e.g. s3:
+const s3     = s.datasources?.s3?.[0];
+const bucket = s3?.connection?.bucket;              // fields vary by type; see references/datasources.md
+const akid   = s3?.auth?.credentials?.access_key_id;
+
+// AI MODEL via the AI GATEWAY. Not a top-level array: one gateway holding the
+// models you connected. Call the gateway (OpenAI-compatible) at its base_url.
+const gw    = s.aigateway;
+const model = gw?.available_models?.[0];            // { vendor_model_id, provider, modelType, display_name, ... }
+// POST `${gw.base_url}/...` with model.vendor_model_id; see references/ai-gateway.md.
+
+// WORKFLOWS you connected:
+const wf = s.workflows?.available_workflows?.[0];   // trigger via s.workflows.engine.api_endpoint
 ```
 
-- Match on **`configId`** (stable, from your deploy config), not `id` (`mongodb-abc123`).
+- Everything hangs off `STRONGLY_SERVICES.services`. Addons and data sources are
+  `services.<addons|datasources>.<type>[]`; the AI gateway is `services.aigateway`
+  (`available_models` + `providers` + `base_url`); workflows are `services.workflows`.
+- Match a specific store on **`configId`** (stable, = the manifest addon `id`), not
+  the dynamic `id` (`mongodb-abc123`), when a type has more than one.
 - Respect **`internal: true`** addons (the app's own store), hide them from any
   user-facing "pick a database" UI.
-- Degrade honestly if a service is absent; don't fabricate one.
+- Connections live under `service.connection` (`connection_string`/`uri`, `host`,
+  `port`, `database`, ...), secrets under `service.auth.credentials`. Degrade
+  honestly if a service is absent; don't fabricate one.
 
-You choose what's wired at create time, the create/upload routes accept `addons`,
+You choose what's wired at create time: the create/upload routes accept `addons`,
 `dataSources`, `aiModels`, `workflows` arrays of ids (discover via
-`GET $BASE/addons`, `/datasources`, `/ai-models`, `/workflows`). Connected
-workflows appear under `STRONGLY_SERVICES.services.workflows` so the app can
-trigger them.
+`GET $BASE/addons`, `/datasources`, `/ai-models`, `/workflows`).
 
 ---
 

@@ -296,7 +296,8 @@ order:
    and pod to healthy (`references/apps.md` section 2).
 4. Attach the store to the running app: `POST $BASE/addons/:id/connect/:appId`
    (`references/addons.md` section 7). The app now sees it in
-   `STRONGLY_SERVICES.addons` (match on `configId`), no redeploy needed.
+   `STRONGLY_SERVICES.services.addons.<type>` (match on `configId`; see
+   `references/apps.md` section 4), no redeploy needed.
 
 For a marketplace-style app whose users pick the database in the deploy wizard,
 declare it in `deploy.json` `addons[]` instead (`references/apps.md` section 6);
