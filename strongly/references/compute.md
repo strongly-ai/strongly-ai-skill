@@ -294,15 +294,22 @@ order:
    host or key; `react-starter` already reads it (see `references/apps.md` section 4).
 3. Deploy the session, capture `appId` from the response, and poll the app build
    and pod to healthy (`references/apps.md` section 2).
-4. Attach the store to the running app: `POST $BASE/addons/:id/connect/:appId`
-   (`references/addons.md` section 7). Connecting to a running app rolls it
-   automatically (zero-downtime), so the app then sees the store in
-   `STRONGLY_SERVICES.services.addons.<type>` (match on `configId`; see
-   `references/apps.md` section 4) with no manual redeploy.
+4. Attach the store to the app, then REDEPLOY so it takes effect. Add the addon id
+   to the app definition with either `POST $BASE/addons/:id/connect/:appId` or
+   `PUT $BASE/apps/:appId` `{"addons":["<id>"]}` (`references/addons.md` section 7).
+   Both update the app DEFINITION only. `STRONGLY_SERVICES` is generated from the
+   declared addons at build/deploy, so redeploy the app afterwards
+   (`POST $BASE/apps/:appId/deploy`, then poll to healthy) for the running pod to
+   see the store under `STRONGLY_SERVICES.services.addons.<type>` (match on
+   `configId`; see `references/apps.md` section 4).
 
-For a marketplace-style app whose users pick the database in the deploy wizard,
-declare it in `deploy.json` `addons[]` instead (`references/apps.md` section 6);
-for a one-off code-session deploy, the `connect/:appId` step above is the path.
+The cleanest path is to declare the addon id when you build, so the first deploy
+already has it and there is no second round trip: for a bundle you build yourself,
+`POST $BASE/apps/upload` with `metadata={"addons":["<id>"]}` (`references/apps.md`
+section 4); for a marketplace-style app whose users pick the database in the deploy
+wizard, declare it in `deploy.json` `addons[]` (`references/apps.md` section 6). The
+code-session `deploy` builds from code alone and takes no addon list, which is why a
+DB attached to a session-deployed app needs the connect-then-redeploy step above.
 
 ---
 
@@ -315,4 +322,4 @@ for a one-off code-session deploy, the `connect/:appId` step above is the path.
 - [ ] Pre-warm a pool with a valid `workloadType` and `count` in 1-5.
 - [ ] Volumes: one resource with a git code half and a per-file versioned data half; create with `name`, `scope`, and `code.filesystemType` (`github` or `strongly`), plus `projectId` for a `local` volume; attach to a workspace and it mounts at `/volumes/<scope>/<name>/{code,data}` on next start.
 - [ ] Code sessions: send natural-language tasks (not raw shell) to the assistant terminal; login uses the user's own Claude account; deploy an app via `/code-sessions/:id/deploy` and see `references/apps.md`.
-- [ ] A code-session deploy wires NO services: after it, attach a database with `POST $BASE/addons/:id/connect/:appId` (or declare it in `deploy.json` for a wizard deploy); the app reads the connection from `STRONGLY_SERVICES`.
+- [ ] A code-session deploy wires NO services: to add a database afterwards, add the addon id to the app (`connect/:appId` or `PUT /apps/:id {addons}`) AND redeploy so `STRONGLY_SERVICES` regenerates; or declare it up front (`/apps/upload` `metadata={"addons":[...]}`, or `deploy.json` for a wizard deploy). The app reads the connection from `STRONGLY_SERVICES`.

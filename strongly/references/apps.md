@@ -274,9 +274,18 @@ const wf = s.workflows?.available_workflows?.[0];   // trigger via s.workflows.e
   `port`, `database`, ...), secrets under `service.auth.credentials`. Degrade
   honestly if a service is absent; don't fabricate one.
 
-You choose what's wired at create time: the create/upload routes accept `addons`,
-`dataSources`, `aiModels`, `workflows` arrays of ids (discover via
-`GET $BASE/addons`, `/datasources`, `/ai-models`, `/workflows`).
+You choose what's wired at create time by declaring ids in the `addons`,
+`dataSources`, `aiModels`, `workflows` arrays (discover via `GET $BASE/addons`,
+`/datasources`, `/ai-models`, `/workflows`). How you pass them depends on the route:
+- JSON `POST $BASE/apps` and `PUT $BASE/apps/:id`: send them as top-level body
+  fields, e.g. `{"addons":["<id>"]}`. On `PUT` each array REPLACES the connected set.
+- Multipart `POST $BASE/apps/upload` (zip bundle): they are NOT standalone form
+  fields; put them in the `metadata` JSON string, e.g. `metadata={"addons":["<id>"]}`.
+
+Changing the connected set updates the app DEFINITION; `STRONGLY_SERVICES` is
+regenerated from it at build/deploy, so redeploy an already-running app to apply a
+change (see `references/addons.md` section 7). Declaring ids up front, at create or
+upload, is the one-shot path with no extra redeploy.
 
 ---
 

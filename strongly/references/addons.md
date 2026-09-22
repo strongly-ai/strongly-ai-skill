@@ -151,11 +151,14 @@ curl -s -X POST   "${auth[@]}" "$BASE/addons/$ADDON_ID/connect/$APP_ID" | jq '.d
 curl -s -X DELETE "${auth[@]}" "$BASE/addons/$ADDON_ID/connect/$APP_ID" | jq '.data'
 ```
 
-`connect` links the addon to the app and, when the app is already running, rolls
-it (zero-downtime) so it immediately picks the addon up in `STRONGLY_SERVICES`;
-`disconnect` unlinks it and rolls it back out. The addon must be running first.
-For how the app consumes the connection at runtime, see `references/apps.md`
-section 4 (it appears under `services.addons.<type>`).
+`connect` adds the addon to the app's `addons` set; `disconnect` removes it. Both
+update the app DEFINITION only. `STRONGLY_SERVICES` is generated from that set at
+build/deploy, so a change to an already-running app takes effect on its NEXT
+deploy: redeploy the app (`POST $BASE/apps/:appId/deploy`, then poll to healthy)
+for the pod to pick the addon up. The addon must be running first. Declaring the
+addon id up front (in the `addons` array on create/upload) avoids the extra
+redeploy. For how the app consumes the connection at runtime, see
+`references/apps.md` section 4 (it appears under `services.addons.<type>`).
 
 ---
 
