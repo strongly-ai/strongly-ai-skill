@@ -31,13 +31,13 @@ The SDK is pre-installed in every Strongly workspace. Init follows the same
 two-context rule as `SKILL.md`: **where the code runs** decides how it authenticates.
 
 **Inside Strongly** (a workspace or a deployed app). The platform base URL
-(`STRONGLY_API_URL`) and key (`STRONGLY_API_KEY`) are already in the environment,
-so the client takes **no arguments** and picks both up:
+(`STRONGLY_API_URL`) is already in the environment and there is no key: the
+platform signs every call in as the owner. The client takes **no arguments**:
 
 ```python
 from strongly import Strongly
 
-client = Strongly()   # reads STRONGLY_API_URL + STRONGLY_API_KEY from the env
+client = Strongly()   # STRONGLY_API_URL from the env; no key needed inside Strongly
 ```
 
 **Outside Strongly** (laptop, CI, any external host). Pass the API key and your
@@ -52,7 +52,7 @@ client = Strongly(
 ```
 
 Resolution order for credentials: explicit argument, then `STRONGLY_API_KEY` env
-var, then `~/.strongly/config`. The base URL comes from `base_url` or the
+var, then (inside a Strongly workspace) none needed, then `~/.strongly/config`. The base URL comes from `base_url` or the
 `STRONGLY_API_URL` env var. Never hardcode a public host; ask the user for
 theirs.
 

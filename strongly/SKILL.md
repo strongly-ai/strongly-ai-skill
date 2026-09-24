@@ -52,9 +52,8 @@ environment: `STRONGLY_API_URL` and/or `STRONGLY_SERVICES` are set.
   `$STRONGLY_API_URL/api/v1`.
 - **Auth is handled for you.** The platform injects the caller's bearer token on
   these in-cluster calls, so you do **not** set an `Authorization` header, and you
-  do **not** ask the user for a key or host. (`$STRONGLY_API_KEY` is also present
-  in the workspace env if you prefer to send it explicitly, but you don't need
-  to.) Just call the API.
+  do **not** ask the user for a key or host. A workspace holds no API key at all;
+  API keys are only for calling Strongly from outside it. Just call the API.
 
 ```bash
 # Inside Strongly: use the injected base URL, no auth header needed.
