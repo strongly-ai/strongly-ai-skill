@@ -51,9 +51,12 @@ curl -s "${auth[@]}" "$BASE/projects/$PID/stats" | jq '.data'
 curl -s "${auth[@]}" "$BASE/projects/$PID/activity?limit=25" | jq '.data'
 ```
 
-**Delete vs archive.** `DELETE /projects/:id` archives the project's data and
-**preserves its volumes** (it does not wipe the data volume). To keep a project
-recoverable without deleting, use `archive` then `restore`.
+**Delete vs archive.** `DELETE /projects/:id?volume=delete|keep` permanently
+deletes the project with its jobs, workspaces, run history, board and activity.
+`volume` is required: `delete` removes the project's code/data volume and its
+data; `keep` keeps it as a shared volume owned by the project owner, code and
+data intact. Ask the user which before deleting. To keep a project recoverable
+without deleting, use `archive` then `restore`.
 
 | Method | Path | Tool | Notes |
 |---|---|---|---|
@@ -61,7 +64,7 @@ recoverable without deleting, use `archive` then `restore`.
 | POST | `/projects` | `create_project` | `name`*, `description`*, `filesystemType`, `githubConfig`, `tags` |
 | GET | `/projects/:id` | `get_project` | full project document |
 | PUT | `/projects/:id` | `update_project` | `name`, `description`, `status` |
-| DELETE | `/projects/:id` | `delete_project` | archives data, keeps volumes |
+| DELETE | `/projects/:id?volume=delete\|keep` | `delete_project` | `volume`* : delete or keep (as shared) the project volume |
 | POST | `/projects/:id/archive` | `archive_project` | restorable |
 | POST | `/projects/:id/restore` | `restore_project` | back to active |
 | GET | `/projects/:id/stats` | `get_project_stats` | usage, workspace counts, activity |
