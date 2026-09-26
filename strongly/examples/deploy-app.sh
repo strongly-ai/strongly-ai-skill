@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Deploy a Strongly app from a local bundle via the REST API, then wait for it
-# to be live. Requires: curl, jq, and a zip of your app (with a Dockerfile).
+# to be live. (Built it in a Strongly workspace? Build from its volume instead:
+# references/apps.md section 2.) Requires: curl, jq, and a zip of your app (with a Dockerfile).
 #
 #   HOST=https://app.strongly.ai \
 #   STRONGLY_API_KEY=sk-... \
@@ -23,12 +24,9 @@ APP_ID=$(api -F "name=$NAME" \
              "$HOST/api/v1/apps/upload" | jq -r '.data._id')
 echo "    app id: $APP_ID"
 
-echo "==> Deploying (builds the image, creates the deployment)"
-api -X POST "$HOST/api/v1/apps/$APP_ID/deploy" >/dev/null
-
-echo "==> Waiting for the image build to finish"
+echo "==> Waiting for the image build to finish (the upload started it)"
 while true; do
-  BS=$(api "$HOST/api/v1/apps/$APP_ID/build-status" | jq -r '.data.status // .data')
+  BS=$(api "$HOST/api/v1/apps/$APP_ID/build-status" | jq -r '.data.status')
   echo "    build: $BS"
   case "$BS" in
     completed) break ;;
@@ -37,15 +35,16 @@ while true; do
   esac
 done
 
-echo "==> Waiting for the pod to be healthy"
-for _ in $(seq 1 60); do
-  ST=$(api "$HOST/api/v1/apps/$APP_ID/status" | jq -r '.data.status // .data.phase // .data')
-  echo "    pod: $ST"
+echo "==> Deploying the built image (deploy is refused while the build runs)"
+api -X POST "$HOST/api/v1/apps/$APP_ID/deploy" >/dev/null
+
+echo "==> Waiting for the pod to be running"
+while true; do
+  ST=$(api "$HOST/api/v1/apps/$APP_ID/status" | jq -r '.data.status')
+  echo "    app: $ST"
   case "$ST" in
-    running|Running|healthy|Healthy) echo "==> App is live: $APP_ID"; exit 0 ;;
-    *) sleep 10 ;;
+    running) echo "==> App is live: $APP_ID"; exit 0 ;;
+    error)   echo "!! deploy failed, logs:" >&2; api "$HOST/api/v1/apps/$APP_ID/logs" | jq -r '.data' >&2; exit 1 ;;
+    *)       sleep 10 ;;
   esac
 done
-
-echo "!! App did not reach a running state in time, check: $HOST/api/v1/apps/$APP_ID/status" >&2
-exit 1

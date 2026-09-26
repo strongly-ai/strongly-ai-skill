@@ -152,43 +152,106 @@ Always expose `GET /health → 200`.
 
 ## 2. Deploy an app via the REST API
 
-Flow: **upload a bundle (this BUILDS the image, asynchronously) → wait for the
-build to complete → deploy → poll the pod.** `deploy` is rejected while the build
-is still `pending`, so you must poll `build-status` to `completed` before you call
-it. Never report success until the pod is running. Set once (outside Strongly):
+An app builds from one of three **sources**, then deploys the built image:
+
+| Source | When | How |
+|---|---|---|
+| **Volume** | You built the app in a Strongly workspace (the usual case) | `bundleSourceType: "volume"`, `bundleSource: {volumeId, folderPath?}` |
+| **GitHub** | The code is in a GitHub repository | `bundleSourceType: "github"`, `bundleSource: {repoUrl, branch, sshKeyId, subdirectory?}` |
+| **Upload** | You have a `.zip` of the source | multipart `POST /apps/upload` (below) |
+
+Flow for every source: **create the app from its source (this BUILDS the image,
+asynchronously) → poll the build to `completed` → deploy → poll the pod.**
+`deploy` is refused while the build is still running. Never report success until
+the pod is running. Outside Strongly, set once:
 
 ```bash
 export STRONGLY_API_KEY=sk-...            # Settings → API Keys (apps:write, apps:deploy)
 BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
 ```
 
-A bundle is a `.zip` of your source **with a `Dockerfile`**; keep it small.
+(Inside a workspace, `BASE="$STRONGLY_API_URL/api/v1"` and no key: the
+workspace's auth-proxy signs every platform call.)
+
+### From a workspace's volume (recommended when you built it in a workspace)
+
+A workspace mounts each volume's code at `/volumes/<scope>/<volume name>/code`
+(a project's own volume at `/volumes/local/<project name>/code`, volumes shared
+with you under `/volumes/shared/`). That directory is a git clone of the volume's
+code. The build takes the volume's code **as last synced**, so sync first:
 
 ```bash
-# 1) Create + upload the bundle (multipart). The upload BUILDS the image
-#    asynchronously. Fields: name, description, resources (JSON string).
+# 1) Save the code to the volume: the workspace's Sync (commits and pushes the
+#    code of every volume it mounts; also the Sync button on the workspace page) ...
+curl -s -X POST "${auth[@]}" "$BASE/workspaces/$WORKSPACE_ID/sync"
+#    ... or from a terminal in the workspace:
+#    cd /volumes/local/my-project/code && git add -A && git commit -m "v2" && git push
+
+# 2) Find the volume id (by name) and create the app from it. folderPath is the
+#    folder inside the volume's code that holds strongly.manifest.yaml; omit it
+#    when the app is the whole code. The app needs a size: environmentId, or cpu + memory.
+VOLUME_ID=$(curl -s "${auth[@]}" "$BASE/volumes" | jq -r '.data[] | select(.name=="my-project") | ._id')
+APP_ID=$(curl -s "${auth[@]}" -H 'Content-Type: application/json' -X POST "$BASE/apps" -d "{
+  \"name\": \"my-app\", \"cpu\": \"0.5\", \"memory\": \"1GB\",
+  \"bundleSourceType\": \"volume\",
+  \"bundleSource\": {\"volumeId\": \"$VOLUME_ID\", \"folderPath\": \"apps/my-app\"}
+}" | jq -r '.data.appId')
+```
+
+### From GitHub
+
+```bash
+# The build clones the repo with one of your GitHub SSH keys (add keys in your
+# profile settings; list them here). repoUrl must be the SSH form.
+SSH_KEY_ID=$(curl -s "${auth[@]}" "$BASE/users/me/github-ssh-keys" | jq -r '.data[0]._id')
+APP_ID=$(curl -s "${auth[@]}" -H 'Content-Type: application/json' -X POST "$BASE/apps" -d "{
+  \"name\": \"my-app\", \"cpu\": \"0.5\", \"memory\": \"1GB\",
+  \"bundleSourceType\": \"github\",
+  \"bundleSource\": {\"repoUrl\": \"git@github.com:acme/my-app.git\", \"branch\": \"main\", \"sshKeyId\": \"$SSH_KEY_ID\"}
+}" | jq -r '.data.appId')
+```
+
+### From an uploaded zip
+
+A bundle is a `.zip` of your source (a `strongly.manifest.yaml` and/or a
+`Dockerfile`); keep it small.
+
+```bash
 APP_ID=$(curl -s "${auth[@]}" \
   -F name=my-app -F 'resources={"memory":"1Gi","cpu":"500m"}' \
   -F "file=@bundle.zip;type=application/zip" \
   "$BASE/apps/upload" | jq -r '.data._id')
+```
 
-# 2) Poll the build to completed BEFORE deploying (queued|building|completed|failed).
-#    deploy errors out if you call it while the build is still pending.
+### Then, for every source: build → deploy → running
+
+```bash
+# Poll the build to completed BEFORE deploying (pending|building|completed|failed).
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/build-status" | jq -r '.data.status'      # until "completed"
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/build-logs?level=error" | jq -r '.data'   # on "failed"
 
-# 3) Deploy the built image, then poll the pod to healthy.
+# Deploy the built image, then poll the pod to healthy.
 curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/deploy"
-curl -s "${auth[@]}" "$BASE/apps/$APP_ID/status" | jq '.data'                      # until state=running, ready_replicas=1
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/status" | jq -r '.data.status'            # until "running" ("error": read /logs)
+```
 
-# Subsequent versions: upload again (rebuilds async), poll build to completed, deploy again.
+### New versions (same app id: URL, config and permissions are kept)
+
+```bash
+# Volume or GitHub app: sync (volume), then rebuild from the app's recorded source.
+curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/rebuild"
+# ... or switch the app to another source (it becomes the app's source):
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/rebuild" \
+  -d "{\"bundleSourceType\": \"volume\", \"bundleSource\": {\"volumeId\": \"$VOLUME_ID\"}}"
+# Zip app: upload the new bundle.
 curl -s "${auth[@]}" -F "file=@bundle.zip;type=application/zip" "$BASE/apps/$APP_ID/upload"
+# All three return 202 and build asynchronously: poll build-status to completed,
+# then deploy again. The running version keeps serving until that deploy.
 ```
 
 Lifecycle: `GET /apps` · `GET/PUT /apps/:id` · `PUT /apps/:id/env` ·
 `PUT /apps/:id/permissions` · `POST /apps/:id/start|stop|restart` ·
-`GET /apps/:id/logs` · `GET /apps/:id/metrics` · `DELETE /apps/:id`. Git-based
-deploys: `POST /apps` (JSON) with `repository` + `branch`, then `deploy`.
+`GET /apps/:id/logs` · `GET /apps/:id/metrics` · `DELETE /apps/:id`.
 
 ---
 
