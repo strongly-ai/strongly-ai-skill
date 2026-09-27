@@ -148,6 +148,11 @@ The result (kept 15 days; its summary stays on the model as `latestDrift`):
   `algorithmsSkipped`).
 - **`driftScore`**: the **mean PSI** across features, a plain number (0.25, not
   25%). `null` when PSI scored no feature.
+- **`notification`** (only on a result that found drift): how it was announced.
+  `state` is `pending`, `sending`, `sent` or `failed`; `inApp`, `email` and
+  `slack` each have `sent` (to whom) or `error` (why not, for example
+  "the platform has no mail server configured"). Report a channel's `error` to
+  the user rather than assuming it was delivered.
 - **`featuresAnalyzed`** / **`featuresWithDrift`**: features some algorithm
   scored, and how many of them drifted.
 - **`sampleSize`**, **`windowStart`** / **`windowEnd`**, **`calculatedAt`**.
@@ -224,7 +229,13 @@ Only the fields you send change. The fields:
   overall status uses the `psi` thresholds (default warning 0.1, alert 0.2).
 - **`accuracyDropWarning`** / **`accuracyDropAlert`** (defaults 0.05 / 0.10):
   for prediction drift.
-- **`notifications`**: `{ email, slack?, recipients[] }`.
+- **`notifications`**: `{ email: boolean, recipients: [addresses], slack?: Slack
+  incoming webhook URL }`. When an analysis finds drift (`warning` or `alert`),
+  the model's owner is always notified in Strongly; with `email`, the
+  recipients are emailed (the owner when there are none); with `slack`, that
+  webhook gets a message. An address that is not one, or a webhook pointing at
+  localhost, an internal host or a private address, is refused with `400`. A
+  failed analysis never notifies.
 
 Building a baseline with `analyzeDaily: true` (section 1) turns the daily
 schedule on for you.
@@ -243,4 +254,5 @@ schedule on for you.
 - [ ] Only production predictions with recorded inputs count, and a window needs at least `minWindowSampleSize` of them.
 - [ ] `driftScore` is the mean PSI (a number, not a percentage), `null` without PSI; read `overallStatus` for the verdict.
 - [ ] Read feature detail from `/drift/results/:resultId/features` a page at a time; rows with `error` or metrics with `status: "error"` were not scored.
+- [ ] To alert someone on drift, set `notifications` (email recipients, Slack webhook); check a result's `notification` for what was actually sent.
 - [ ] The scheduler needs `enabled` and `schedule.enabled`; `analyzeDaily` on a baseline build turns the daily schedule on.

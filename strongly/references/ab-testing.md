@@ -8,8 +8,12 @@ test has one **strategy**:
 
 - `weighted_random`: each variant gets its weight's share of traffic;
 - `feature_based`: the first matching rule (by priority) picks the variant, else the control;
-- `multi_armed_bandit`: routes by each variant's average reward, which you record;
-- `canary`: the target variant gets a growing share of traffic in stages.
+- `multi_armed_bandit`: routes by the rewards you record (epsilon-greedy,
+  Thompson sampling, UCB1, or LinUCB, which routes by the prediction's context
+  features);
+- `canary`: the target variant gets a growing share of traffic in stages; once
+  deployed, the platform advances it while it stays as healthy as the control,
+  or rolls it back to 0% with the reason.
 
 Every prediction a test routes is recorded with the variant that served it
 (`references/model-evaluation.md`). On top sit counters, traffic over time, and
@@ -57,17 +61,37 @@ ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ab-
 
 Optional at create:
 
-- `stickyRouting: true`: an `entityId` keeps the variant it was first routed to.
-- `featureRules` (for `feature_based`): `[{ ruleId, featureName, operator
-  (equals, not_equals, in, not_in, greater_than, less_than, contains, regex),
-  value, targetVariantId, priority }]`, lower priority first.
+- `stickyRouting: true`: an entity keeps its variant for the test's life, keyed
+  on the `entityId` sent with each prediction. Every predict must then send
+  `entityId` (`400` without it). With a canary, an entity moves to the target
+  only as the share grows past it, and back on a rollback.
+- `featureRules` (**required** for `feature_based`, at least one):
+  `[{ featureName, operator (equals, not_equals, in, not_in, greater_than,
+  less_than, contains, regex), value, targetVariantId, priority? }]`, lower
+  priority first (default the order given). `value` is a list for
+  `in`/`not_in`, a number for `greater_than`/`less_than`, a valid pattern for
+  `regex`. A rule serving could not apply is refused with `400` naming it.
 - `banditConfig` (for `multi_armed_bandit`): `{ algorithm (epsilon_greedy
-  default, thompson_sampling, ucb1), epsilon (default 0.1), explorationBonus
-  (default 2.0), rewardMetric (success_rate default, latency, custom) }`.
+  default, thompson_sampling, ucb1, linucb), epsilon (default 0.1),
+  explorationBonus (default 2.0; alpha for linucb), contextFeatures,
+  rewardMetric (success_rate default, latency, custom) }`. For `linucb`,
+  `contextFeatures` are numeric input features that **every** variant model
+  declares as numbers (check `schema.input.fields` on each model), and every
+  variant model needs Record inputs on (`PUT /model-registry/models/:id/monitoring`
+  with `recordInputs: true`), because LinUCB learns from each prediction's
+  recorded inputs. Create refuses otherwise, saying why.
 - `canaryConfig` (for `canary`): `{ controlVariantId, targetVariantId (default
-  the second variant), stages (percentages), currentPercentage,
-  targetPercentage, bakeMinutes, errorRateDelta, latencyP95DeltaMs,
-  minRequestsForDecision }`.
+  the second variant), stages (default 1, 5, 10, 25, 50, 100),
+  currentPercentage (default the first stage), targetPercentage (default 100),
+  bakeMinutes (default 30), errorRateDelta (default 0.01), latencyP95DeltaMs
+  (default 500), minRequestsForDecision (default 20) }`. Once deployed, a stage
+  advances after `bakeMinutes` and `minRequestsForDecision` canary predictions
+  in it, while the canary's error rate and p95 latency in that stage stay
+  within the deltas of the control's; otherwise it rolls back to 0% and stays
+  there. `GET /ab-tests/:id` shows `canaryConfig.currentPercentage`,
+  `rollbackReason` and `lastCheck` (`{ at, action: advance | rollback | wait |
+  complete, reason }`): read `lastCheck.reason` to tell the user why a canary
+  is waiting or rolled back.
 - `description`, `tags`, `workspaceId`.
 
 A new test's status is `registered`. `PUT /ab-tests/:id` changes only `name`,
@@ -159,9 +183,11 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"reward":1,"label":"churn"}' "$BASE/ab-tests/predictions/$PREDICTION_ID/feedback"
 ```
 
-- `reward` (0 to 1) is kept on the prediction; sending it again replaces it. A
-  `multi_armed_bandit` test learns from it, and an experiment on the `custom`
-  metric measures it.
+- `reward` (0 to 1) is kept on the prediction; sending it again replaces it
+  (a bandit counts only the difference). A `multi_armed_bandit` test learns
+  from it (`linucb` over the prediction's recorded inputs: refused when the
+  model does not record them), and an experiment on the `custom` metric
+  measures it.
 - `label` is the prediction's actual (its true outcome), recorded with the
   model's actuals.
 
@@ -242,4 +268,7 @@ than `minSamplePerVariant`.
 - [ ] Weights are 0-1 fractions; `weighted_random` weights sum to 1; keep at least 2 variants enabled.
 - [ ] `deploy` returns with the test `running` or fails with the reason; predict only through a running test.
 - [ ] Keep `prediction_id` from `predict` to record `reward` / `label`.
+- [ ] A `stickyRouting` test: send `entityId` with every predict. A `linucb` test: send each context feature in `input_data` as a number.
+- [ ] `feature_based` needs at least one rule; `linucb` needs numeric `contextFeatures` shared by every variant model, with Record inputs on.
+- [ ] For a canary, read `canaryConfig.lastCheck` / `rollbackReason` to explain its progress; do not move `currentPercentage` by hand.
 - [ ] Decide winners with an experiment (`primaryMetric` required), not from raw counters; report `inconclusive` honestly.
