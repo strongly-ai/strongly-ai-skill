@@ -6,9 +6,10 @@ with **drift detection**, adapt open models with **fine-tuning**, serve features
 from the **feature store**, and run **inference** through the gateway.
 
 Read this when the task is: training a tabular/timeseries model without writing
-training code, comparing training runs, logging predictions and ground truth to
-catch model decay, fine-tuning a self-hosted HuggingFace model, reading online or
-historical features, or calling a model for chat/embeddings/audio/images.
+training code, comparing training runs, fine-tuning a self-hosted HuggingFace
+model, reading online or historical features, or calling a model for
+chat/embeddings/audio/images. For watching a registry model in production
+(prediction records, actuals, baselines, drift), see section 3.
 
 **Auth** follows `SKILL.md`: outside Strongly send `-H "X-API-Key:
 $STRONGLY_API_KEY"` to `$HOST/api/v1`; inside Strongly the bearer is auto-injected
@@ -141,52 +142,19 @@ Checklist: `register` (not `create`) when you may re-run and want one record; lo
 
 ---
 
-## 3. Drift detection  (scope `mlops:read` / `mlops:write`)
+## 3. Drift detection and model evaluation
 
-Log production predictions and later the real outcomes, keep a training baseline,
-then run analysis to detect input, output, and performance drift. `modelId` is a
-model id from the model registry.
+Registry models are evaluated from production: every prediction is recorded,
+actuals are joined to it, and drift compares each version's live inputs with
+that version's baseline. This has its own references:
 
-| Method + path | Does | Key params |
-|---|---|---|
-| `POST /drift/predictions` | Log a production prediction | `modelId`, `features`, `prediction`, `entityId?`, `probabilities?`, `modelVersion?`, `latencyMs?` |
-| `GET /drift/predictions` | List logged predictions | `modelId`, `limit?`, `offset?`, `startDate?`, `endDate?`, `hasGroundTruth?` |
-| `GET /drift/predictions/unmatched` | Predictions still lacking an outcome | `modelId`, `limit?` |
-| `POST /drift/ground-truth` | Add one actual outcome (matched by `entityId`) | `modelId`, `entityId`, `actualOutcome`, `outcomeTimestamp?` |
-| `POST /drift/ground-truth/batch` | Bulk upload outcomes | `modelId`, `records` (`[{entityId,actualOutcome,outcomeTimestamp?}]`) |
-| `POST /drift/baselines` | Create a reference baseline from training data | `modelId`, `version`, `featureData`, `targetData?`, `labeledPredictions?` |
-| `GET /drift/baselines` | List baselines | `modelId` |
-| `GET /drift/baselines/active` | Get the active baseline | `modelId` |
-| `PUT /drift/baselines/:id/activate` | Make a baseline active | path `id`, `modelId` |
-| `POST /drift/analyze` | Run analysis (spawns a K8s job) | `modelId`, `windowDays?`, `windowStart?`, `windowEnd?` |
-| `GET /drift/analyze/:id/status` | Analysis job status | path `id` (jobId), `modelId` |
-| `GET /drift/results/latest` | Most recent result | `modelId` |
-| `GET /drift/results` | Result history | `modelId`, `limit?`, `status?` (`ok`/`warning`/`alert`) |
-| `GET /drift/performance` | Performance history over time | `modelId`, `windowDays?`, `granularity?` |
-| `GET /drift/alerts` | Read alert config | `modelId` |
-| `PUT /drift/alerts` | Update alert config + schedule | `modelId`, `enabled?`, `algorithms?`, `accuracyDropWarning?`, `accuracyDropAlert?`, `minBaselineSampleSize?`, `notifications?`, `schedule?` |
-
-For **classification**, predictions MUST send a `probabilities` array (its max is
-the confidence score CBPE uses), and a baseline's `labeledPredictions` needs at
-least 30 aligned samples or it is rejected. Regression skips confidence capture.
-`/drift/analyze` is async, poll its status.
-
-```bash
-curl -s "${auth[@]}" -X POST "$BASE/drift/predictions" -d '{
-  "modelId":"<modelId>","entityId":"cust-42","prediction":"churn",
-  "probabilities":[0.18,0.82],"features":{"tenure":8,"plan":"pro"}}'
-curl -s "${auth[@]}" -X POST "$BASE/drift/ground-truth" \
-  -d '{"modelId":"<modelId>","entityId":"cust-42","actualOutcome":"churn"}'
-
-JOB=$(curl -s "${auth[@]}" -X POST "$BASE/drift/analyze" \
-  -d '{"modelId":"<modelId>","windowDays":30}' | jq -r '.data.jobId // .data.id')
-poll "$BASE/drift/analyze/$JOB/status?modelId=<modelId>"
-curl -s "${auth[@]}" "$BASE/drift/results/latest?modelId=<modelId>" | jq '.data'
-```
-
-Checklist: baseline before analysis; classification predictions carry
-`probabilities`; feed outcomes by `entityId` to unlock performance drift; poll the
-analyze job; alerts and schedule live on one `PUT /drift/alerts`.
+- `references/model-evaluation.md`: prediction records, the Record inputs
+  setting, actuals (one by one or a file of any size), how a model is judged,
+  and the model card.
+- `references/drift.md`: baselines (built by a job from reference rows, with
+  `analyzeDaily`), analyses and why one produced no result, results and their
+  per-feature rows, thresholds and the schedule.
+- `references/ab-testing.md`: comparing registry models on live traffic.
 
 ---
 
@@ -327,7 +295,7 @@ Model discovery, provider keys, and guardrails: `references/ai-gateway.md`.
 - [ ] Every training call is async: poll `/status` to a terminal state; never read results off the create call.
 - [ ] On a `failed` job, fetch `/logs` (AutoML, fine-tuning) or the result's error before reporting; no fabricated success.
 - [ ] AutoML: always send `hardware` (`cpu_count`, `memory_gb`, `disk_gb`); pick the exact file and target column first.
-- [ ] Drift: classification predictions carry `probabilities`; baseline `labeledPredictions` needs 30+ samples; feed ground truth by `entityId`.
+- [ ] Drift and model evaluation: `references/drift.md` and `references/model-evaluation.md` (not duplicated here).
 - [ ] Fine-tuning: HuggingFace base models only; `validate-config` before `create`.
 - [ ] Feature store: `apply` before reading; the data-plane calls require an organization.
 - [ ] Registry/gateway overlap: promote and deploy point to `references/model-registry.md` and `references/ai-gateway.md`, not duplicated here.

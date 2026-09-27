@@ -247,8 +247,9 @@ job = client.fine_tuning.retrieve_job(job.id)   # poll job.status
 client.fine_tuning.deploy_model(job.id)
 ```
 
-Related: `client.drift_detection` and `client.feature_store` (both covered in
-`references/mlops.md`).
+Related: `client.drift_detection` (the platform side is `references/drift.md`
+and `references/model-evaluation.md`) and `client.feature_store`
+(`references/mlops.md`).
 
 ---
 

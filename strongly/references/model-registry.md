@@ -95,9 +95,10 @@ Field notes, grounded in the route:
 - **`features.featureNames`** is **required for tabular frameworks** (`sklearn`,
   `xgboost`), in input column order, so predictions are labeled and drift can be
   tracked.
-- **`problemType`** (`classification` or `regression`): set it so the model is
-  eligible for drift detection later. It is stored at `training.problemType`;
-  without it, drift analysis rejects the model.
+- **`problemType`** (`classification` or `regression`): stored at
+  `training.problemType`, it says how the model's predictions are judged against
+  actuals (see `references/model-evaluation.md`). A model published with a
+  manifest declares this in its output schema's `type` instead.
 - **`source`**: `upload` (you trained and uploaded it), `automl`, `experiment`,
   or `external` (metadata only, no artifact). Defaults to `external`.
 - **`artifact`**: `{ s3Key, s3Bucket?, sizeMb? }` from the upload response. For a
@@ -201,7 +202,7 @@ proxied to the model pod through the AI Gateway (model pods are cluster-internal
 # POST /model-registry/models/:id/predict
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{ "input_data": { "tenure": 12, "monthly_charges": 79.9, "contract_type": "month" },
-        "entityId": "cust-4821", "logPrediction": true }' \
+        "entityId": "cust-4821" }' \
   "$BASE/model-registry/models/$MODEL_ID/predict"
 ```
 
@@ -209,12 +210,16 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   is accepted as a camelCase alias.
 - **`path`**: which route on the model to call when it serves more than one (e.g.
   `"parse_text"`). Omit for the model default.
-- **`entityId`**: an id to match a later ground-truth record for drift.
-- **`logPrediction`**: log this prediction for drift detection (default `true`).
+- **`entityId`**: your id for what is predicted; actuals can be attached by it.
+- **`source`**: `"production"` (default) or `"test"`, which keeps a trial call
+  out of production results (drift and performance).
 
 Returns `{ prediction, predictions, probabilities, latency_ms, predictionId,
-entityId }`. The `predictionId`/`entityId` let you attach ground truth later for
-drift analysis. Drift itself lives in `references/mlops.md`.
+predictionIds, entityId }`. Every prediction is recorded with its model version;
+keep `predictionId` (or your `entityId`) to attach its actual later. Prediction
+records, actuals and the Record inputs setting are in
+`references/model-evaluation.md`; drift is `references/drift.md`; comparing
+models on live traffic is `references/ab-testing.md`.
 
 ---
 
@@ -262,13 +267,18 @@ curl -s -X DELETE "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID"  # delete
 | POST | `/model-registry/models/:id/start` | Start a stopped model |
 | POST | `/model-registry/models/:id/predict` | Run inference on a deployed model |
 
+Monitoring settings, actuals and baselines also live under
+`/model-registry/models/:id` (`/monitoring`, `/actuals...`, `/baselines...`);
+they are documented in `references/model-evaluation.md` and
+`references/drift.md`.
+
 ---
 
 ## Checklist
 - [ ] Upload the artifact first, capture `s3Key`, pass it as `artifact` to register (servable in one flow). Omit `artifact` only for an external metadata-only entry.
 - [ ] Tabular models (`sklearn`, `xgboost`): include `features.featureNames` in input order.
-- [ ] Set `problemType` at register time so the model is drift-eligible later.
+- [ ] Set `problemType` at register time so its predictions are judged as classification or regression (`references/model-evaluation.md`).
 - [ ] Retrain by adding a version (never overwrite), then `activate` (pointer) or `deploy` (roll the pod). Stop a live model before deploying a different version.
 - [ ] After deploy, poll `/model-registry/models/:id/status` for the registry lifecycle and `/ai/models/:id/status` for the live pod before predicting or claiming success.
-- [ ] Predict requires `deployment.status === 'running'`; keep `predictionId`/`entityId` if you plan drift analysis (`references/mlops.md`).
-- [ ] Serving pod state, inference gateway routing: `references/ai-gateway.md`. Drift, experiments, AutoML: `references/mlops.md`.
+- [ ] Predict requires `deployment.status === 'running'`; every prediction is recorded, so keep `predictionId`/`entityId` to attach actuals (`references/model-evaluation.md`); send `source: "test"` for trial calls.
+- [ ] Serving pod state, inference gateway routing: `references/ai-gateway.md`. Drift: `references/drift.md`. A/B tests: `references/ab-testing.md`. Experiments, AutoML: `references/mlops.md`.

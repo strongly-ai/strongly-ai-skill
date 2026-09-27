@@ -1,240 +1,245 @@
 # A/B Testing
 
-Strongly **A/B tests** put live inference traffic behind a router that splits it
-across two or more **model variants**, so you can compare models on real requests
-instead of guessing. A test picks one **strategy**: `weighted_random` (fixed
-traffic weights per variant), `feature_based` (route by input features),
-`multi_armed_bandit` (auto-optimize weights from a reward signal), or `canary`
-(gradual rollout of a new variant). Once deployed the router serves through the
-AI Gateway; metrics, per-variant predictions, and formal statistical experiments
-sit on top.
+A Strongly **A/B test** splits live predictions across two or more
+**variants**, each serving a **model registry** model (for example two versions
+of a churn model registered as two models, or a challenger against the
+current model). You compare them on real traffic instead of offline scores. A
+test has one **strategy**:
 
-Read this when the task is: creating or listing an A/B test, deploying it and
-starting/stopping the router, tuning per-variant traffic weights, enabling or
-disabling a variant, reading metrics and prediction logs, recording reward
-feedback (for the bandit strategy), or running a formal control-vs-treatment
-experiment with significance testing.
+- `weighted_random`: each variant gets its weight's share of traffic;
+- `feature_based`: the first matching rule (by priority) picks the variant, else the control;
+- `multi_armed_bandit`: routes by each variant's average reward, which you record;
+- `canary`: the target variant gets a growing share of traffic in stages.
 
-The variants under test are **AI Gateway models**, so pick real model `_id`s
-first, see `references/ai-gateway.md`. The formal experiments here are specific to
-an A/B router; for broader MLOps experiment tracking see `references/mlops.md`.
+Every prediction a test routes is recorded with the variant that served it
+(`references/model-evaluation.md`). On top sit counters, traffic over time, and
+**experiments** that decide a winner with a statistical test.
 
-**Auth** follows `SKILL.md`. Outside Strongly send `-H "X-API-Key:
-$STRONGLY_API_KEY"` to `$HOST/api/v1`; inside Strongly the bearer is
-auto-injected against `$STRONGLY_API_URL/api/v1`. Below, `$BASE` is whichever
-applies, and `auth=(-H "X-API-Key: $STRONGLY_API_KEY")` outside Strongly.
+A/B tests are for registry models (traditional ML). They do not route AI
+Gateway models (LLMs, third-party vendors).
 
-**Scopes.** Reads need `mlops:read`, writes need `mlops:write`. A missing scope
-returns `403 scope-required`; tell the user which scope to add, do not work
-around it.
+Read this when the task is: creating, deploying, stopping or deleting an A/B
+test; predicting through it; tuning weights or turning a variant off; reading
+its counters, traffic and routed predictions; recording rewards or outcomes; or
+running an experiment to pick a winner.
+
+**Auth** follows `SKILL.md`; `$BASE` and `auth` as there. **Scopes:** reads
+need `mlops:read`, writes need `mlops:write`. A missing scope returns
+`403 scope-required`; tell the user which scope to add.
 
 ---
 
-## 1. Pick the model variants first (AI Gateway)
+## 1. Pick the models, then create the test
 
-Each variant references a model by its AI Gateway `_id`. List the user's real
-models and choose the ones to compare, never hardcode a model name (see
-`references/ai-gateway.md`).
+Each variant's `modelId` is a registry model `_id`. List the user's real models
+and deploy the ones to compare (a test can only deploy when its variants'
+models are deployed, see `references/model-registry.md`):
 
 ```bash
-curl -s "${auth[@]}" "$BASE/ai/models?status=active" | jq '.data[] | {_id,name,provider,modelType}'
-MODEL_A=...   # e.g. the current production model (the control)
-MODEL_B=...   # e.g. the challenger
+curl -s "${auth[@]}" "$BASE/model-registry/models?search=churn" | jq '.data[] | {_id,name,activeVersion,deployment}'
+MODEL_A=...   # the current model (the control)
+MODEL_B=...   # the challenger
 ```
 
----
-
-## 2. Create, list, inspect, update, delete a test
-
-Create needs `name`, `strategy`, and `variants` (at least 2). A variant is
-`{ variantId, modelId, weight?, isControl? }`. **`weight` is a 0-1 fraction**
-(for example `0.5`), NOT a 0-100 percentage, and the enabled variants' weights
-must sum to 1 (for example `0.5 + 0.5`). Mark the baseline with
-`isControl: true`.
+Create needs `name`, `strategy` and at least 2 `variants` of `{ variantId,
+modelId, weight?, isControl? }`. `variantId`s must be unique; at most one
+variant is the control (the first, unless one is marked). **`weight` is a 0-1
+fraction** (default an equal share). For `weighted_random` the weights must sum
+to 1 (`0.5 + 0.5`, not `50 + 50`).
 
 ```bash
-# weighted_random: a straight 50/50 split between two models
 ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ab-tests" \
-  -d '{"name":"prod vs challenger","strategy":"weighted_random",
+  -d '{"name":"churn: current vs challenger","strategy":"weighted_random",
        "variants":[{"variantId":"control","modelId":"'"$MODEL_A"'","weight":0.5,"isControl":true},
                    {"variantId":"challenger","modelId":"'"$MODEL_B"'","weight":0.5}]}' \
   | jq -r '.data.abTestId')
-
-# List (filter by status or strategy)
-curl -s "${auth[@]}" "$BASE/ab-tests?status=running&strategy=weighted_random" | jq '.data'
-
-# Inspect one (variants, weights, strategy config, deployment status)
-curl -s "${auth[@]}" "$BASE/ab-tests/$ID" | jq '.data'
 ```
 
-Strategy-specific config passed at create time:
+Optional at create:
 
-- `featureRules` (array): routing rules for `feature_based`.
-- `banditConfig` (object): `{ explorationRate, rewardMetric, windowSize }` for
-  `multi_armed_bandit`.
-- `canaryConfig` (object): `{ initialWeight, incrementStep, successThreshold,
-  rollbackThreshold }` for `canary`.
+- `stickyRouting: true`: an `entityId` keeps the variant it was first routed to.
+- `featureRules` (for `feature_based`): `[{ ruleId, featureName, operator
+  (equals, not_equals, in, not_in, greater_than, less_than, contains, regex),
+  value, targetVariantId, priority }]`, lower priority first.
+- `banditConfig` (for `multi_armed_bandit`): `{ algorithm (epsilon_greedy
+  default, thompson_sampling, ucb1), epsilon (default 0.1), explorationBonus
+  (default 2.0), rewardMetric (success_rate default, latency, custom) }`.
+- `canaryConfig` (for `canary`): `{ controlVariantId, targetVariantId (default
+  the second variant), stages (percentages), currentPercentage,
+  targetPercentage, bakeMinutes, errorRateDelta, latencyP95DeltaMs,
+  minRequestsForDecision }`.
+- `description`, `tags`, `workspaceId`.
 
-`PUT /ab-tests/:id` edits only `name`, `description`, and `tags`; change traffic
-weights with the variant route in section 4, not here. Delete is a soft delete.
-
-| Method / path | Does | Scope |
-|---|---|---|
-| `GET /ab-tests` | List (`status`, `strategy`) | `mlops:read` |
-| `POST /ab-tests` | Create (`name`, `strategy`, `variants`; optional `description`, `tags`, `featureRules`, `banditConfig`, `canaryConfig`) | `mlops:write` |
-| `GET /ab-tests/:id` | Full detail: variants, weights, strategy config, deployment status | `mlops:read` |
-| `PUT /ab-tests/:id` | Update `name` / `description` / `tags` only | `mlops:write` |
-| `DELETE /ab-tests/:id` | Delete the test (soft delete) | `mlops:write` |
+A new test's status is `registered`. `PUT /ab-tests/:id` changes only `name`,
+`description` and `tags`; change traffic with section 3. `DELETE` stops a
+running test first; its recorded predictions are kept for their retention.
 
 ---
 
-## 3. Deploy, start, stop the router (async)
-
-`deploy` publishes the routing endpoint through the AI Gateway so live requests
-start splitting across variants. `stop` tears the router down; `start`
-re-deploys a stopped test. These are **asynchronous**: the call returns
-immediately and the router settles afterward, so poll `GET /ab-tests/:id` for the
-deployment `status` and let real traffic accumulate before you read anything into
-the numbers (Golden Rule 3).
+## 2. Deploy, predict, stop
 
 ```bash
-curl -s -X POST "${auth[@]}" "$BASE/ab-tests/$ID/deploy"   | jq '.data'   # { deployed: true }
-
-# Poll status until the router is live, then let traffic flow
-curl -s "${auth[@]}" "$BASE/ab-tests/$ID" | jq '.data.status'
-
-curl -s -X POST "${auth[@]}" "$BASE/ab-tests/$ID/stop"     | jq '.data'   # { stopped: true }
-curl -s -X POST "${auth[@]}" "$BASE/ab-tests/$ID/start"    | jq '.data'   # { started: true }
+curl -s -X POST "${auth[@]}" "$BASE/ab-tests/$ID/deploy" | jq '.data'   # { deployed: true }
 ```
 
-Do not draw a winner from a handful of requests. Read `/metrics` (section 5) and
-confirm each variant has served enough traffic first; for a rigorous call, run a
-formal experiment (section 6).
+Deploy returns once the test is routing: its status is `running`. If it could
+not deploy, the call fails (`deployment-failed`, with the reason) and the test's
+status is `failed`. Check `GET /ab-tests/:id` (`deployment.status`:
+`registered`, `deploying`, `running`, `stopped`, `failed`).
 
-| Method / path | Does | Scope |
-|---|---|---|
-| `POST /ab-tests/:id/deploy` | Deploy the router to the AI Gateway | `mlops:write` |
-| `POST /ab-tests/:id/stop` | Stop the running router | `mlops:write` |
-| `POST /ab-tests/:id/start` | Re-deploy a stopped test | `mlops:write` |
-
----
-
-## 4. Tune traffic: variant weight and toggle
-
-For a `weighted_random` test, adjust one variant's share of traffic. The
-`weight` body field is a **0-1 fraction** (for example `0.5`) and must be between
-0 and 1 or the call is rejected; the other enabled variants are auto-renormalized
-so all enabled weights still sum to 1. Weight edits apply to the
-`weighted_random` strategy only. `variantId` is the variant's `variantId` from
-the test (it must be an enabled variant).
-
-```bash
-# Shift 70% of traffic to the challenger; the rest is rescaled to fill 1 - 0.7
-curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
-  "$BASE/ab-tests/$ID/variants/challenger/weight" \
-  -d '{"weight":0.7}' | jq '.data'
-```
-
-Toggle a variant on or off. Disabled variants receive no traffic, and **at least
-2 variants must remain enabled**.
-
-```bash
-curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
-  "$BASE/ab-tests/$ID/variants/challenger/toggle" \
-  -d '{"enabled":false}' | jq '.data'
-```
-
-| Method / path | Does | Scope |
-|---|---|---|
-| `PUT /ab-tests/:id/variants/:variantId/weight` | Set one enabled variant's weight (0-1 fraction; others auto-rescaled to sum to 1). `weighted_random` only | `mlops:write` |
-| `PUT /ab-tests/:id/variants/:variantId/toggle` | Enable/disable a variant (`enabled`; at least 2 must stay enabled) | `mlops:write` |
-
----
-
-## 5. Measure: metrics, predictions, feedback
-
-`metrics` aggregates the router: total requests, success rate, average latency,
-and per-variant breakdowns. `predictions` is the request-level log showing which
-variant served each request, its latency, and any recorded feedback.
-
-```bash
-# Aggregate metrics (optional ISO 8601 date window)
-curl -s "${auth[@]}" "$BASE/ab-tests/$ID/metrics?startDate=2026-09-01&endDate=2026-09-15" | jq '.data'
-
-# Per-request log (paginate; filter to one variant)
-curl -s "${auth[@]}" "$BASE/ab-tests/$ID/predictions?limit=50&variantId=challenger" | jq '.data'
-```
-
-Record **feedback** on a routed prediction. This is the reward signal the
-`multi_armed_bandit` strategy uses to auto-optimize variant weights. Note the
-path takes the **prediction id** (from the predictions log), not the test id.
+Predict through the running test; it picks the variant by its strategy:
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  "$BASE/ab-tests/predictions/$PREDICTION_ID/feedback" \
-  -d '{"reward":1,"label":"correct"}' | jq '.data'
+  -d '{"input_data":{"tenure":12,"plan":"pro"},"entityId":"cust-4821"}' \
+  "$BASE/ab-tests/$ID/predict" | jq '.data'
+# the serving model's output, plus prediction_id and variant_id
 ```
 
-| Method / path | Does | Scope |
-|---|---|---|
-| `GET /ab-tests/:id/metrics` | Requests, success rate, latency, per-variant (`startDate`, `endDate` ISO 8601) | `mlops:read` |
-| `GET /ab-tests/:id/predictions` | Per-request log: variant served, latency, feedback (`limit`, `offset`, `variantId`) | `mlops:read` |
-| `POST /ab-tests/predictions/:predictionId/feedback` | Record reward/label for a prediction (`reward` 0-1, `label`) | `mlops:write` |
+A test that is not running refuses predictions (`not-running`, with its
+status). `stop` stops routing (status `stopped`; predictions, counters and
+experiments are kept); `start` re-deploys a stopped test.
+
+| Method / path | Does |
+|---|---|
+| `POST /ab-tests/:id/deploy` | Start routing (the variants' models must be deployed) |
+| `POST /ab-tests/:id/predict` | Predict through the test (`input_data`, `entityId?`) -> output + `prediction_id`, `variant_id` |
+| `POST /ab-tests/:id/stop` | Stop routing |
+| `POST /ab-tests/:id/start` | Re-deploy a stopped test |
 
 ---
 
-## 6. Formal experiments (control vs treatment)
+## 3. Tune traffic
 
-An **experiment** turns an A/B test into a statistical comparison: one control
-(baseline) variant against one or more treatment variants, with significance
-testing. Create it on the test, start data collection, analyze for significance,
-then stop. `controlVariantId` and `treatmentVariantIds` are `variantId` values
-from the test. The router id is filled from the path automatically, so you send
-`name`, `controlVariantId`, and `treatmentVariantIds` plus any optional
-statistical fields. `confidenceLevel` defaults to `0.95`.
+For `weighted_random`, set one enabled variant's weight (a 0-1 fraction); the
+other enabled variants are rescaled so the enabled weights still sum to 1:
 
 ```bash
-# 1. Create the experiment on a (deployed) A/B test
-EXP=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ab-tests/$ID/experiments" \
-  -d '{"name":"challenger beats prod?","controlVariantId":"control",
-       "treatmentVariantIds":["challenger"],"primaryMetric":"latency",
-       "hypothesis":"challenger is faster","confidenceLevel":0.95,"minSamplePerVariant":500}' \
-  | jq -r '.data.experimentId')
-
-# 2. Start collecting
-curl -s -X POST "${auth[@]}" "$BASE/ab-tests/experiments/$EXP/start" | jq '.data'
-
-# 3. Analyze once enough samples exist: p-values, confidence intervals,
-#    whether treatment beats control (auto-concludes if sequential test hits significance)
-curl -s -X POST "${auth[@]}" "$BASE/ab-tests/experiments/$EXP/analyze" | jq '.data'
-
-# 4. Analyze BEFORE stopping (stop freezes data collection)
-curl -s -X POST "${auth[@]}" "$BASE/ab-tests/experiments/$EXP/stop" | jq '.data'
+curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"weight":0.7}' "$BASE/ab-tests/$ID/variants/challenger/weight"
 ```
 
-Give the experiment time to reach `minSamplePerVariant` before trusting the
-analysis; a low sample count means the result is not yet conclusive.
+Turn a variant off or on. A disabled variant gets no traffic, and at least 2
+must stay enabled:
 
-Optional create fields: `description`, `hypothesis`, `primaryMetric` (for example
-`latency`, `accuracy`, `reward`), `confidenceLevel` (default `0.95`),
-`minimumDetectableEffect`, `minSamplePerVariant`.
+```bash
+curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"enabled":false}' "$BASE/ab-tests/$ID/variants/challenger/toggle"
+```
+
+---
+
+## 4. Measure: counters, traffic, routed predictions, feedback
+
+```bash
+# Totals since the test was created, overall and per variant (variantMetrics)
+curl -s "${auth[@]}" "$BASE/ab-tests/$ID/metrics" | jq '.data'
+# Requests, errors and latency over time, per variant
+curl -s "${auth[@]}" "$BASE/ab-tests/$ID/traffic" | jq '.data'
+# The routed predictions, a page at a time
+curl -s "${auth[@]}" "$BASE/ab-tests/$ID/predictions?variantId=challenger&limit=50" | jq '.data'
+```
+
+- `metrics`: `totalRequests`, `successCount`, `errorCount`, `successRate` and
+  `avgLatencyMs` (serving latency of successful predictions), overall and per
+  variant. Rates are `null` before any request.
+- `traffic`: `bucketMs`, `buckets` (ISO start of each), and per variant the
+  requests, errors and `avgLatencyMs` per bucket (`null` for a bucket without a
+  successful prediction).
+- `predictions`: which variant served each and why, latency, success, and its
+  actual and reward when recorded. Query: `variantId`, `search`, `sort`
+  (`-timestamp` default, `latencyMs`, `variantId`, `success`, `confidence`),
+  `limit`, `offset`.
+
+**Feedback** on a routed prediction (the path takes the **prediction id** from
+`predict`, not the test id). Send `reward`, `label` or both:
+
+```bash
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"reward":1,"label":"churn"}' "$BASE/ab-tests/predictions/$PREDICTION_ID/feedback"
+```
+
+- `reward` (0 to 1) is kept on the prediction; sending it again replaces it. A
+  `multi_armed_bandit` test learns from it, and an experiment on the `custom`
+  metric measures it.
+- `label` is the prediction's actual (its true outcome), recorded with the
+  model's actuals.
+
+Do not call a winner from a handful of requests. Run an experiment (section 5).
+
+---
+
+## 5. Experiments: pick a winner with a statistical test
+
+An experiment compares each treatment variant with the control on **one primary
+metric**, over the predictions the test routes while the experiment runs.
+
+```bash
+EXP=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ab-tests/$ID/experiments" \
+  -d '{"name":"challenger beats current?","controlVariantId":"control",
+       "treatmentVariantIds":["challenger"],"primaryMetric":"success_rate",
+       "confidenceLevel":0.95,"minSamplePerVariant":500}' | jq -r '.data.experimentId')
+
+curl -s -X POST "${auth[@]}" "$BASE/ab-tests/experiments/$EXP/start"     # status running
+curl -s -X POST "${auth[@]}" "$BASE/ab-tests/experiments/$EXP/analyze" | jq '.data'
+```
+
+- **`primaryMetric`** (required): `success_rate` (higher is better), `latency`
+  (lower is better) or `custom` (the reward from feedback, higher is better).
+- Optional: `description`, `hypothesis`, `confidenceLevel` (default 0.95),
+  `minimumDetectableEffect` (default 0.05), `minSamplePerVariant` (default 100),
+  `maxSamplePerVariant`, `maxDurationDays` (default and maximum: the prediction
+  retention).
+- **`analyze`** returns `controlStats` and `treatmentStats` (mean, sample size,
+  p-value, confidence interval, relative improvement, significance), a
+  `recommendation` (`treatment`, `control` or `inconclusive`) and
+  `winnerVariantId`, and keeps them on the experiment. It concludes a running
+  experiment (status `completed`) when a sequential test is significant,
+  `maxSamplePerVariant` is reached or `maxDurationDays` has passed
+  (`concludedReason`).
+- **`conclude`** ends a running experiment as a finished run (status
+  `completed`, reason `manual`). **`stop`** cancels a draft or running one
+  (status `cancelled`). Either way its analysis covers the predictions until
+  then.
+
+Report `inconclusive` as inconclusive, and say when a variant has fewer samples
+than `minSamplePerVariant`.
 
 | Method / path | Does | Scope |
 |---|---|---|
-| `POST /ab-tests/:id/experiments` | Create experiment (`name`, `controlVariantId`, `treatmentVariantIds`; optional statistical fields) | `mlops:write` |
-| `POST /ab-tests/experiments/:experimentId/start` | Begin data collection | `mlops:write` |
-| `POST /ab-tests/experiments/:experimentId/analyze` | Statistical analysis (p-values, CIs, winner) | `mlops:read` |
-| `POST /ab-tests/experiments/:experimentId/stop` | Freeze data collection | `mlops:write` |
-| `DELETE /ab-tests/experiments/:experimentId` | Delete the experiment and its data | `mlops:write` |
+| `POST /ab-tests/:id/experiments` | Create (status `draft`) | `mlops:write` |
+| `GET /ab-tests/:id/experiments` | The test's experiments, a page at a time, with their latest results | `mlops:read` |
+| `POST /ab-tests/experiments/:experimentId/start` | Start (status `running`) | `mlops:write` |
+| `POST /ab-tests/experiments/:experimentId/analyze` | Analyze, and conclude when its limits are met | `mlops:read` |
+| `POST /ab-tests/experiments/:experimentId/conclude` | End a running experiment as finished | `mlops:write` |
+| `POST /ab-tests/experiments/:experimentId/stop` | Cancel it | `mlops:write` |
+| `DELETE /ab-tests/experiments/:experimentId` | Delete it and its results (the test's predictions are kept) | `mlops:write` |
+
+---
+
+## Endpoint reference
+
+| Method / path | Does | Scope |
+|---|---|---|
+| `GET /ab-tests` | List, a page at a time (`status`, `strategy`, `modelId`, `workspaceId`, `search`, `sort`) | `mlops:read` |
+| `POST /ab-tests` | Create | `mlops:write` |
+| `GET /ab-tests/:id` | Variants and their counters, strategy config, deployment | `mlops:read` |
+| `PUT /ab-tests/:id` | Update `name`, `description`, `tags` | `mlops:write` |
+| `DELETE /ab-tests/:id` | Delete (stopped first when running) | `mlops:write` |
+| `POST /ab-tests/:id/deploy` / `stop` / `start` | Start, stop, restart routing | `mlops:write` |
+| `POST /ab-tests/:id/predict` | Predict through the test | `mlops:write` |
+| `PUT /ab-tests/:id/variants/:variantId/weight` | Set a variant's weight (`weighted_random`) | `mlops:write` |
+| `PUT /ab-tests/:id/variants/:variantId/toggle` | Enable or disable a variant | `mlops:write` |
+| `GET /ab-tests/:id/metrics` | Totals, overall and per variant | `mlops:read` |
+| `GET /ab-tests/:id/traffic` | Requests, errors, latency over time | `mlops:read` |
+| `GET /ab-tests/:id/predictions` | Routed predictions, a page at a time | `mlops:read` |
+| `POST /ab-tests/predictions/:predictionId/feedback` | Record `reward` and/or `label` | `mlops:write` |
 
 ---
 
 ## Checklist
-- [ ] Variants reference real AI Gateway model `_id`s (`GET /ai/models`); never hardcode a model name.
-- [ ] Create needs `name`, `strategy`, and at least 2 variants; enabled `weight`s are 0-1 fractions that sum to 1; mark the baseline `isControl:true`.
-- [ ] `deploy`/`start`/`stop` are async: poll `GET /ab-tests/:id` for `status` and let real traffic accumulate before reading the numbers.
-- [ ] Change traffic with the variant weight route (0-1 fraction, others auto-rescaled), not `PUT /ab-tests/:id`; keep at least 2 variants enabled.
-- [ ] Compare variants from `/metrics` and `/predictions` with enough samples; do not conclude from a handful of requests.
-- [ ] For `multi_armed_bandit`, feed reward via `POST /ab-tests/predictions/:predictionId/feedback` (note: prediction id, not test id).
-- [ ] For a rigorous call, run an experiment: create, start, `analyze` (before `stop`), and wait for `minSamplePerVariant`.
-- [ ] Report real status and `error.message` on failure; do not fabricate a winner.
+- [ ] Variants serve registry models (`GET /model-registry/models`), deployed before the test deploys; never AI Gateway models.
+- [ ] Weights are 0-1 fractions; `weighted_random` weights sum to 1; keep at least 2 variants enabled.
+- [ ] `deploy` returns with the test `running` or fails with the reason; predict only through a running test.
+- [ ] Keep `prediction_id` from `predict` to record `reward` / `label`.
+- [ ] Decide winners with an experiment (`primaryMetric` required), not from raw counters; report `inconclusive` honestly.

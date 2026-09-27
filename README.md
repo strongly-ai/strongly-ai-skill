@@ -51,8 +51,10 @@ help getting work done on Strongly, whether you are:
 | Data sources: connect external DBs, warehouses, object stores | [`datasources.md`](strongly/references/datasources.md) |
 | Agents: deploy and chat with Strongly Agents | [`agents.md`](strongly/references/agents.md) |
 | Workflows: build and run node graphs, batch and streaming | [`workflows.md`](strongly/references/workflows.md) |
-| MLOps: AutoML, experiments, drift, fine-tuning, feature store | [`mlops.md`](strongly/references/mlops.md) |
+| MLOps: AutoML, experiments, fine-tuning, feature store, inference | [`mlops.md`](strongly/references/mlops.md) |
 | Model Registry: register, version, deploy models | [`model-registry.md`](strongly/references/model-registry.md) |
+| Model evaluation: prediction records, actuals, Record inputs, the model card | [`model-evaluation.md`](strongly/references/model-evaluation.md) |
+| Drift: baselines, analyses, results, schedule | [`drift.md`](strongly/references/drift.md) |
 | AI Gateway: third-party and self-hosted models, keys, guardrails | [`ai-gateway.md`](strongly/references/ai-gateway.md) |
 | Compute: workspaces, environments, clusters, volumes, code sessions | [`compute.md`](strongly/references/compute.md) |
 | Projects: project filesystem and Kanban board | [`projects.md`](strongly/references/projects.md) |
@@ -61,7 +63,7 @@ help getting work done on Strongly, whether you are:
 | Marketplace: browse and deploy offerings | [`marketplace.md`](strongly/references/marketplace.md) |
 | Library: memory, rules, prompts, tasks, skills, preferences, pools | [`library.md`](strongly/references/library.md) |
 | Imprints: installable skill + memory bundles | [`imprints.md`](strongly/references/imprints.md) |
-| A/B testing: compare model variants with live traffic | [`ab-testing.md`](strongly/references/ab-testing.md) |
+| A/B testing: compare registry models on live traffic | [`ab-testing.md`](strongly/references/ab-testing.md) |
 | Avatars: 3D, portrait, and real-time lip-sync avatars | [`avatars.md`](strongly/references/avatars.md) |
 | Account, org, and notifications | [`account.md`](strongly/references/account.md) |
 | Python SDK: the `strongly` package, the same API in Python | [`python-sdk.md`](strongly/references/python-sdk.md) |

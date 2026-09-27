@@ -121,8 +121,10 @@ Read the matching reference before doing detailed work in that area:
 | **Data sources** (connect EXTERNAL DBs/warehouses/object stores; data prep) | `references/datasources.md` | `/datasources`, `/data-forge` |
 | **Agents** (deploy & chat with Strongly Agents) | `references/agents.md` | `/agents` |
 | **Workflows** (build/run node graphs, batch + streaming) | `references/workflows.md` | `/workflows`, `/workflow-nodes`, `/executions`, `/streaming-workflows` |
-| **MLOps** (AutoML, experiments, drift, fine-tuning, feature store, inference) | `references/mlops.md` | `/automl`, `/experiments`, `/drift`, `/fine-tuning`, `/feature-store` |
+| **MLOps** (AutoML, experiments, fine-tuning, feature store, inference) | `references/mlops.md` | `/automl`, `/experiments`, `/fine-tuning`, `/feature-store` |
 | **Model registry** (register/version/deploy models) | `references/model-registry.md` | `/model-registry` |
+| **Model evaluation** for registry models (prediction records, Record inputs, actuals, the model card) | `references/model-evaluation.md` | `/model-registry/models/:id/actuals`, `/model-registry/models/:id/monitoring`, `/drift/predictions` |
+| **Drift** for registry models (baselines, analyses, results, schedule) | `references/drift.md` | `/drift`, `/model-registry/models/:id/baselines` |
 | **AI Gateway** (call 3rd-party & self-hosted models, keys, guardrails, analytics) | `references/ai-gateway.md` | `/ai/models`, `/ai/provider-keys`, `/ai/chat/completions`, `/guardrails` |
 | **Compute** (workspaces, environments, clusters, node pools, volumes, code sessions) | `references/compute.md` | `/workspaces`, `/environments`, `/compute`, `/volumes`, `/code-sessions` |
 | **Projects** (project + filesystem + Kanban board) | `references/projects.md` | `/projects`, `/board-cards` |
@@ -131,7 +133,7 @@ Read the matching reference before doing detailed work in that area:
 | **Marketplace** (browse & deploy offerings, metered usage) | `references/marketplace.md` | `/marketplace`, `/offering-usage` |
 | **Library primitives** (memory, rules, prompts, tasks, skills, preferences, pools) | `references/library.md` | `/memory`, `/rules`, `/prompts`, `/tasks`, `/skills`, `/preferences`, `/pools` |
 | **Imprints** (installable skill + memory bundles) | `references/imprints.md` | `/imprints` |
-| **A/B testing** (compare model variants with live traffic + experiments) | `references/ab-testing.md` | `/ab-tests` |
+| **A/B testing** (compare registry models on live traffic + experiments) | `references/ab-testing.md` | `/ab-tests` |
 | **Avatars** (talking avatars: 3D, portrait, real-time lip-sync) | `references/avatars.md` | `/avatars` |
 | **Account, org, notifications** (profile, members, credits, invitations, alerts) | `references/account.md` | `/users`, `/organizations`, `/notifications` |
 | Doing any of the above **in Python** (e.g. inside a workspace or a training script) | `references/python-sdk.md` | the `strongly` package (`pip install strongly-ai`) |

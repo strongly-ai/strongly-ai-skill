@@ -21,10 +21,9 @@ calls need `ai-gateway:inference`, and guardrail routes need `guardrails:read` /
 `guardrails:write`. A missing scope returns `403 scope-required`; add the scope,
 do not work around it.
 
-**See also.** To split live inference traffic across two or more of these models
-and compare them on real requests (A/B routing), put them behind an A/B router:
-`references/ab-testing.md`. To train, fine-tune, or watch a model for drift, see
-`references/mlops.md`.
+**See also.** To train or fine-tune a model, see `references/mlops.md`. A/B
+tests, drift and prediction records are for model registry models, not these
+gateway models: `references/ab-testing.md`, `references/drift.md`.
 
 ---
 
