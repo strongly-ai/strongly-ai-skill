@@ -4,7 +4,7 @@ The Strongly **AI Gateway** puts every model behind one endpoint. You register
 models (both **third-party** provider models like OpenAI or Anthropic, and
 **self-hosted** models the platform deploys on Kubernetes), store the provider
 keys, and then call any of them with the same request shape. The gateway adds
-guardrails, semantic caching, and usage/cost analytics on top.
+guardrails, semantic caching, and usage analytics (requests and tokens) on top.
 
 Read this when the task is: listing or registering models, storing/testing a
 provider API key, calling a model (chat, completions, embeddings, audio, image/
@@ -212,60 +212,66 @@ completes.
 
 ## 5. Guardrails
 
-Guardrails are content rules applied to a model's inputs and outputs (PII,
-jailbreaks, toxicity, banned topics). List the templates, apply their IDs plus
-any custom rules to a model, then enable enforcement. Test a configuration
-against sample text before turning it on.
+Guardrails are rules applied to a model's inputs and outputs: PII, data leak
+prevention, keyword filters (toxicity, prompt injection, content, profanity),
+token limits and rate limits. A model's guardrails are `enabled` plus a list of
+`rules`; each rule is `{id, template, name, enabled, priority, config}`, where
+`template` is an available id from `GET /guardrails/templates` and `config` holds
+that template's settings per direction (`input`, `output`), or the rate
+limiter's limits. A rule the gateway cannot enforce is refused with the reason.
+Dry-run the rules on sample text before saving them.
 
 ```bash
-curl -s "${auth[@]}" "$BASE/guardrails/templates" | jq '.data'                 # available template rule IDs
-curl -s "${auth[@]}" "$BASE/guardrails/models"    | jq '.data'                 # models + guardrail status
+curl -s "${auth[@]}" "$BASE/guardrails/templates" | jq '.data'   # template ids, directions, available
+curl -s "${auth[@]}" "$BASE/guardrails/models"    | jq '.data'   # models + guardrail status
 
-# Apply full desired state (both arrays required; empty array clears a list)
-curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' "$BASE/guardrails/models/$ID" \
-  -d '{"guardrail_rules":["pii-detection","jailbreak-prevention"],"custom_rules":[]}' | jq '.data'
+RULES='[{"id":"r1","template":"toxicity-filter","name":"Toxicity","enabled":true,"priority":1,
+  "config":{"input":{"enabled":true,"keywords":["idiot"],"regex_patterns":[],
+  "case_sensitive":false,"action":"block","replacement_text":""}}}]'
 
-curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/guardrails/models/$ID/toggle" \
-  -d '{"enabled":true}' | jq '.data'
-
-# Dry-run a rule set against sample text (no model call)
+# Dry-run the rules on sample text (no model call, nothing recorded)
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/guardrails/test" \
-  -d '{"model_id":"'"$ID"'","input":"my SSN is 123-45-6789","direction":"input"}' | jq '.data'
+  -d '{"model_id":"'"$ID"'","direction":"input","input":"you idiot","rules":'"$RULES"'}' | jq '.data'
+
+# Save the full desired state (enabled and rules both required)
+curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' "$BASE/guardrails/models/$ID" \
+  -d '{"enabled":true,"rules":'"$RULES"'}' | jq '.data'
+
+# What the model's guardrails did (modelId required)
+curl -s "${auth[@]}" "$BASE/guardrails/logs?modelId=$ID&limit=50" | jq '.data'
 ```
 
 | Method / path | Does | Scope |
 |---|---|---|
 | `GET /guardrails/models` | Models with guardrail status | `guardrails:read` |
 | `GET /guardrails/models/:id` | A model's guardrail config | `guardrails:read` |
-| `PUT /guardrails/models/:id` | Replace config (`guardrail_rules`, `custom_rules`, both required) | `guardrails:write` |
+| `PUT /guardrails/models/:id` | Replace the guardrails (`enabled` and `rules`, both required) | `guardrails:write` |
 | `POST /guardrails/models/:id/toggle` | Enable/disable enforcement (`enabled`) | `guardrails:write` |
 | `GET /guardrails/templates` | Built-in rule templates | `guardrails:read` |
-| `POST /guardrails/test` | Dry-run (`model_id`, `input`, optional `rules`, `direction`) | `guardrails:write` |
-| `GET /guardrails/logs` | Blocked/modified requests (`modelId`, `limit`) | `guardrails:read` |
+| `POST /guardrails/test` | Dry-run (`model_id`, `input`, `direction`, `rules`, all required) | `guardrails:write` |
+| `GET /guardrails/logs` | What a model's guardrails did, newest first (`modelId` required; `offset`, `limit`) | `guardrails:read` |
 | `GET /guardrails/statistics` | Aggregate guardrail stats | `guardrails:read` |
 
 ---
 
 ## 6. Analytics
 
-Usage, cost, and performance for the gateway. Every route accepts `dateRange`
-(for example `7d`, `30d`, `90d`; defaults to `30d`).
+Usage and performance for the gateway, in requests and tokens (no price is put
+on tokens). Every route requires `dateRange`: `24h`, `7d`, `30d` or `90d`.
 
 ```bash
-curl -s "${auth[@]}" "$BASE/ai/analytics/usage?dateRange=30d"              | jq '.data'
-curl -s "${auth[@]}" "$BASE/ai/analytics/costs?dateRange=30d&groupBy=provider" | jq '.data'
-curl -s "${auth[@]}" "$BASE/ai/analytics/performance?modelId=$ID"          | jq '.data'
-curl -s "${auth[@]}" "$BASE/ai/analytics/time-series?granularity=daily"    | jq '.data'
-curl -s "${auth[@]}" "$BASE/ai/analytics/providers?dateRange=90d"          | jq '.data'
+curl -s "${auth[@]}" "$BASE/ai/analytics/usage?dateRange=30d"                         | jq '.data'
+curl -s "${auth[@]}" "$BASE/ai/analytics/performance?dateRange=30d&modelId=$ID"       | jq '.data'
+curl -s "${auth[@]}" "$BASE/ai/analytics/time-series?dateRange=7d&granularity=daily"  | jq '.data'
+curl -s "${auth[@]}" "$BASE/ai/analytics/providers?dateRange=90d"                     | jq '.data'
 ```
 
 | Method / path | Does | Params |
 |---|---|---|
-| `GET /ai/analytics/usage` | Usage stats | `modelId`, `dateRange` |
-| `GET /ai/analytics/costs` | Cost breakdown | `dateRange`, `groupBy` |
-| `GET /ai/analytics/performance` | Latency/throughput | `modelId`, `dateRange` |
-| `GET /ai/analytics/time-series` | Time series | `dateRange`, `provider`, `granularity` |
-| `GET /ai/analytics/providers` | Per-provider stats | `dateRange` |
+| `GET /ai/analytics/usage` | The range's totals: requests, tokens, latency, error rate, users, models | `dateRange`, `modelId` |
+| `GET /ai/analytics/performance` | Latency per model (avg, min, max, p95, p99) | `dateRange`, `modelId` |
+| `GET /ai/analytics/time-series` | Requests, tokens, latency, errors per provider per period | `dateRange`, `granularity` (required: `hourly` with `24h` only, or `daily`), `provider` |
+| `GET /ai/analytics/providers` | Per-provider models, requests, tokens, latency, users | `dateRange` |
 
 All analytics routes need scope `ai-gateway:read`.
 
@@ -277,5 +283,5 @@ All analytics routes need scope `ai-gateway:read`.
 - [ ] Provider key value is sent only on `POST /ai/provider-keys`; never in a URL or log; verify with `/test`.
 - [ ] Before relying on a self-hosted model, poll `GET /ai/models/:id/status` until `active`; on-demand models cold-start on the first call.
 - [ ] Same request shape for all inference; pass the model `_id` as `model`; add `stream:true` for SSE.
-- [ ] Guardrails: apply template + custom rules with `PUT`, then `toggle` on; dry-run with `POST /guardrails/test` first.
+- [ ] Guardrails: dry-run the rules with `POST /guardrails/test`, then save `enabled` + `rules` with `PUT`.
 - [ ] Report real status and `error.message` on failure; do not fabricate a completion.

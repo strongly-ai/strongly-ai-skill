@@ -120,7 +120,7 @@ trainer writes to these automatically; you also drive them directly.
 | `GET /experiments/:id` | Get one | path `id` |
 | `PUT /experiments/:id` | Update | path `id` |
 | `DELETE /experiments/:id` | Delete | path `id` |
-| `POST /experiments/:id/pin` | Pin | path `id` |
+| `POST /experiments/:id/pin` | Pin or unpin | path `id`, `pinned` (boolean, required) |
 | `PUT /experiments/:id/tags` | Replace tags | path `id`, `tags` (array) |
 | `POST /experiments/:id/metrics` | Append metrics to the run | path `id`, `metrics` (`[{key,value,step?}]`) |
 | `POST /experiments/:id/params` | Merge params (upsert by key) | path `id`, `params` (object) |
