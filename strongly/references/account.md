@@ -29,22 +29,24 @@ admin or org-owner role; those are called out below and never assumed.
 
 ## 1. Your account (current user)
 
-The self-serve endpoints act only on the authenticated caller. `GET /users/me`
-also returns your organization context (`organization.id`, `role`,
-`isMultiTenant`, `isSolo`), which is where you read the org id used in section 2
-and 3.
+The self-serve endpoints act only on the authenticated caller. `GET /users`,
+`GET /users/me` and `GET /users/:id` answer each user as exactly `username`,
+`email` and `role` (`admin`, `developer`, `app`, or `null`), with no id or
+organization. Read your organization context (`organization.id`, `role`,
+`isMultiTenant`, `isSolo`) from `GET /auth/whoami`: that is the org id used in
+sections 2 and 3. A member's user id is in `GET /organizations/:id/members`.
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
-| GET | `/users/me` | Your profile + organization context | `users:read` |
+| GET | `/users/me` | You: `username`, `email`, `role` | `users:read` |
 | PUT | `/users/me` | Update your own profile (`name`) | `users:write` |
 | DELETE | `/users/me` | Delete your own account: revokes your API keys and login tokens, schedules data erasure | `users:write` |
-| GET | `/users` | List users visible within your organization (`search`, `active`, `archived`, `limit`, `offset`, `sortBy`, `sortOrder`) | `users:read` |
-| GET | `/users/:id` | Read another user in your organization (visibility-filtered) | `users:read` |
+| GET | `/users` | List users visible within your organization, each `username`, `email`, `role` (`search`, `active`, `archived`, `limit`, `offset`, `sortBy`, `sortOrder`) | `users:read` |
+| GET | `/users/:id` | Another user in your organization: `username`, `email`, `role` (visibility-filtered) | `users:read` |
 
 ```bash
-# Read yourself and capture the org id for later sections
-ORG_ID=$(curl -s "${auth[@]}" "$BASE/users/me" | jq -r '.data.organization.id')
+# Capture your org id for later sections
+ORG_ID=$(curl -s "${auth[@]}" "$BASE/auth/whoami" | jq -r '.data.organization.id')
 
 # Update your display name
 curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
@@ -157,7 +159,7 @@ same token is safe and just refreshes its timestamp.
 
 ## Checklist
 - [ ] Auth set per `SKILL.md` (outside Strongly: `X-API-Key`; inside: injected bearer), `$BASE` chosen to match.
-- [ ] Read yourself with `GET /users/me` first; take `organization.id` from it for the org, credit, and transaction calls.
+- [ ] Read your org with `GET /auth/whoami` first; take `organization.id` from it for the org, credit, and transaction calls.
 - [ ] Self-serve on your own record: `GET`/`PUT` `/users/me`, and `DELETE /users/me` (irreversible, caller-only).
 - [ ] Treat user create/update/archive/unarchive/reset-password as `users:admin`, acting on other users only.
 - [ ] Treat org update, member add/remove/role, and invite/cancel as `organizations:write` and org owner/admin.
