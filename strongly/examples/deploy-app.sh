@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Deploy a Strongly app from a local bundle via the REST API, then wait for it
-# to be live. (Built it in a Strongly workspace? Build from its volume instead:
-# references/apps.md section 2.) Requires: curl, jq, and a zip of your app (with a Dockerfile).
+# to be live. (Code under /volumes/ in a Strongly workspace? Build from that
+# volume instead, no zip or GitHub needed: references/apps.md section 2.)
+# Requires: curl, jq, and a zip of your app (with a Dockerfile).
 #
 #   HOST=https://app.strongly.ai \
 #   STRONGLY_API_KEY=sk-... \

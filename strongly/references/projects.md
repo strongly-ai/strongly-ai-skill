@@ -89,9 +89,10 @@ at create time:
   ```
 
   `repoUrl` is SSH form, `branch` is the branch to check out, and `sshKeyId` is an
-  SSH key **the user already registered** in their profile UI. There is no REST
-  route to create or list SSH keys, so the user must supply an existing
-  `sshKeyId`. Omit `githubConfig` entirely for the default `strongly` filesystem.
+  SSH key **the user already registered** in their profile UI (list them with
+  `GET /users/me/github-ssh-keys`; there is no REST route to create one). Omit
+  `githubConfig` entirely for the default `strongly` filesystem, which needs no
+  key and is the right choice unless the user asks for a GitHub-backed project.
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' -d '{

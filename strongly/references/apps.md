@@ -156,22 +156,28 @@ An app builds from one of three **sources**, then deploys the built image:
 
 | Source | When | How |
 |---|---|---|
-| **Volume** | You built the app in a Strongly workspace (the usual case) | `bundleSourceType: "volume"`, `bundleSource: {volumeId, folderPath?}` |
-| **GitHub** | The code is in a GitHub repository | `bundleSourceType: "github"`, `bundleSource: {repoUrl, branch, sshKeyId, subdirectory?}` |
-| **Upload** | You have a `.zip` of the source | multipart `POST /apps/upload` (below) |
+| **Volume** | The code is on a Strongly volume kept on the **Strongly filesystem** (anything under `/volumes/` in a workspace, by default) | `bundleSourceType: "volume"`, `bundleSource: {volumeId, folderPath?}` |
+| **Upload** | The code is anywhere else you can zip it (a workspace folder outside `/volumes/`, your laptop) | multipart `POST /apps/upload` (below) |
+| **GitHub** | The code is on a **GitHub-backed** volume, or the user asks to build from a GitHub repo | `bundleSourceType: "github"`, `bundleSource: {repoUrl, branch, sshKeyId, subdirectory?}` |
 
-Flow for every source: **create the app from its source (this BUILDS the image,
-asynchronously) → poll the build to `completed` → deploy → poll the pod.**
-`deploy` is refused while the build is still running. Never report success until
-the pod is running. Outside Strongly, set once:
+**Choose the source from where the code is, before anything else:**
 
-```bash
-export STRONGLY_API_KEY=sk-...            # Settings → API Keys (apps:write, apps:deploy)
-BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
-```
-
-(Inside a workspace, `BASE="$STRONGLY_API_URL/api/v1"` and no key: the
-workspace's auth-proxy signs every platform call.)
+1. **Under `/volumes/`: ask the volume, not git.** Run `pwd`. If it is inside
+   `/volumes/<scope>/<volume name>/code`, the code is on that volume. Do NOT
+   decide from `git remote -v`: a volume's code dir is always a git clone, so it
+   always shows a remote. Read the volume instead (`GET /volumes`, match the
+   name, look at `code.filesystemType`):
+   - `strongly` (the default): deploy from the **volume**. No GitHub repo, SSH
+     key or zip is involved; never ask the user to set up SSH or push to GitHub.
+   - `github`: the volume's code lives in GitHub. Deploy with the **GitHub**
+     source using that volume's own `code.repoUrl`, `code.branch` and
+     `code.sshKeyId` (the key is already registered; it is how the volume
+     clones). Push the workspace's changes first (the workspace Sync).
+2. **Not on a volume: upload a zip.** Zip the app folder and upload it. (Or, to
+   keep rebuilding from the workspace, move the code into a volume and use 1.)
+3. **A GitHub repo that is not on a volume: only when the user asks.** It needs
+   an SSH key the user ALREADY registered (`GET /users/me/github-ssh-keys`); if
+   they have none, offer 1 or 2 rather than walking them through SSH setup.
 
 ### From a workspace's volume (recommended when you built it in a workspace)
 
@@ -198,11 +204,13 @@ APP_ID=$(curl -s "${auth[@]}" -H 'Content-Type: application/json' -X POST "$BASE
 }" | jq -r '.data.appId')
 ```
 
-### From GitHub
+### From GitHub (a GitHub-backed volume, or a repo the user names)
 
 ```bash
-# The build clones the repo with one of your GitHub SSH keys (add keys in your
-# profile settings; list them here). repoUrl must be the SSH form.
+# The build clones the repo with one of the user's GitHub SSH keys (registered in
+# their profile settings; listed here). repoUrl must be the SSH form. For a
+# GitHub-backed volume use the volume's own code.repoUrl, code.branch and
+# code.sshKeyId. A repo with no key listed: deploy from a volume or a zip instead.
 SSH_KEY_ID=$(curl -s "${auth[@]}" "$BASE/users/me/github-ssh-keys" | jq -r '.data[0]._id')
 APP_ID=$(curl -s "${auth[@]}" -H 'Content-Type: application/json' -X POST "$BASE/apps" -d "{
   \"name\": \"my-app\", \"cpu\": \"0.5\", \"memory\": \"1GB\",
