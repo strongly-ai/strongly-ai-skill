@@ -292,6 +292,38 @@ curl -s "${auth[@]}" "$BASE/apps/$APP_ID/analytics/users?range=30d&sort=-minutes
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID?include=analytics&range=30d"  # detail with the summary
 ```
 
+### Charging for access (the owner's own Stripe account)
+
+An app with branded sign-in can sell access with the owner's OWN Stripe keys
+(no platform fee; nothing goes through Strongly). This is NOT Strongly billing:
+it is unrelated to the Strongly subscription, credits or FinOps, and nothing
+here touches them. Plans are recurring Stripe
+prices; a plan is `individual` (one person pays for themself) or `team` (one
+payer pays per seat and invites members, who pay nothing).
+
+```bash
+# Keys (stored encrypted, never readable back) and settings; the owner registers
+# data.paidAccess.webhookUrl in their Stripe dashboard and pastes its signing secret.
+curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/paid-access" -d '{
+  "stripeSecretKey": "sk_live_...", "stripeWebhookSecret": "whsec_...", "graceDays": 3 }'
+curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/paid-access/plans/pro" \
+  -d '{ "name": "Pro", "kind": "individual", "stripePriceId": "price_...", "trialDays": 14 }'
+curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/paid-access/plans/team" \
+  -d '{ "name": "Team", "kind": "team", "stripePriceId": "price_...", "minSeats": 2 }'
+curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/paid-access" -d '{ "enabled": true }'
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/paid-access"                         # settings (key masked) and plans
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/paid-access/subscriptions?status=active"  # payer, plan, status, seats
+```
+
+Users of the app pick a plan at `<platform>/<slug>/plans` (Stripe Checkout)
+and manage it at `<platform>/<slug>/billing` (Stripe Customer Portal; a team
+payer also runs seats, members and invites there). The proxy serves a user
+while a subscription covers them; the owner, collaborators, app admins and
+platform admins never need one. Inside the app, link to `_strongly/billing`
+and `_strongly/plans` (`target="_top"`). A covered user's token carries
+`user.plan` `{ id, kind, status }`: gate features on it, never on anything
+the client sends.
+
 **Sign-out inside a home app.** A home app fills the screen with no platform
 chrome, so the app links its own sign-out: `<a href="_strongly/sign-out"
 target="_top">Sign out</a>` (relative to the app's root; `target="_top"` so the
