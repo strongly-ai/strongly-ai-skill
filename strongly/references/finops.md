@@ -10,6 +10,14 @@ Read this when the task is: reporting spend or trends, finding cost drivers or
 anomalies, checking savings, listing budgets, organizing resources into groups
 for cost rollups, or scheduling resources to stop and start on a timetable.
 
+**Who usage belongs to.** Every workload's cost and usage belong to the user who
+deployed it, whoever uses or triggers it: a deployed workflow's runs are its
+deployer's, a draft run the user who ran it, an app's usage its deployer's (its
+end users are never charged), a workspace its owner's, a job its launcher's, an
+agent its starter's. Calls a workload makes to a model, add-on, MCP server or
+agent that another member set up count to the calling workload's deployer, not
+to the resource's owner. Budgets, credits and every figure here use this rule.
+
 **Auth** follows `SKILL.md`. Outside Strongly send `X-API-Key` to `$HOST/api/v1`;
 inside Strongly the base is `$STRONGLY_API_URL/api/v1` and the bearer is
 auto-injected. Below, `$BASE` is whichever applies. Set once (outside Strongly):
