@@ -261,6 +261,45 @@ Lifecycle: `GET /apps` · `GET/PUT /apps/:id` · `PUT /apps/:id/env` ·
 `PUT /apps/:id/permissions` · `POST /apps/:id/start|stop|restart` ·
 `GET /apps/:id/logs` · `GET /apps/:id/metrics` · `DELETE /apps/:id`.
 
+### Branded sign-in, the app's own users, and usage
+
+An app can have its own public sign-in, sign-up, forgot-password and sign-out
+pages at `<platform>/<slug>/`, with its logo and name, for a customer's or a
+team's own users. Anyone who signs up there becomes an **app user** whose home
+app is this app (they land in it full screen, never in the platform) and is
+listed in the app's permissions.
+
+```bash
+# Turn it on (only the fields sent change; enabling also enables Home App).
+# access: "instant" (usable at once; email verification when mail is set up)
+# or "approval" (an app admin activates each account).
+curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/auth" -d '{
+  "enabled": true, "slug": "client-portal", "signupEnabled": true,
+  "access": "approval", "allowedDomains": ["example.com"] }'
+# -> data.auth.pages = { signIn, signUp, forgotPassword, signOut }; share signIn.
+# GET /apps/:id returns the same under data.auth (logo omitted; hasLogo).
+
+# The app's users: status active | pending (waiting for approval) | archived
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/auth/users?status=pending&search=&sort=-createdAt&limit=50"
+curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/auth/users/$USER_ID/activate"       # approve / re-enable
+curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/auth/users/$USER_ID/deactivate"     # signed out, cannot sign in
+curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/auth/users/$USER_ID/password-reset" # emails the branded reset link
+curl -s -X DELETE "${auth[@]}" "$BASE/apps/$APP_ID/auth/users/$USER_ID"              # off the app; account kept
+
+# Usage (the platform's own count of proxied requests; range 7d | 30d | 90d)
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/analytics?range=30d"          # summary, per day, session lengths, starts by weekday/hour
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/analytics/users?range=30d&sort=-minutes&limit=50"  # who used it: sessions, minutes, requests, lastSeen
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID?include=analytics&range=30d"  # detail with the summary
+```
+
+**Sign-out inside a home app.** A home app fills the screen with no platform
+chrome, so the app links its own sign-out: `<a href="_strongly/sign-out"
+target="_top">Sign out</a>` (relative to the app's root; `target="_top"` so the
+whole page navigates, not the frame). It ends the session, clears the cookie and
+lands on the app's branded sign-in page. From script: `POST` the same address,
+then set `window.top.location.href` to the `redirect` it answers. The page
+`auth.pages.signOut` does the same from a plain link.
+
 ---
 
 ## 3. Identity
