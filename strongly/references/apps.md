@@ -294,6 +294,8 @@ curl -s "${auth[@]}" "$BASE/apps/$APP_ID?include=analytics&range=30d"  # detail 
 
 ### Charging for access (the owner's own Stripe account)
 
+**Needs the Stripe App Payments plugin.** Paid access exists only while the Stripe App Payments marketplace plugin is installed and on for the organization (`POST /plugins/stripe-app-payments/install`, admin; in multi-tenant an organization developer). Without it every paid-access endpoint answers `409 plugin-not-installed` and the Auth tab shows no Paid access card. The plugin refuses to be disabled while any app still charges.
+
 An app with branded sign-in can sell access with the owner's OWN Stripe keys
 (no platform fee; nothing goes through Strongly). This is NOT Strongly billing:
 it is unrelated to the Strongly subscription, credits or FinOps, and nothing
