@@ -199,6 +199,15 @@ commits and pushes each code half to the volume's configured branch and records
 the changed data files as new versions. Sync before deleting a workspace, handing
 work off, or deploying an app from the volume.
 
+**Sync conflicts (as on GitHub).** If the volume's code changed on the same lines
+since the workspace's last sync, that volume's sync result is `code.conflict: true`
+with `code.files`: nothing is overwritten; the merge waits for a decision. Per file,
+`POST /workspaces/:id/sync/resolve {volumeId, path, take: "mine"|"theirs"}`, or
+merge it by hand in the clone (remove the conflict markers); `GET
+/workspaces/:id/sync/conflicts` lists what is left. Then sync again to finish the
+merge, or `POST /workspaces/:id/sync/abort {volumeId}` to cancel it. Ask the user
+which version to keep; never pick for them.
+
 **Job runs and apps.** Nobody Syncs a job run or an app, and both use volumes the
 same way: `code/` is mounted read-only (the code as last synced; writing there
 fails), `data/` opens at its latest version, read and write, and every file
