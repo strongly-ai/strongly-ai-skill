@@ -98,10 +98,12 @@ ObjectIds; pass them in the path (`/api/v1/apps/<id>`).
 If the task involves **apps**, three platform mechanics matter. Full detail is in
 `references/apps.md`; the essentials:
 
-- **The Strongly proxy.** Deployed apps are reached only through the platform
-  proxy at a relative base path given by the `STRONGLY_URL` env var, never a
-  bare port. Apps must serve from that base path (this is the usual cause of a
-  blank React screen). The proxy is also the trust boundary.
+- **The Strongly proxy.** Apps are reached only through a platform proxy at a
+  relative base path, never a bare port: `/api/proxy/<app>/` deployed,
+  `/api/workspace-proxy/<workspace>/port/<port>/` while running in a workspace.
+  The proxy strips that prefix and sends it as `X-Forwarded-Prefix`; apps build
+  every URL from it (this is the usual cause of a blank React screen) and listen
+  on `PORT`, else 3000. The proxy is also the trust boundary.
 - **Identity via one header.** The proxy injects the signed-in user as a JWT in
   `X-Strongly-User-Token` (and convenience `X-Strongly-User-*` headers). Apps
   **decode** it (they never see the signing secret) to know who the user is, with

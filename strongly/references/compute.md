@@ -56,7 +56,7 @@ disk 20GB).
 | `GET /workspaces/:id/status` | `workspaces:read` | Live status (poll this until running). |
 | `GET /workspaces/:id/metrics` | `workspaces:read` | CPU / memory usage. |
 | `GET /workspaces/:id/logs` | `workspaces:read` | Container logs. `type` is `build`, `deploy`, or `pod` (default `pod`). |
-| `POST /workspaces/:id/sync` | `workspaces:write` | Flush every attached volume to durable storage: commit + push each code half (git) and commit the writable data changes as a new version. A workspace is ephemeral, so sync before you stop or delete it (section 5). |
+| `POST /workspaces/:id/sync` | `workspaces:write` | Save every mounted volume to durable storage: commit and push each code half to the volume's configured branch, and record the changed data files as new versions. Stop/start/restart keep unsynced work; only delete loses it. Sync to make work durable, visible to others, and buildable (an app builds from synced code) (section 5). |
 
 Optional wiring on `POST /workspaces` (all optional): `projectId` (clones the
 project files to `/project` and mounts its volumes; see `references/projects.md`),
@@ -178,19 +178,26 @@ A volume's **scope** is `local` (belongs to one project, pass `projectId`) or
 `shared` (org-wide, usable across projects). Names are unique within an org and
 scope.
 
-**Mount.** Attach a volume to a workspace and, on the workspace's next start, it
-mounts at `/volumes/<scope>/<name>/code` and `/volumes/<scope>/<name>/data`
-(e.g. `/volumes/local/my-vol/code`, `/volumes/shared/datasets/data`).
+**Mount.** Mounting is automatic, there is no attach step: each time a workspace
+(or job run) starts it mounts its project's volume at `/volumes/local/<name>` and
+every shared volume the user can use at `/volumes/shared/<name>`, each as
+`code/` and `data/` (e.g. `/volumes/local/my-proj/code`,
+`/volumes/shared/datasets/data`). A volume newly shared with the user mounts from
+the next start. `data/` mounts at its latest version. Another project's unshared
+volume never mounts.
 
 **Sync.** The code half is plain git: in the workspace terminal `git commit`,
 `git push`, and `git pull` work with no credential prompt (the platform
 authenticates you). For a `github` volume this syncs to the external GitHub repo.
-The data half versions per file: writing or overwriting a file commits a new
-version of just that file. A workspace is ephemeral compute, so edits under a
-mounted volume are lost on stop or delete unless synced to the durable volume. To
-flush everything at once, `POST /workspaces/:id/sync` (section 1) commits and
-pushes each attached code half and commits the writable data changes as a new
-version; sync before you end work or stop the workspace.
+The data half versions per file: on sync, each file written or overwritten gets a
+new version of just that file. Unsynced work (code edits, local commits, data
+writes) survives stop, start and restart; only **deleting** the workspace loses
+it. Until synced it is also not on the durable volume, not visible to anyone
+else, not versioned, and not what an app deploy builds from. `POST
+/workspaces/:id/sync` (section 1) does both halves for every mounted volume:
+commits and pushes each code half to the volume's configured branch and records
+the changed data files as new versions. Sync before deleting a workspace, handing
+work off, or deploying an app from the volume.
 
 **Share.** Share a volume (read or write) through the unified sharing model and both
 halves follow the share. It works across organizations: a sharee in another org can
@@ -212,8 +219,7 @@ specific version's bytes, write or upload a file as a new version, and delete
 | `GET /volumes/:id/data/files/content` | `volumes:read` | Download a file's bytes, base64-encoded. Query `path`, optional `version` (default latest). |
 | `POST /volumes/:id/data/files` | `volumes:write` | Write a file as a new version. Body `path`, plus `content` (text) or `contentBase64` (binary), optional `message`. |
 | `DELETE /volumes/:id/data/files` | `volumes:write` | Delete (tombstone) a file. Query `path`, optional `message`. |
-| `POST /volumes/:id/attach` | `volumes:write` | Attach to a workspace: `workspaceId`, optional `dataVersion` (pins the data half to that version, default latest). Mounts on the workspace's next start. |
-| `POST /volumes/:id/detach` | `volumes:write` | Detach from a workspace: `workspaceId`. |
+| `GET /projects/:id/volumes` | `projects:read` | The volumes that belong to a project (its project volume). |
 | `DELETE /volumes/:id` | `volumes:write` | Delete. |
 
 ```bash
@@ -223,9 +229,8 @@ VOL=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
        "code":{"filesystemType":"strongly"}}' \
   "$BASE/volumes" | jq -r '.data._id')
 
-# Attach it to a workspace; it mounts at /volumes/shared/datasets/{code,data} on next start.
-curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"workspaceId":"'"$WS"'"}' "$BASE/volumes/$VOL/attach"
+# Nothing to attach: it mounts at /volumes/shared/datasets/{code,data} the next
+# time any workspace of yours (or of anyone it is shared with) starts.
 
 # List the data-half files, each with its own head version.
 curl -s "${auth[@]}" "$BASE/volumes/$VOL/data/files" | jq '.data'
@@ -307,7 +312,7 @@ The cleanest path is to declare the addon id when you build, so the first deploy
 already has it and there is no second round trip: for a bundle you build yourself,
 `POST $BASE/apps/upload` with `metadata={"addons":["<id>"]}` (`references/apps.md`
 section 4); for a marketplace-style app whose users pick the database in the deploy
-wizard, declare it in `deploy.json` `addons[]` (`references/apps.md` section 6). The
+wizard, declare it in `deploy.json` `addons[]` (`references/marketplace.md` section 8). The
 code-session `deploy` builds from code alone and takes no addon list, which is why a
 DB attached to a session-deployed app needs the connect-then-redeploy step above.
 

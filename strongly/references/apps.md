@@ -50,15 +50,27 @@ todo app"), ask the database/access questions before you start, not after.
 
 ## 1. Serve correctly behind the proxy  ← get this right first
 
-Deployed apps are reached **only** through the platform proxy at a relative base
-path, e.g. `/api/proxy/app-xyz123/`. The app is never on a bare origin. Two facts
-drive everything:
+An app is reached **only** through a platform proxy at a relative base path,
+never on a bare origin, in both places it runs:
+
+| Where | Base path |
+|---|---|
+| Deployed (Apps) | `/api/proxy/<app id>/` |
+| Running in a workspace while you build it | `/api/workspace-proxy/<workspace id>/port/<port>/` |
+
+Two facts drive everything, the same in both:
 
 - The proxy **strips its prefix** before the request reaches your app: the
   browser asks for `/api/proxy/app-xyz/assets/x.js`, your app receives
   `/assets/x.js`.
-- The platform sets **`STRONGLY_URL`** = that prefix (e.g. `/api/proxy/app-xyz`),
-  plus `STRONGLY_HOST` and `STRONGLY_APP_ID`.
+- The proxy sends the prefix it stripped as the **`X-Forwarded-Prefix`** request
+  header (e.g. `/api/proxy/app-xyz`). Build every URL from it, per request; then
+  the same build works deployed and in the workspace. (A deployed app also gets
+  `STRONGLY_URL`, `STRONGLY_HOST` and `STRONGLY_APP_ID` env vars; a workspace
+  sets none of them, so don't depend on them for paths.)
+- Listen on **`PORT`**, else 3000: a deployed app gets `PORT` from the platform;
+  in a workspace 8080 is taken by VS Code, so run on 3000 (or another free port)
+  and open `<workspace URL>/port/3000/`.
 
 The failure everyone hits: a SPA built for `/` emits root-absolute asset URLs
 (`/assets/x.js`), which under the proxy prefix resolve wrong → **blank page, or
@@ -83,7 +95,8 @@ source of truth for the router basename, API base, and any link prefix:
 
 ```ts
 // runtimeBase.ts  (from kanban, copy it)
-const PROXY_PREFIX = /^(\/api\/proxy\/[^/]+)/;
+// Deployed: /api/proxy/<app>. In a workspace: /api/workspace-proxy/<ws>/port/<n>.
+const PROXY_PREFIX = /^(\/api\/proxy\/[^/]+|\/api\/workspace-proxy\/[^/]+\/port\/\d+)/;
 export const getRuntimeBase = (p = location.pathname) => (p.match(PROXY_PREFIX)?.[1] ?? '');
 export const getBasename = (p = location.pathname) => getRuntimeBase(p) || '/';   // router
 export const getApiBase  = (p = location.pathname) => `${getRuntimeBase(p)}/api`; // fetch base
@@ -91,7 +104,8 @@ export const getApiBase  = (p = location.pathname) => `${getRuntimeBase(p)}/api`
 
 ```tsx
 <BrowserRouter basename={getBasename()}>…</BrowserRouter>
-// fetch(`${getApiBase()}/boards`)  ->  /api/proxy/app-xyz/api/boards behind the proxy, /api locally
+// fetch(`${getApiBase()}/boards`)  ->  /api/proxy/app-xyz/api/boards deployed,
+//   /api/workspace-proxy/ws-1/port/3000/api/boards in a workspace, /api with no proxy
 ```
 
 ### 1c. Server: serve assets, require the prefix, don't hand HTML to the module loader
@@ -101,15 +115,15 @@ The single-container pattern (kanban `Dockerfile`): `vite build` → copy `dist`
 
 ```js
 // Static BEFORE auth (assets must not require a login). Proxy already stripped
-// the prefix, so serve at /assets, not /${STRONGLY_URL}/assets.
+// the prefix, so serve at /assets, not /<prefix>/assets.
 app.use('/assets', express.static(path.join(pub, 'assets'), { maxAge: '1d', etag: true }));
 app.use(express.static(pub, { index: false }));           // favicon, etc.
 app.use('/api', apiLimiter, authMiddleware, apiRouter);   // API auth AFTER static
 
-// STRONGLY_URL is ALWAYS set by the platform. If it's missing, FAIL LOUD, do not
-// default to '' (that ships a silently broken UI with wrong asset paths).
-if (!process.env.STRONGLY_URL) { console.error('FATAL: STRONGLY_URL not set'); process.exit(1); }
-const base = process.env.STRONGLY_URL;
+// The prefix the proxy stripped, per request: /api/proxy/<app> deployed,
+// /api/workspace-proxy/<ws>/port/<n> in a workspace. With no proxy in front
+// (curl on the pod) there is no prefix.
+const prefixOf = (req) => (req.get('X-Forwarded-Prefix') || '').replace(/\/$/, '');
 
 // A static-looking path that reaches the SPA fallback does NOT exist on disk.
 // Returning index.html (HTML) for a `.js` request is what makes the browser throw
@@ -125,9 +139,9 @@ app.get('*', (req, res, next) =>
 // NEVER cache the shell (it names hashed chunks; a cached shell + new build = the
 // stale-shell error above). The hashed chunks themselves stay immutably cached.
 app.get('*', (req, res) => {
+  const base = prefixOf(req);
   let html = fs.readFileSync(path.join(pub, 'index.html'), 'utf8');
-  const cfg = JSON.stringify({ STRONGLY_URL: base, STRONGLY_HOST: process.env.STRONGLY_HOST || '',
-                               STRONGLY_APP_ID: process.env.STRONGLY_APP_ID || '', API_URL: '/api' })
+  const cfg = JSON.stringify({ BASE_PATH: base, API_URL: '/api' })
                    .replace(/</g, '\\u003c');
   html = html
     .replace('</head>', `<script>window.__RUNTIME_CONFIG__=${cfg}</script></head>`)
@@ -138,12 +152,17 @@ app.get('*', (req, res) => {
 });
 ```
 
-Always expose `GET /health → 200`.
+Always expose `GET /health → 200`, and listen on `PORT`, else 3000:
+
+```js
+app.listen(Number(process.env.PORT || 3000), '0.0.0.0');
+```
 
 ### 1c checklist (why each line exists)
 - `base: './'` → assets are relative, not root-absolute.
 - Static served at `/assets`, **before** auth → CSS/JS load without a login.
-- `STRONGLY_URL` required, fail loud → no silently-broken UI.
+- Prefix from `X-Forwarded-Prefix` per request → the same build works deployed and in a workspace.
+- `PORT`, else 3000 → 8080 is VS Code's in a workspace.
 - 404 static-looking paths in the fallback → kills "module script failed".
 - `<base href>` + asset rewrite → every relative URL resolves under the prefix.
 - `Cache-Control: no-store` on the shell → no stale-shell after redeploy.
@@ -471,90 +490,62 @@ Also: `GET /artifacts` (gallery), `/artifacts/:id/versions` + `/restore`,
 
 ---
 
-## 6. The Strongly manifest (`deploy.json`)
+## 6. The manifest (`strongly.manifest.yaml`)
 
-`deploy.json` at the **bundle root** is the app's manifest. It declares the deploy
-wizard the platform shows the user and what to provision; the provisioned
-connections come back to the running app via `STRONGLY_SERVICES` (§4). Required
-for a marketplace offering; optional for a one-off app (which just needs a
-`Dockerfile` + the REST calls in §2, and gets default resources).
+An app's **`strongly.manifest.yaml`** sits in its root (next to its `Dockerfile`,
+or in the `folderPath` you deploy from). Write one: it sets the type, port and
+health check explicitly (without one the build guesses the type from the files).
+The build refuses a manifest with an invalid field, naming it. `type` is one of
+`react`, `nodejs`, `static`, `fullstack`, `flask`, `rshiny`, `mcp_server` or
+`custom`; any other value (`app`, for one) fails the build:
 
-Full structure, grounded in the working **kanban** manifest:
+```yaml
+# strongly.manifest.yaml
+version: "1.0"
+type: nodejs            # react | nodejs | static | fullstack | flask | rshiny | mcp_server | custom
+name: kanban
+description: Project board with real-time collaboration
 
-```json
-{
-  "name": "kanban",
-  "displayName": "Kanban",
-  "version": "1.0.1",
-  "type": "app",
-  "description": "Project management board with real-time collaboration",
+ports:
+  - port: 3000          # the Service port; the app listens on $PORT (below)
+    name: http
 
-  "steps": [
-    { "id": "permissions", "title": "Access Control", "required": true },
-    { "id": "resources",   "title": "App Resources",  "required": true },
-    { "id": "addons",      "title": "Database",       "required": true }
-  ],
+env:
+  - name: NODE_ENV
+    value: production
 
-  "permissions": {
-    "allowPublic": true, "allowUserSelection": true, "defaultPublic": false
-  },
-
-  "resources": {
-    "defaults": { "cpu": "0.5", "memory": "1GB", "disk": "5GB", "instances": 1 },
-    "options":  { "cpu": ["0.5","1","2"], "memory": ["1GB","2GB","4GB"],
-                  "disk": ["5GB","10GB","20GB"], "instances": [1,2,3] }
-  },
-
-  "addons": [
-    {
-      "id": "mongodb", "type": "mongodb", "required": true,
-      "label": "Board Database", "allowExisting": true,
-      "defaults": { "cpu": "0.5", "memory": "1GB", "disk": "10GB", "replicas": 1 },
-      "options":  { "cpu": ["0.5","1","2"], "memory": ["1GB","2GB","4GB"], "disk": ["10GB","25GB","50GB"] },
-      "backupConfig": { "configurable": true, "defaultEnabled": true,
-                        "defaultSchedule": "daily", "defaultRetention": 7,
-                        "scheduleOptions": ["hourly","daily","weekly"] }
-    }
-  ],
-
-  "aiGateway": { "required": false },
-
-  "environmentVariables": {
-    "configurable": false,
-    "defaults": { "NODE_ENV": "production" }
-  },
-
-  "healthCheck": { "path": "/health", "port": 8080, "initialDelay": 30,
-                   "period": 30, "timeout": 10, "failureThreshold": 3 }
-}
+health_check:
+  path: /health
+  initial_delay: 15
+  period: 30
 ```
-
-Field reference:
 
 | Key | Purpose |
 |---|---|
-| `name` / `displayName` / `version` / `type` / `description` | Identity. `type` is `"app"`. |
-| `steps[]` | The deploy-wizard steps shown to the user (`id` ∈ `permissions`, `resources`, `addons`, `ml-models`, `ai-models`), each `required` or not. |
-| `permissions` | `allowPublic`, `allowUserSelection`, `defaultPublic`, who can reach the app. |
-| `resources` | `defaults` + selectable `options` for `cpu`, `memory`, `disk`, `instances`. |
-| `addons[]` | Managed stores to provision: `id` (this becomes the `configId` you match in `STRONGLY_SERVICES`), `type`, `required`, `allowExisting`, `internal` (hide from users), `defaults`/`options`, `backupConfig`. |
-| `aiGateway` | `{ required, minModels, maxModels, supportedProviders }`, AI models the app can use. |
-| `models[]` | ML models to deploy alongside the app (`artifact`, `framework`, `inference.endpoint`). |
-| `environmentVariables` | `{ configurable, defaults }`, non-secret config injected as env vars. |
-| `healthCheck` | `{ path, port, initialDelay, period, timeout, failureThreshold }`, the readiness path (serve it, see §1). |
-| `seedData` | Optional one-time init script run on deploy. |
+| `version` / `type` / `name` / `description` | Identity; `type` from the list above. |
+| `ports[]` | `port`, `name`, `expose`. The container always listens on the platform's internal port, which it gets as `PORT`: bind `PORT`, never a fixed number. |
+| `env[]` | `name`, `value`, `required`, `secret` (stored as a secret), `buildtime` (a build arg), `description`. |
+| `runtime` | `command`, `working_dir`, `health_check_path`, `startup_timeout`. |
+| `health_check` | `path`, `initial_delay`, `period`, `timeout`, `failure_threshold`: the readiness probe (serve it, §1). |
+| `resources` | `cpu_request`, `memory_request`, `cpu_limit`, `memory_limit`, `gpu`. |
+| `proxy` | `websocket`, `timeout`. |
 
-The manifest and the REST deploy work together: your **bundle** (`Dockerfile` +
-source + `deploy.json`) is what you upload in §2. `deploy.json` declares what the
-platform provisions; the app reads those provisioned connections at runtime from
-`STRONGLY_SERVICES`. `addons[].id` in the manifest is the `configId` you match on
-in code, keep them in sync.
+What the app is connected to (addons, data sources, AI models, workflows) is set
+on the app (§2, §4), not in this file; the running app reads the connections from
+`STRONGLY_SERVICES`.
+
+**Marketplace offerings only:** an offering also ships a `deploy.json`, the
+deploy **wizard** the marketplace shows (its steps, resource options, and the
+addons it provisions, whose `addons[].id` becomes the `configId` you match in
+`STRONGLY_SERVICES`). See `references/marketplace.md`. A one-off app never needs
+one; `strongly.manifest.yaml` is the file the build reads.
 
 ---
 
 ## Checklist
 - [ ] Vite `base: './'`; client base derived from the URL (no `import.meta.env.BASE_URL`).
-- [ ] Server: static `/assets` before auth; `STRONGLY_URL` required (fail loud); 404 static-looking paths in the SPA fallback; `<base href>` + asset rewrite; `Cache-Control: no-store` on the shell.
+- [ ] `strongly.manifest.yaml` in the app root with a `type` the builder accepts.
+- [ ] Server: listen on `PORT`, else 3000; base from `X-Forwarded-Prefix` per request; static `/assets` before auth; 404 static-looking paths in the SPA fallback; `<base href>` + asset rewrite; `Cache-Control: no-store` on the shell.
 - [ ] `GET /health → 200`.
 - [ ] Identity by reading `X-Strongly-User-Token` **or** `Authorization: Bearer`; verify-if-secret-else-decode; no invented user.
 - [ ] Services from `STRONGLY_SERVICES`, matched on `configId`, internal addons hidden.

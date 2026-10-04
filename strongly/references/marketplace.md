@@ -50,7 +50,7 @@ curl -s "${auth[@]}" "$BASE/marketplace/items/$ITEM_ID" | jq '.data'
 Before deploying, inspect the offering:
 
 ```bash
-# The deploy.json the offering ships (the deploy wizard it declares, see references/apps.md §6)
+# The deploy.json the offering ships (the deploy wizard it declares, see section 8)
 curl -s "${auth[@]}" "$BASE/marketplace/items/$ITEM_ID/deploy-config" | jq '.data'
 
 # License text, and reviews
@@ -174,11 +174,12 @@ curl -s -X POST "${auth[@]}" "$BASE/marketplace/deployments/$ITEM_ID/clear-progr
 
 When `status` is `complete`, the full deployment payload's `result.appId` is the
 new app. From there it behaves like any Strongly app: it is served behind the
-proxy at `STRONGLY_URL`, reads the signed-in user from a JWT, and gets wired
-connections via `STRONGLY_SERVICES`. Manage it (status, logs, env, start/stop,
-versions) with the `/apps` routes, and follow the proxy/asset, identity, and
-`deploy.json` guidance in **`references/apps.md`** (that is where the manifest
-you saw in `deploy-config` and the proxy behavior are documented in full).
+proxy (its prefix arrives as `X-Forwarded-Prefix`), reads the signed-in user from
+a JWT, and gets wired connections via `STRONGLY_SERVICES`. Manage it (status,
+logs, env, start/stop, versions) with the `/apps` routes, and follow the
+proxy/asset, identity and manifest guidance in **`references/apps.md`** (the
+build reads `strongly.manifest.yaml`; `deploy.json` is the deploy wizard you saw
+in `deploy-config`).
 
 ---
 
@@ -281,6 +282,80 @@ Creating/editing catalog listings is `marketplace:admin`. Create requires
 | POST | `/marketplace/items` | `marketplace:admin` | Create a listing |
 | PUT | `/marketplace/items/:id` | `marketplace:admin` | Update a listing |
 | DELETE | `/marketplace/items/:id` | `marketplace:admin` | Delete a listing |
+
+---
+
+## 8. An offering's deploy wizard (`deploy.json`)
+
+A marketplace offering ships a `deploy.json` beside its code: the deploy **wizard**
+the marketplace shows (its steps, who can reach the app, resource choices, the
+addons and AI models it provisions). It is NOT the build manifest: the app itself
+builds from `strongly.manifest.yaml` like any app (`references/apps.md` section 6).
+`addons[].id` becomes the `configId` the running app matches in
+`STRONGLY_SERVICES`. Grounded in the working **kanban** offering:
+
+```json
+{
+  "name": "kanban",
+  "displayName": "Kanban",
+  "version": "1.0.1",
+  "type": "app",
+  "description": "Project management board with real-time collaboration",
+
+  "steps": [
+    { "id": "permissions", "title": "Access Control", "required": true },
+    { "id": "resources",   "title": "App Resources",  "required": true },
+    { "id": "addons",      "title": "Database",       "required": true }
+  ],
+
+  "permissions": {
+    "allowPublic": true, "allowUserSelection": true, "defaultPublic": false
+  },
+
+  "resources": {
+    "defaults": { "cpu": "0.5", "memory": "1GB", "disk": "5GB", "instances": 1 },
+    "options":  { "cpu": ["0.5","1","2"], "memory": ["1GB","2GB","4GB"],
+                  "disk": ["5GB","10GB","20GB"], "instances": [1,2,3] }
+  },
+
+  "addons": [
+    {
+      "id": "mongodb", "type": "mongodb", "required": true,
+      "label": "Board Database", "allowExisting": true,
+      "defaults": { "cpu": "0.5", "memory": "1GB", "disk": "10GB", "replicas": 1 },
+      "options":  { "cpu": ["0.5","1","2"], "memory": ["1GB","2GB","4GB"], "disk": ["10GB","25GB","50GB"] },
+      "backupConfig": { "configurable": true, "defaultEnabled": true,
+                        "defaultSchedule": "daily", "defaultRetention": 7,
+                        "scheduleOptions": ["hourly","daily","weekly"] }
+    }
+  ],
+
+  "aiGateway": { "required": false },
+
+  "environmentVariables": {
+    "configurable": false,
+    "defaults": { "NODE_ENV": "production" }
+  },
+
+  "healthCheck": { "path": "/health", "port": 8080, "initialDelay": 30,
+                   "period": 30, "timeout": 10, "failureThreshold": 3 }
+}
+```
+
+Field reference:
+
+| Key | Purpose |
+|---|---|
+| `name` / `displayName` / `version` / `type` / `description` | Identity of the offering in the marketplace (`type` `"app"` here is the offering kind, not the build type; the build type is `strongly.manifest.yaml`'s). |
+| `steps[]` | The deploy-wizard steps shown to the user (`id` ∈ `permissions`, `resources`, `addons`, `ml-models`, `ai-models`), each `required` or not. |
+| `permissions` | `allowPublic`, `allowUserSelection`, `defaultPublic`, who can reach the app. |
+| `resources` | `defaults` + selectable `options` for `cpu`, `memory`, `disk`, `instances`. |
+| `addons[]` | Managed stores to provision: `id` (this becomes the `configId` you match in `STRONGLY_SERVICES`), `type`, `required`, `allowExisting`, `internal` (hide from users), `defaults`/`options`, `backupConfig`. |
+| `aiGateway` | `{ required, minModels, maxModels, supportedProviders }`, AI models the app can use. |
+| `models[]` | ML models to deploy alongside the app (`artifact`, `framework`, `inference.endpoint`). |
+| `environmentVariables` | `{ configurable, defaults }`, non-secret config injected as env vars. |
+| `healthCheck` | `{ path, port, initialDelay, period, timeout, failureThreshold }`, the readiness path (serve it, see §1). |
+| `seedData` | Optional one-time init script run on deploy. |
 
 ---
 

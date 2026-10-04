@@ -2,13 +2,13 @@
 
 A Strongly **project** is the container that groups a piece of work: its
 **filesystem** (either a platform-managed data volume or a GitHub repo), the
-**workspaces** launched against that filesystem, the **data volumes** attached to
-it, its **collaborators**, and one built-in **Kanban board**. Workspaces, ML jobs,
+**workspaces** launched against that filesystem, its **project volume**, its
+**collaborators**, and one built-in **Kanban board**. Workspaces, ML jobs,
 and other compute run *inside* a project and read/write the project filesystem.
 
 Read this when the task is: creating/listing/updating projects, choosing the
-project filesystem (a Strongly data volume vs a GitHub repo), attaching or
-detaching data volumes, listing the workspaces in a project, managing
+project filesystem (a Strongly data volume vs a GitHub repo), listing a
+project's volume and workspaces, managing
 collaborators, or driving the project's Kanban board (columns, labels, cards,
 archive).
 
@@ -113,27 +113,23 @@ provision and launch them via the compute API, see **`references/compute.md`**.
 curl -s "${auth[@]}" "$BASE/projects/$PID/workspaces?limit=20" | jq '.data'
 ```
 
-**Data volumes.** A project has a default volume plus any additional volumes you
-attach so its workspaces and ML jobs can read/write shared data (e.g. a training
-dataset). Create the volume first (compute API), then attach it here; the volume
-must belong to the same organization. Detaching only unlinks the volume, it does
-not delete it. Each volume is one resource with two halves, a git code half and a
-per-file versioned data half, that mount together when a workspace uses it; see
+**Volumes.** Every project has one volume of its own, created with the project.
+Nothing is attached to a project or a workspace: each workspace and ML job run
+mounts the project's volume at `/volumes/local/<name>` and every volume shared with
+the user at `/volumes/shared/<name>`, worked out each time it starts. To reuse code
+or data across projects, create a **shared** volume (or share the project volume)
+via the compute API; it then mounts everywhere the user works. Each volume is one
+resource with two halves, a git code half and a per-file versioned data half; see
 `references/compute.md`.
 
 ```bash
-curl -s "${auth[@]}" "$BASE/projects/$PID/volumes" | jq '.data'
-curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"volumeId":"<volId>"}' "$BASE/projects/$PID/volumes"
-curl -s -X DELETE "${auth[@]}" "$BASE/projects/$PID/volumes/<volId>"
+curl -s "${auth[@]}" "$BASE/projects/$PID/volumes" | jq '.data'   # the project's volume
 ```
 
 | Method | Path | Tool |
 |---|---|---|
 | GET | `/projects/:id/workspaces` | `list_project_workspaces` |
 | GET | `/projects/:id/volumes` | `list_project_volumes` |
-| POST | `/projects/:id/volumes` | `attach_project_volume` (`volumeId`*) |
-| DELETE | `/projects/:id/volumes/:subId` | `detach_project_volume` |
 
 ---
 
@@ -249,10 +245,10 @@ curl -s "${auth[@]}" "$BASE/projects/$PID/board/archive?search=drift&skip=0&limi
 ## Checklist
 - [ ] Create with `name` + `description`; add `filesystemType:"github"` **and**
       `githubConfig` (with an existing `sshKeyId`) only for a repo-backed project.
-- [ ] `DELETE` archives data and keeps volumes; use `archive`/`restore` for a
-      recoverable project.
-- [ ] Attach a data volume (same org) before a workspace or ML job needs its data;
-      launch workspaces via `references/compute.md`.
+- [ ] `DELETE` needs `volume=delete|keep` (delete the project volume, or keep it
+      as a shared volume); use `archive`/`restore` for a recoverable project.
+- [ ] No volume attach step: a workspace or ML job mounts the project volume and
+      every shared volume on start; launch workspaces via `references/compute.md`.
 - [ ] `list_board_members` before assigning; send user ids with `assignable=true`,
       not names.
 - [ ] `upsert_board_label` before putting a label on a card; colour from the fixed
