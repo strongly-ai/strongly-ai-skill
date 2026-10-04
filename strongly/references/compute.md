@@ -199,6 +199,14 @@ commits and pushes each code half to the volume's configured branch and records
 the changed data files as new versions. Sync before deleting a workspace, handing
 work off, or deploying an app from the volume.
 
+**Job runs and apps.** Nobody Syncs a job run or an app, and both use volumes the
+same way: `code/` is mounted read-only (the code as last synced; writing there
+fails), `data/` opens at its latest version, read and write, and every file
+written there is saved as a new version shortly after it is closed (the rest when
+the run ends or the app stops). A run mounts its project's volume and the shared
+volumes; an app mounts the volumes picked for it (`volumes` on the app,
+`references/apps.md` section 4). Write results to `data/`, scratch to `/workspace`.
+
 **Share.** Share a volume (read or write) through the unified sharing model and both
 halves follow the share. It works across organizations: a sharee in another org can
 clone the code half and read or write the data half from their own workspace, with

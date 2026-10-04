@@ -394,6 +394,15 @@ Convenience headers also exist (`X-Strongly-User-Id/Email/Name/Roles`,
 
 ## 4. Wiring: `STRONGLY_SERVICES`
 
+**Volumes are not services:** an app reads a volume's files directly. Pass
+`volumes: ["<volume id>", ...]` on create (`POST /apps`) or update (`PUT /apps/:id`,
+applied at the next deploy/start/restart); each must be one the app's owner may
+use (their own, or shared with them). Each mounts at `/volumes/local/<name>` (the
+owner's own) or `/volumes/shared/<name>`: `code/` read-only, `data/` at its latest
+data, read and write, every written file saved to the volume as a new version as
+the app goes (no Sync). The app needs a disk size (its volumes are kept on it).
+This is how sample data in a volume's `data/` reaches a deployed app.
+
 Everything you connect (addons, data sources, AI models, workflows) arrives as one
 JSON env var. Read connections from it, never hardcode a host or key. The shape is
 a category tree under a top-level **`services`** object; addons and data sources
