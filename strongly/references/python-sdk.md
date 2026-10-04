@@ -188,15 +188,16 @@ Streaming Workflows guide). Sessions are long-lived, so you deploy once then ope
 sessions against the deployment:
 
 ```python
-client.streaming.deploy(workflow_id="wf-voice-agent", cpu="1", memory="2Gi", replicas=2)
+client.streaming.deploy(workflow_id="wf-voice-agent", idle_timeout_seconds=300,
+                        max_session_duration_seconds=3600)
 
 session = client.streaming.start_session(
     workflow_id="wf-voice-agent",
-    session_config={"customer_name": "Jane Doe", "language": "en-US"},
+    metadata={"customer_name": "Jane Doe", "language": "en-US"},
 )
 
-client.streaming.inject_message(session.session_id, role="system",
-                                content="Order located, shipped April 2.")
+client.streaming.inject_message(session.session_id,
+                                "Order located, shipped April 2.", role="system")
 
 turns = client.streaming.transcript(session.session_id)
 client.streaming.end_session(session.session_id)

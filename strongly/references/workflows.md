@@ -250,18 +250,45 @@ To delete: undeploy, stop any running execution, then `DELETE /workflows/:id`.
 ## 6. Streaming workflows (real-time sessions)
 
 Streaming workflows (`workflowType: "streaming"`, e.g. a voice agent) run as a
-long-lived **session** against a deployment, not as a batch execution. Build them
-with the same node tools (filter the catalog with `workflowType=streaming`), then
-use the streaming surface to deploy, start a session, drive it, and inspect it.
+long-lived **session**, not as a batch execution. Build them with the same node
+tools (filter the catalog with `workflowType=streaming`; it includes the model
+pickers `llm`, `embeddings`, `speech-to-text`, `text-to-speech` and
+`streaming-realtime`), then use the streaming surface to deploy, start a
+session, drive it, and inspect it.
+
+Wiring rules (the graph is validated at save/deploy and at session start):
+
+- **Named ports.** Every streaming node's ports are its `streaming_ports`
+  (e.g. websocket-trigger `audio_out`/`text_out`/`control_out`, streaming-llm
+  `request_in`/`response_out`, websocket-response `media_in`/`text_in`/...).
+  Every frame connection sets BOTH `sourcePort` and `targetPort` to declared
+  port names whose frame types intersect; read them from
+  `GET /workflow-nodes/:id/schema` (`streaming_ports`). Routers
+  (conditional, switch, llm-router, confidence-router, language-router,
+  tool-router) emit on ports named in their config
+  (`streaming_ports.dynamic_outputs`) plus `default`.
+- **Models.** A node with an `ai` dependency (streaming-llm, streaming-stt,
+  streaming-tts, turn-detection, translation, intent-classifier, eval judges,
+  ...) has no model field. Add the matching picker node, set its
+  `config.model` to a model id, and connect **picker -> node** with
+  `sourcePort: "output"`, `targetPort: "ai"`. The streaming-realtime-agent's
+  picker is `streaming-realtime`; streaming-embed's is `embeddings`;
+  streaming-stt / speaker-diarization take `speech-to-text`; streaming-tts
+  takes `text-to-speech`; everything chat-shaped takes `llm`.
+- One trigger, at least one response, every required input and connector wired.
 
 ```bash
-# Deploy (202; poll the deployments list until a replica is ready).
-curl -s -X POST "${auth[@]}" "$BASE/streaming-workflows/$WID/deploy"
-curl -s "${auth[@]}" "$BASE/streaming-workflows/$WID/deployments" | jq '.data'
+# Deploy (202; poll the deployments list until status is "deployed").
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"idle_timeout_seconds":300,"max_session_duration_seconds":3600,"autoscaling":{"enabled":false}}' \
+  "$BASE/streaming-workflows/$WID/deploy"
+curl -s "${auth[@]}" "$BASE/streaming-workflows/$WID/deployments" | jq '.data[] | {status, ephemeral}'
 
-# Start a session. Returns session_id + ws_url (Meteor WS proxy) + ws_token.
+# Start a session (mode "production" on the deployment, "draft" = saved
+# definition on your own test worker; default: production when deployed).
+# Returns sessionId + wsUrl + wsToken (+ publicWsUrl for in-platform callers).
 SID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d "{\"workflowId\":\"$WID\"}" "$BASE/streaming-sessions" | jq -r '.data.session_id')
+  -d "{\"workflowId\":\"$WID\"}" "$BASE/streaming-sessions" | jq -r '.data.sessionId')
 
 # Gate readiness on the live pod health before connecting the WS.
 curl -s "${auth[@]}" "$BASE/streaming-sessions/$SID/status" | jq '.data.deployment.health.replicas'
@@ -274,10 +301,10 @@ curl -s -X DELETE "${auth[@]}" "$BASE/streaming-sessions/$SID"
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/streaming-workflows` · `/streaming-workflows/:id` | List / get streaming workflows |
-| POST | `/streaming-workflows/:id/deploy` | Deploy (202; body `cpu`, `memory`, `disk`, `gpu`, `gpu_type`, `idle_timeout_seconds`, `max_session_duration_seconds`, `max_concurrent_sessions`) |
+| POST | `/streaming-workflows/:id/deploy` | Deploy (202; validates the graph first; body `cpu`+`memory` (or neither: sized from the nodes), `disk`, `gpu` (string), `gpu_type`, `idle_timeout_seconds` 60-86400, `max_session_duration_seconds` 300-604800, `max_concurrent_sessions` 1-10000, `autoscaling` `{enabled, min_replicas 0-20, max_replicas 1-50, target_sessions_per_pod 1-100, scale_down_cooldown_seconds 60-900}`; omitted settings keep the previous deploy's) |
 | POST | `/streaming-workflows/:id/undeploy` | Tear down; return to draft |
-| GET | `/streaming-workflows/:id/deployments` · `/sessions` | Deployments (readiness) / sessions for a workflow |
-| POST | `/streaming-sessions` | Start a session (`workflowId` required); returns `session_id`, `ws_url`, `ws_token` |
+| GET | `/streaming-workflows/:id/deployments` · `/sessions` | Deployments (`status` deploying / deployed / undeploying / undeployed / failed; `ephemeral: true` rows are builder test workers) / sessions for a workflow |
+| POST | `/streaming-sessions` | Start a session (`workflowId` required, `mode` production / draft); returns `sessionId`, `wsUrl`, `wsToken` (and `publicWsUrl` when called from inside the platform) |
 | GET | `/streaming-sessions` · `/streaming-sessions/:id` | List / get sessions |
 | GET | `/streaming-sessions/:id/status` | Live deployment readiness (gate on `deployment.health.replicas.ready >= 1`) |
 | POST | `/streaming-sessions/:id/inject` | Inject a text message (`text` required, `role`) |
