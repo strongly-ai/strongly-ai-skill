@@ -404,7 +404,7 @@ const model = gw?.available_models?.[0];            // { vendor_model_id, provid
 // POST `${gw.base_url}/...` with model.vendor_model_id; see references/ai-gateway.md.
 
 // WORKFLOWS you connected:
-const wf = s.workflows?.available_workflows?.[0];   // trigger via s.workflows.engine.api_endpoint
+const wf = s.workflows?.available_workflows?.[0];   // POST its input to wf.endpoints.proxy_url (no auth header)
 ```
 
 - Everything hangs off `STRONGLY_SERVICES.services`. Addons and data sources are
