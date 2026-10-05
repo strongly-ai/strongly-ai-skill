@@ -220,6 +220,8 @@ curl -s -X POST "${auth[@]}" "$BASE/workspaces/$WORKSPACE_ID/sync"
 #    To give the app the volume's data too (its data/ at
 #    /volumes/local/<name>/data), also pick the volume in "volumes" and set a
 #    "disk": a volume is kept on the app's disk, and one without a disk is refused.
+#    Size it with cpu/memory/disk as below: an environmentId whose environment has
+#    no disk (the standard Small, Medium and Large have none) is refused volumes.
 #    Building from a volume does NOT mount it: without "volumes" the app has no data/.
 VOLUME_ID=$(curl -s "${auth[@]}" "$BASE/volumes" | jq -r '.data[] | select(.name=="my-project") | ._id')
 APP_ID=$(curl -s "${auth[@]}" -H 'Content-Type: application/json' -X POST "$BASE/apps" -d "{
