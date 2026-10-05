@@ -212,8 +212,10 @@ else, not versioned, and not what an app deploy builds from. `POST
 /workspaces/:id/sync` (section 1) does both halves: commits and pushes the
 project volume's code to its configured branch (shared volumes' code is
 read-only) and records the changed data files of every mounted volume as new
-versions. Sync before deleting a workspace, handing
-work off, or deploying an app from the volume.
+versions; then each `data/` shows the latest version of every file, so data others
+saved appears at each Sync (and at start), never only after a restart. Sync before
+deleting a workspace, handing work off, or deploying an app from the volume, and
+to pick up others' newer data. Others' newer code comes down with `git pull`.
 
 **Sync conflicts (as on GitHub).** If the volume's code changed on the same lines
 since the workspace's last sync, that volume's sync result is `code.conflict: true`
