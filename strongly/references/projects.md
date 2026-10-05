@@ -1,13 +1,14 @@
 # Projects
 
 A Strongly **project** is the container that groups a piece of work: its
-**filesystem** (either a platform-managed data volume or a GitHub repo), the
+**filesystem** (where its code's git repository lives: the platform's own, or a
+GitHub repo), the
 **workspaces** launched against that filesystem, its **project volume**, its
 **collaborators**, and one built-in **Kanban board**. Workspaces, ML jobs,
 and other compute run *inside* a project and read/write the project filesystem.
 
 Read this when the task is: creating/listing/updating projects, choosing the
-project filesystem (a Strongly data volume vs a GitHub repo), listing a
+project filesystem (the Strongly filesystem vs a GitHub repo), listing a
 project's volume and workspaces, managing
 collaborators, or driving the project's Kanban board (columns, labels, cards,
 archive).
@@ -79,8 +80,9 @@ without deleting, use `archive` then `restore`.
 A project is created against one of two filesystem types, set by `filesystemType`
 at create time:
 
-- **`strongly`** (default): a platform-managed **data volume**. Nothing else
-  to supply.
+- **`strongly`** (default): the platform hosts the project volume's git
+  repository (the code half, beside its versioned data half). Nothing else to
+  supply.
 - **`github`**: a git repo. You **must** also pass `githubConfig`, or the create
   call fails:
 
@@ -103,10 +105,11 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' -d '{
 
 ---
 
-## 3. Workspaces and data volumes
+## 3. Workspaces and the project volume
 
 A **workspace launches against a project filesystem** (e.g. Claude Code or a
-notebook running on the project's data volume). List a project's workspaces here;
+notebook working in the project volume's `code/` and `data/` at
+`/volumes/local/<name>`). List a project's workspaces here;
 provision and launch them via the compute API, see **`references/compute.md`**.
 
 ```bash
@@ -208,7 +211,7 @@ Removing a column archives any cards still in it (the response reports
 `archivedCount`); a board must keep at least one column. Reorder takes **every**
 column id in the desired order (a partial list is rejected). Labels use a fixed
 palette: `#6571ff` blue, `#05a34a` green, `#fbbc06` yellow, `#ff3366` red,
-`#0dcaf0` teal, `#7987a1` purple. Any other colour is rejected. Deleting a label
+`#0dcaf0` teal, `#7987a1` gray. Any other colour is rejected. Deleting a label
 removes it from every card, archived ones included.
 
 ### Archive

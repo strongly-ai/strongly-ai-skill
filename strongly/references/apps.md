@@ -70,7 +70,9 @@ Two facts drive everything, the same in both:
   sets none of them, so don't depend on them for paths.)
 - Listen on **`PORT`**, else 3000: a deployed app gets `PORT` from the platform;
   in a workspace 8080 is taken by VS Code, so run on 3000 (or another free port)
-  and open `<workspace URL>/port/3000/`.
+  and open `<workspace URL>/port/3000/`. Only the workspace's owner can open its
+  port URLs (as only they can open the workspace), signed in to the platform:
+  it is for testing while you build, not for sharing; deploy the app to share it.
 
 The failure everyone hits: a SPA built for `/` emits root-absolute asset URLs
 (`/assets/x.js`), which under the proxy prefix resolve wrong → **blank page, or
@@ -215,11 +217,16 @@ curl -s -X POST "${auth[@]}" "$BASE/workspaces/$WORKSPACE_ID/sync"
 # 2) Find the volume id (by name) and create the app from it. folderPath is the
 #    folder inside the volume's code that holds strongly.manifest.yaml; omit it
 #    when the app is the whole code. The app needs a size: environmentId, or cpu + memory.
+#    To give the app the volume's data too (its data/ at
+#    /volumes/local/<name>/data), also pick the volume in "volumes" and set a
+#    "disk": a volume is kept on the app's disk, and one without a disk is refused.
+#    Building from a volume does NOT mount it: without "volumes" the app has no data/.
 VOLUME_ID=$(curl -s "${auth[@]}" "$BASE/volumes" | jq -r '.data[] | select(.name=="my-project") | ._id')
 APP_ID=$(curl -s "${auth[@]}" -H 'Content-Type: application/json' -X POST "$BASE/apps" -d "{
-  \"name\": \"my-app\", \"cpu\": \"0.5\", \"memory\": \"1GB\",
+  \"name\": \"my-app\", \"cpu\": \"0.5\", \"memory\": \"1GB\", \"disk\": \"5GB\",
   \"bundleSourceType\": \"volume\",
-  \"bundleSource\": {\"volumeId\": \"$VOLUME_ID\", \"folderPath\": \"apps/my-app\"}
+  \"bundleSource\": {\"volumeId\": \"$VOLUME_ID\", \"folderPath\": \"apps/my-app\"},
+  \"volumes\": [\"$VOLUME_ID\"]
 }" | jq -r '.data.appId')
 ```
 

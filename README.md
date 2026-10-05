@@ -88,7 +88,7 @@ strongly/
 
 The skill teaches Claude to detect its context automatically:
 
-- **Inside Strongly** (an app, or Claude Code / Codex in a Strongly workspace):
+- **Inside Strongly** (an app, or Claude Code / Codex / OpenCode in a Strongly workspace):
   the platform URL is in the environment and a bearer token is injected for you.
   Nothing to configure.
 - **Outside Strongly** (your laptop, CI, any external client): you provide your
@@ -113,7 +113,7 @@ agent's skills directory (`.cursor/skills/`, `.windsurf/skills/`,
 `.agents/skills/`, and so on).
 
 **In a Strongly workspace**, this skill is installed automatically for the coding
-assistants you enable (Claude Code, Codex), so Claude already knows the platform
+assistants you enable (Claude Code, Codex, OpenCode), so Claude already knows the platform
 the moment your workspace starts. Nothing to do.
 
 ## Requirements

@@ -12,9 +12,11 @@ saved environment or a custom image, attaching a distributed cluster, pre-warmin
 nodes for a workload, provisioning a volume and mounting it into a workspace, or running
 Claude Code / Codex in a workspace through a code session.
 
-A **workspace is where Claude Code or Codex runs and code executes** (once this
-Strongly skill is published it auto-installs there), and a workspace can be
-deployed straight into a running app: see `references/apps.md` for the app deploy,
+A **workspace is where Claude Code, Codex or OpenCode runs and code executes**.
+This Strongly skill is installed into each coding assistant chosen for the
+workspace at every start, downloaded from GitHub (if it cannot be downloaded the
+workspace does not start, and says why), and a workspace can be deployed straight
+into a running app: see `references/apps.md` for the app deploy,
 proxy, and identity mechanics.
 
 **Auth** follows `SKILL.md`: outside Strongly you send `X-API-Key` to
@@ -36,19 +38,21 @@ the create call alone.
 
 ## 1. Workspaces
 
-A workspace is a single IDE pod: `environmentType` picks the image (`jupyter` for
-JupyterLab, `vscode` for VS Code server, or `custom` for your own image via
-`customDockerfile`). Hardware sizing is a separate axis: pass a saved
-`environmentId` (see section 2) or spell out `customResources`
-(`{ cpu, memory, disk, gpu_type? }`); omit both for defaults (cpu 1, memory 2GB,
-disk 20GB).
+A workspace is a single IDE pod: `environmentType` picks the IDE (`jupyter` for
+JupyterLab, `vscode` for VS Code server, `rstudio` for RStudio Server, or `custom`
+for an IDE your environment's image runs itself, on `customPort`, default 8888).
+Sizing is required and is a separate axis: pass a saved `environmentId` (section 2;
+`custom` needs one, for its image) or spell out `customResources`
+(`{ cpu, memory, disk, gpu?, gpu_type? }`). There is no default size, and a
+workspace needs at least 0.5 CPU and 1 GB of memory (the platform's own containers
+take their share out of it).
 
 | Method + path | Scope | Purpose |
 |---|---|---|
 | `GET /workspaces` | `workspaces:read` | List. Filters: `search`, `status`, `projectId`, `limit`, `offset`, `sort`. |
 | `POST /workspaces` | `workspaces:write` | Create. Required: `name`, `description`, `environmentType`. |
 | `GET /workspaces/:id` | `workspaces:read` | Get one. |
-| `PUT /workspaces/:id` | `workspaces:write` | Update `name`, `description`, `environmentType`. |
+| `PUT /workspaces/:id` | `workspaces:write` | Update `name`, `description`, its services (`addons`, `dataSources`, `aiGateways`, `mlModels`, `workflows`, `featureStores`, `agents`), `codingAssistants` and `skillIds` (from the next start or restart), or `environmentVariables` (before its first start). Size, IDE and image are fixed at create. |
 | `DELETE /workspaces/:id` | `workspaces:write` | Delete. |
 | `POST /workspaces/:id/start` | `workspaces:write` | Start a stopped workspace. |
 | `POST /workspaces/:id/stop` | `workspaces:write` | Stop a running workspace. |
@@ -58,12 +62,12 @@ disk 20GB).
 | `GET /workspaces/:id/logs` | `workspaces:read` | Container logs. `type` is `build`, `deploy`, or `pod` (default `pod`). |
 | `POST /workspaces/:id/sync` | `workspaces:write` | Save every mounted volume to durable storage: commit and push each code half to the volume's configured branch, and record the changed data files as new versions. Stop/start/restart keep unsynced work; only delete loses it. Sync to make work durable, visible to others, and buildable (an app builds from synced code) (section 5). |
 
-Optional wiring on `POST /workspaces` (all optional): `projectId` (clones the
-project files to `/project` and mounts its volumes; see `references/projects.md`),
+Optional wiring on `POST /workspaces` (all optional): `projectId` (the project's
+volume mounts at `/volumes/local/<name>/{code,data}`; see `references/projects.md`),
 `dataSources`, `addons`, `aiGateways`, `workflows` (arrays of ids),
 `environmentVariables` (object), `codeSessionEnabled` (add a terminal an assistant
-can drive), `environmentId`, `customResources`, `customDockerfile` (required when
-`environmentType` is `custom`), `cluster` (section 3), and `capacity_type: "spot"`
+can drive), `codingAssistants` and `skillIds`, `environmentId`, `customResources`,
+`customPort` (for `custom`), `cluster` (section 3), and `capacity_type: "spot"`
 / `useSpotInstances` for spot capacity.
 
 ```bash
@@ -164,8 +168,10 @@ curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
 ## 5. Volumes
 
 A project's volume has two halves that mount together. The **code half** is a
-git repository; the **data half** is a per-file versioned file store (writing a file
-creates a new version of that file, reads return the latest or a pinned version).
+git repository; the **data half** is a per-file versioned file store: in a
+workspace each file you wrote becomes a new version of that file when you Sync; a
+job run or an app saves each written file as a new version on its own; a write
+over REST is a new version at once. Reads return the latest or a pinned version.
 There is no single whole-volume version, each file carries its own head version.
 A **shared** volume holds the data half only: it has no `code`.
 
@@ -228,9 +234,10 @@ volumes; an app mounts the volumes picked for it (`volumes` on the app,
 
 **Share.** Share a volume (read or write) through the unified sharing model: the
 share sets whether the sharee may write its **data**; a shared project volume's
-code is read-only to them. It works across organizations: a sharee in another org
-can read the code half and read or write the data half from their own workspace,
-with no extra credential setup.
+code is read-only to them. On a single-tenant installation it also works across
+organizations (a sharee in another org reads the code half and reads or writes the
+data half from their own workspace, with no extra credential setup); on a
+multi-tenant installation a volume is shared only within its organization.
 
 **Data half over REST.** The data half is fully readable and writable without a
 workspace, per file: list files, read one file's version history, download a
@@ -346,7 +353,7 @@ DB attached to a session-deployed app needs the connect-then-redeploy step above
 ---
 
 ## Checklist
-- [ ] Workspace `environmentType` is exactly `jupyter`, `vscode`, or `custom` (custom requires `customDockerfile`).
+- [ ] Workspace `environmentType` is exactly `jupyter`, `vscode`, `rstudio`, or `custom` (custom requires an `environmentId` whose image runs its IDE, on `customPort`).
 - [ ] Size a workspace with a saved `environmentId` (list `/environments`) or `customResources`; do not spell out both.
 - [ ] After create / start, poll `GET /workspaces/:id/status` until running before use; never claim success on the create call.
 - [ ] Custom-image environments: poll `GET /environments/:id` for `build_status: "success"` before binding.
