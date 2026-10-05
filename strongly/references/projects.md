@@ -55,7 +55,7 @@ curl -s "${auth[@]}" "$BASE/projects/$PID/activity?limit=25" | jq '.data'
 deletes the project with its jobs, workspaces, run history, board and activity.
 `volume` is required: `delete` removes the project's code/data volume and its
 data; `keep` keeps it as a shared volume owned by the project owner, code and
-data intact. Ask the user which before deleting. To keep a project recoverable
+data intact (its code read-only from then on). Ask the user which before deleting. To keep a project recoverable
 without deleting, use `archive` then `restore`.
 
 | Method | Path | Tool | Notes |
@@ -116,11 +116,11 @@ curl -s "${auth[@]}" "$BASE/projects/$PID/workspaces?limit=20" | jq '.data'
 **Volumes.** Every project has one volume of its own, created with the project.
 Nothing is attached to a project or a workspace: each workspace and ML job run
 mounts the project's volume at `/volumes/local/<name>` and every volume shared with
-the user at `/volumes/shared/<name>`, worked out each time it starts. To reuse code
-or data across projects, create a **shared** volume (or share the project volume)
-via the compute API; it then mounts everywhere the user works. Each volume is one
-resource with two halves, a git code half and a per-file versioned data half; see
-`references/compute.md`.
+the user at `/volumes/shared/<name>`, worked out each time it starts. To reuse data
+across projects, create a **shared** volume (data only) via the compute API; to
+reuse code, share the project volume (others read its code, read-only). Either
+then mounts everywhere the user works. Code is written only in the project's own
+volume; see `references/compute.md`.
 
 ```bash
 curl -s "${auth[@]}" "$BASE/projects/$PID/volumes" | jq '.data'   # the project's volume

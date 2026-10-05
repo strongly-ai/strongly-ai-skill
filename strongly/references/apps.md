@@ -200,14 +200,14 @@ An app builds from one of three **sources**, then deploys the built image:
 
 ### From a workspace's volume (recommended when you built it in a workspace)
 
-A workspace mounts each volume's code at `/volumes/<scope>/<volume name>/code`
-(a project's own volume at `/volumes/local/<project name>/code`, volumes shared
-with you under `/volumes/shared/`). That directory is a git clone of the volume's
-code. The build takes the volume's code **as last synced**, so sync first:
+A workspace mounts its project volume's code at `/volumes/local/<project name>/code`
+(the code you write; a shared project volume's code under `/volumes/shared/` is
+read-only, and a shared volume created on its own holds data only, with no code to
+build). That directory is a git clone of the volume's code. The build takes the volume's code **as last synced**, so sync first:
 
 ```bash
 # 1) Save the code to the volume: the workspace's Sync (commits and pushes the
-#    code of every volume it mounts; also the Sync button on the workspace page) ...
+#    project volume's code; also the Sync button on the workspace page) ...
 curl -s -X POST "${auth[@]}" "$BASE/workspaces/$WORKSPACE_ID/sync"
 #    ... or from a terminal in the workspace:
 #    cd /volumes/local/my-project/code && git add -A && git commit -m "v2" && git push
@@ -398,7 +398,8 @@ Convenience headers also exist (`X-Strongly-User-Id/Email/Name/Roles`,
 `volumes: ["<volume id>", ...]` on create (`POST /apps`) or update (`PUT /apps/:id`,
 applied at the next deploy/start/restart); each must be one the app's owner may
 use (their own, or shared with them). Each mounts at `/volumes/local/<name>` (the
-owner's own) or `/volumes/shared/<name>`: `code/` read-only, `data/` at its latest
+owner's own) or `/volumes/shared/<name>`: `code/` read-only (absent for a shared
+volume, which holds data only), `data/` at its latest
 data, read and write, every written file saved to the volume as a new version as
 the app goes (no Sync). The app needs a disk size (its volumes are kept on it).
 This is how sample data in a volume's `data/` reaches a deployed app.

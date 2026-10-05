@@ -163,40 +163,50 @@ curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
 
 ## 5. Volumes
 
-A volume is one resource with two halves that mount together. The **code half** is a
+A project's volume has two halves that mount together. The **code half** is a
 git repository; the **data half** is a per-file versioned file store (writing a file
 creates a new version of that file, reads return the latest or a pinned version).
 There is no single whole-volume version, each file carries its own head version.
+A **shared** volume holds the data half only: it has no `code`.
 
-`code.filesystemType` picks how the code half is backed:
+**Code is written only in a project's own volume, in its project's workspaces.**
+Wherever a project's volume is shared (another user's workspaces, job runs, apps)
+its `code/` is mounted read-only, and every write to a shared volume's code (a
+push, a branch, a file edit) is refused with 403. To reuse code, share the
+project's volume; others read it.
+
+A project volume's `code.filesystemType` picks how the code half is backed:
 - **`github`**: an external GitHub repo. Pass `repoUrl`, `branch`, and an optional
   `sshKeyId` (an SSH key the user already registered in their profile). Commits and
   pushes sync to that GitHub repo.
 - **`strongly`**: a platform-hosted git repo, nothing else to supply.
 
-A volume's **scope** is `local` (belongs to one project, pass `projectId`) or
-`shared` (org-wide, usable across projects). Names are unique within an org and
-scope.
+A volume's **scope** is `local` (a project's own volume, created with its project,
+with code + data) or `shared` (standalone, usable across projects, data only;
+create one with no `code`, which is refused for it). A project's volume kept when
+its project is deleted becomes `shared` with its code read-only. Names are unique
+within an org and scope.
 
 **Mount.** Mounting is automatic, there is no attach step: each time a workspace
 (or job run) starts it mounts its project's volume at `/volumes/local/<name>` and
 every shared volume the user can use at `/volumes/shared/<name>`, each as
-`code/` and `data/` (e.g. `/volumes/local/my-proj/code`,
-`/volumes/shared/datasets/data`). A volume newly shared with the user mounts from
+`code/` (only when the volume has code; read-only under `/volumes/shared`) and
+`data/` (e.g. `/volumes/local/my-proj/code`, `/volumes/shared/datasets/data`). A volume newly shared with the user mounts from
 the next start. `data/` mounts at its latest version. Another project's unshared
 volume never mounts.
 
-**Sync.** The code half is plain git: in the workspace terminal `git commit`,
-`git push`, and `git pull` work with no credential prompt (the platform
-authenticates you). For a `github` volume this syncs to the external GitHub repo.
+**Sync.** The project volume's code half is plain git: in the workspace terminal
+`git commit`, `git push`, and `git pull` work with no credential prompt (the
+platform authenticates you). For a `github` volume this syncs to the external GitHub repo.
 The data half versions per file: on sync, each file written or overwritten gets a
 new version of just that file. Unsynced work (code edits, local commits, data
 writes) survives stop, start and restart; only **deleting** the workspace loses
 it. Until synced it is also not on the durable volume, not visible to anyone
 else, not versioned, and not what an app deploy builds from. `POST
-/workspaces/:id/sync` (section 1) does both halves for every mounted volume:
-commits and pushes each code half to the volume's configured branch and records
-the changed data files as new versions. Sync before deleting a workspace, handing
+/workspaces/:id/sync` (section 1) does both halves: commits and pushes the
+project volume's code to its configured branch (shared volumes' code is
+read-only) and records the changed data files of every mounted volume as new
+versions. Sync before deleting a workspace, handing
 work off, or deploying an app from the volume.
 
 **Sync conflicts (as on GitHub).** If the volume's code changed on the same lines
@@ -216,10 +226,11 @@ the run ends or the app stops). A run mounts its project's volume and the shared
 volumes; an app mounts the volumes picked for it (`volumes` on the app,
 `references/apps.md` section 4). Write results to `data/`, scratch to `/workspace`.
 
-**Share.** Share a volume (read or write) through the unified sharing model and both
-halves follow the share. It works across organizations: a sharee in another org can
-clone the code half and read or write the data half from their own workspace, with
-no extra credential setup.
+**Share.** Share a volume (read or write) through the unified sharing model: the
+share sets whether the sharee may write its **data**; a shared project volume's
+code is read-only to them. It works across organizations: a sharee in another org
+can read the code half and read or write the data half from their own workspace,
+with no extra credential setup.
 
 **Data half over REST.** The data half is fully readable and writable without a
 workspace, per file: list files, read one file's version history, download a
@@ -229,7 +240,7 @@ specific version's bytes, write or upload a file as a new version, and delete
 | Method + path | Scope | Purpose |
 |---|---|---|
 | `GET /volumes` | `volumes:read` | List. Filters: `scope`, `projectId`, `limit`, `offset`. |
-| `POST /volumes` | `volumes:write` | Create. Body: `name`, `scope`, `projectId?` (required when `scope` is `local`), `description?`, `code` (`{ filesystemType, repoUrl?, branch?, sshKeyId? }`). |
+| `POST /volumes` | `volumes:write` | Create. A shared volume (the usual one): `name`, `scope: "shared"`, `description?`, no `code`. A project's volume is created with its project; a `local` create needs `projectId` and `code` (`{ filesystemType, repoUrl?, branch?, sshKeyId? }`). |
 | `GET /volumes/:id` | `volumes:read` | Get one. |
 | `GET /volumes/:id/data/files` | `volumes:read` | List data-half files. Each entry: `{ path, name, size, version, updatedAt, updatedBy }` (`version` is that file's head). |
 | `GET /volumes/:id/data/files/versions` | `volumes:read` | One file's version history, newest first. Query `path`. |
@@ -240,14 +251,13 @@ specific version's bytes, write or upload a file as a new version, and delete
 | `DELETE /volumes/:id` | `volumes:write` | Delete. |
 
 ```bash
-# Create a shared volume backed by a platform-hosted git repo.
+# Create a shared volume: data only, no code.
 VOL=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"name":"datasets","scope":"shared","description":"team data",
-       "code":{"filesystemType":"strongly"}}' \
+  -d '{"name":"datasets","scope":"shared","description":"team data"}' \
   "$BASE/volumes" | jq -r '.data._id')
 
-# Nothing to attach: it mounts at /volumes/shared/datasets/{code,data} the next
-# time any workspace of yours (or of anyone it is shared with) starts.
+# Nothing to attach: it mounts at /volumes/shared/datasets/data the next time
+# any workspace of yours (or of anyone it is shared with) starts.
 
 # List the data-half files, each with its own head version.
 curl -s "${auth[@]}" "$BASE/volumes/$VOL/data/files" | jq '.data'
@@ -342,6 +352,6 @@ DB attached to a session-deployed app needs the connect-then-redeploy step above
 - [ ] Custom-image environments: poll `GET /environments/:id` for `build_status: "success"` before binding.
 - [ ] Attach a Ray / Dask / Spark cluster via the `cluster` object on `POST /workspaces`, not a separate endpoint.
 - [ ] Pre-warm a pool with a valid `workloadType` and `count` in 1-5.
-- [ ] Volumes: one resource with a git code half and a per-file versioned data half; create with `name`, `scope`, and `code.filesystemType` (`github` or `strongly`), plus `projectId` for a `local` volume; attach to a workspace and it mounts at `/volumes/<scope>/<name>/{code,data}` on next start.
+- [ ] Volumes: a project's volume has a git code half and a per-file versioned data half and is created with its project; a shared volume holds data only (create with `name` and `scope: "shared"`, no `code`). Code is written only in the project's own volume; shared code is read-only. Every workspace mounts them at `/volumes/<scope>/<name>/{code,data}` on its next start, with nothing to attach.
 - [ ] Code sessions: send natural-language tasks (not raw shell) to the assistant terminal; login uses the user's own Claude account; deploy an app via `/code-sessions/:id/deploy` and see `references/apps.md`.
 - [ ] A code-session deploy wires NO services: to add a database afterwards, add the addon id to the app (`connect/:appId` or `PUT /apps/:id {addons}`) AND redeploy so `STRONGLY_SERVICES` regenerates; or declare it up front (`/apps/upload` `metadata={"addons":[...]}`, or `deploy.json` for a wizard deploy). The app reads the connection from `STRONGLY_SERVICES`.
