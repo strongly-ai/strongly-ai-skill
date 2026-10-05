@@ -22,7 +22,7 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # outside Strong
 `workflows:write`, `workflows:execute`; streaming adds `streaming-workflows:read`,
 `streaming-workflows:deploy`, `streaming-sessions:read`, `streaming-sessions:write`.
 Responses use the standard envelope (`data` on success, `error.message` on
-failure). Ids are 24-char hex.
+failure). Ids are opaque strings: take them from a list or create response.
 
 The happy path: **discover nodes -> build -> validate -> execute + poll to a real
 passing run -> deploy -> relay the invocation URL.** Never report a workflow ready

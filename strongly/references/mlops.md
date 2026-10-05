@@ -18,6 +18,7 @@ example assumes the auth header is set:
 
 ```bash
 BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
+# Inside Strongly (a workspace, app or job): BASE="$STRONGLY_API_URL/api/v1"; auth=()   # signed in as you, no key
 ```
 
 **Everything that trains is async and slow.** AutoML jobs, fine-tuning jobs, and

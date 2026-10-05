@@ -24,6 +24,7 @@ Strongly):
 
 ```bash
 BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # see SKILL.md
+# Inside Strongly (a workspace, app or job): BASE="$STRONGLY_API_URL/api/v1"; auth=()   # signed in as you, no key
 ```
 
 Scopes: `governance:read` / `governance:write` on `/governance/*`;

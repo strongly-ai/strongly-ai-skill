@@ -19,6 +19,7 @@ the header array for the outside-Strongly case:
 
 ```bash
 BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
+# Inside Strongly (a workspace, app or job): BASE="$STRONGLY_API_URL/api/v1"; auth=()   # signed in as you, no key
 ```
 
 Most of this is self-serve on your own record. Actions that manage other users,

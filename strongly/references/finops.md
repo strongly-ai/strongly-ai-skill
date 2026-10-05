@@ -24,6 +24,7 @@ auto-injected. Below, `$BASE` is whichever applies. Set once (outside Strongly):
 
 ```bash
 BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
+# Inside Strongly (a workspace, app or job): BASE="$STRONGLY_API_URL/api/v1"; auth=()   # signed in as you, no key
 ```
 
 **Scopes.** Reads need `finops:read`; creating or changing resource groups and

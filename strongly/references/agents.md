@@ -22,6 +22,7 @@ Strongly the bearer is auto-injected and `$BASE` is `$STRONGLY_API_URL/api/v1`.
 
 ```bash
 BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # outside Strongly
+# Inside Strongly (a workspace, app or job): BASE="$STRONGLY_API_URL/api/v1"; auth=()   # signed in as you, no key
 ```
 
 All agent routes carry the `agents:read` or `agents:write` scope. Responses use

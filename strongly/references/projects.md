@@ -21,9 +21,10 @@ writes). Set once (outside Strongly):
 
 ```bash
 BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
+# Inside Strongly (a workspace, app or job): BASE="$STRONGLY_API_URL/api/v1"; auth=()   # signed in as you, no key
 ```
 
-Ids are 24-char hex Mongo ObjectIds. Success is `{ "success": true, "data": … }`;
+Ids are opaque strings (for example `project-vHPyNBcx3RSxs6Nsv`); take them from a list or create response. Success is `{ "success": true, "data": … }`;
 lists add `pagination`. Surface `error.message` on failure.
 
 ---

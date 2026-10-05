@@ -43,7 +43,7 @@ curl -s "${auth[@]}" "$BASE/marketplace/items?search=resume&vertical=HR"        
 curl -s "${auth[@]}" "$BASE/marketplace/verticals" | jq '.data'
 
 # One offering, full detail
-ITEM_ID=68b0...                                  # a 24-char item id from the list
+ITEM_ID=f3taqyfqG5oA9xG3p                        # an item id from the list (opaque string)
 curl -s "${auth[@]}" "$BASE/marketplace/items/$ITEM_ID" | jq '.data'
 ```
 

@@ -17,6 +17,7 @@ inside Strongly (workspace or app) the bearer is auto-injected at
 
 ```bash
 BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # key needs model-registry:read/write
+# Inside Strongly (a workspace, app or job): BASE="$STRONGLY_API_URL/api/v1"; auth=()   # signed in as you, no key
 ```
 
 Read-only calls (list, get, status, list versions) need `model-registry:read`;

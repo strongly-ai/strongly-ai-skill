@@ -18,6 +18,7 @@ and the bearer is auto-injected; outside Strongly it is `$HOST/api/v1` with an
 ```bash
 # Outside Strongly: set once. (Inside Strongly, skip the header entirely.)
 BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # key needs avatars:read / avatars:write
+# Inside Strongly (a workspace, app or job): BASE="$STRONGLY_API_URL/api/v1"; auth=()   # signed in as you, no key
 ```
 
 Every response is the standard envelope: `{ "success": true, "data": … }` on

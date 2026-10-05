@@ -29,6 +29,7 @@ whichever applies, and set the key once (outside Strongly):
 ```bash
 export STRONGLY_API_KEY=sk-...        # Settings -> API Keys
 BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
+# Inside Strongly (a workspace, app or job): BASE="$STRONGLY_API_URL/api/v1"; auth=()   # signed in as you, no key
 ```
 
 **Async rule:** creating or starting a workspace or cluster returns
@@ -62,7 +63,7 @@ take their share out of it).
 | `GET /workspaces/:id/status` | `workspaces:read` | Live status (poll this until running). |
 | `GET /workspaces/:id/metrics` | `workspaces:read` | CPU / memory usage. |
 | `GET /workspaces/:id/logs` | `workspaces:read` | Container logs. `type` is `build`, `deploy`, or `pod` (default `pod`). |
-| `POST /workspaces/:id/sync` | `workspaces:write` | Save every mounted volume to durable storage: commit and push each code half to the volume's configured branch, and record the changed data files as new versions. Stop/start/restart keep unsynced work; only delete loses it. Sync to make work durable, visible to others, and buildable (an app builds from synced code) (section 5). |
+| `POST /workspaces/:id/sync` | `workspaces:write` | Save to durable storage: commit and push the project volume's code to its configured branch (a shared volume's code is read-only: its result is `skipped: read-only`), and save each changed data file, in every volume the user may write, as a new version. Stop/start/restart keep unsynced work; only delete loses it. Sync to make work durable, visible to others, and buildable (an app builds from synced code) (section 5). |
 
 Optional wiring on `POST /workspaces` (all optional): `projectId` (the project's
 volume mounts at `/volumes/local/<name>/{code,data}`; see `references/projects.md`),
@@ -183,7 +184,9 @@ workspace each file you wrote becomes a new version of that file when you Sync; 
 job run or an app saves each written file as a new version on its own; a write
 over REST is a new version at once. Reads return the latest or a pinned version.
 There is no single whole-volume version, each file carries its own head version.
-A **shared** volume holds the data half only: it has no `code`.
+A volume **created as shared** holds the data half only: it has no `code`. A
+project's volume that is shared, or kept when its project is deleted, keeps its
+`code`, read-only.
 
 **Code is written only in a project's own volume, in its project's workspaces.**
 Wherever a project's volume is shared (another user's workspaces, job runs, apps)
@@ -198,8 +201,8 @@ A project volume's `code.filesystemType` picks how the code half is backed:
 - **`strongly`**: a platform-hosted git repo, nothing else to supply.
 
 A volume's **scope** is `local` (a project's own volume, created with its project,
-with code + data) or `shared` (standalone, usable across projects, data only;
-create one with no `code`, which is refused for it). A project's volume kept when
+with code + data) or `shared` (usable across projects; one you create as shared holds data only:
+create it with no `code`, which is refused for it). A project's volume kept when
 its project is deleted becomes `shared` with its code read-only. A volume's name is
 unique among its owner's volumes of the same scope (a second one is refused:
 "You already have a shared volume named ..."); a project's volume takes its
@@ -373,6 +376,6 @@ DB attached to a session-deployed app needs the connect-then-redeploy step above
 - [ ] Custom-image environments: poll `GET /environments/:id` for `build_status: "success"` before binding.
 - [ ] Attach a Ray / Dask / Spark cluster via the `cluster` object on `POST /workspaces`, not a separate endpoint.
 - [ ] Pre-warm a pool with a valid `workloadType` and `count` in 1-5.
-- [ ] Volumes: a project's volume has a git code half and a per-file versioned data half and is created with its project; a shared volume holds data only (create with `name` and `scope: "shared"`, no `code`). Code is written only in the project's own volume; shared code is read-only. Every workspace mounts them at `/volumes/<scope>/<name>/{code,data}` on its next start, with nothing to attach.
+- [ ] Volumes: a project's volume has a git code half and a per-file versioned data half and is created with its project; a shared volume holds data only (create with `name` and `scope: "shared"`, no `code`). Code is written only in the project's own volume; shared code is read-only. Every workspace mounts its project's volume at `/volumes/local/<name>/{code,data}` and each shared volume at `/volumes/shared/<name>/data` (plus a read-only `code/` only for a shared project volume) on its next start, with nothing to attach.
 - [ ] Code sessions: send natural-language tasks (not raw shell) to the assistant terminal; login uses the user's own Claude account; deploy an app via `/code-sessions/:id/deploy` and see `references/apps.md`.
 - [ ] A code-session deploy wires NO services: to add a database afterwards, add the addon id to the app (`connect/:appId` or `PUT /apps/:id {addons}`) AND redeploy so `STRONGLY_SERVICES` regenerates; or declare it up front (`/apps/upload` `metadata={"addons":[...]}`, or `deploy.json` for a wizard deploy). The app reads the connection from `STRONGLY_SERVICES`.

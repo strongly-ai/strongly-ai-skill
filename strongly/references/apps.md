@@ -35,7 +35,8 @@ is one deploy; discovering it was needed later is a rebuild. At minimum:
   managed addon and wire it (see `references/addons.md` + §4). Never silently ship
   a stateless app the user expected to persist data.
 - **Who can reach it?** Only them, everyone in their org, or the public? (maps to
-  the app's permissions / manifest `permissions`).
+  the app's permissions: `PUT /apps/:id/permissions` with `isPublic` and
+  `allowedUsers`; the manifest has no permissions field).
 - **Does it call AI models?** Chat, embeddings, speech, image, ...? If so, which
   models to wire through the AI Gateway (see §4 + `references/ai-gateway.md`).
 - **Does it read data the user already has** (an existing database, warehouse, or
@@ -168,6 +169,21 @@ app.listen(Number(process.env.PORT || 3000), '0.0.0.0');
 - 404 static-looking paths in the fallback → kills "module script failed".
 - `<base href>` + asset rewrite → every relative URL resolves under the prefix.
 - `Cache-Control: no-store` on the shell → no stale-shell after redeploy.
+
+### 1d. Build pitfalls that fail a deploy
+- **Node 18 in the generated Dockerfile.** Without your own `Dockerfile`, a Node,
+  React or fullstack app builds `FROM node:18-alpine`. A dependency that needs
+  Node 20+ (current Vite, React Router 7 and others) fails the build: pin versions
+  that support Node 18, or ship a `Dockerfile` `FROM node:20-alpine` (it is used as
+  written).
+- **Express 5** (what `npm i express` installs now): `app.get('*', ...)` crashes
+  at start ("Missing parameter name"). Use `app.get('/{*splat}', ...)` or a final
+  `app.use((req, res) => ...)` for the SPA fallback.
+- **`.gitignore` decides what is built.** A volume or GitHub source builds what
+  is committed: anything ignored (`dist/`, `build/`, `.env`, a generated file) is
+  not in the build. Build artifacts inside the `Dockerfile`, set settings as the
+  app's environment variables (not an ignored `.env`), and commit
+  `package-lock.json` so `npm ci` works.
 
 ---
 

@@ -150,7 +150,7 @@ connection from `STRONGLY_SERVICES` (never hardcode a host or key):
 - **After the fact:** attach an existing addon to an already-deployed app.
 
 ```bash
-# Attach / detach an existing addon to a running app (both are 24-char ObjectIds).
+# Attach / detach an existing addon to a running app (ids from the add-on and app lists).
 curl -s -X POST   "${auth[@]}" "$BASE/addons/$ADDON_ID/connect/$APP_ID" | jq '.data'
 curl -s -X DELETE "${auth[@]}" "$BASE/addons/$ADDON_ID/connect/$APP_ID" | jq '.data'
 ```

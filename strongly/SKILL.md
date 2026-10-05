@@ -90,8 +90,10 @@ with a matching HTTP status. Read `data` on success; surface `error.message` on
 failure.
 
 **Discovery.** List endpoints (`GET /api/v1/<resource>`) accept `limit`,
-`offset`, `sort`, and usually `search`. Resource ids are 24-char hex Mongo
-ObjectIds; pass them in the path (`/api/v1/apps/<id>`).
+`offset`, `sort`, and usually `search`. Resource ids are opaque strings
+(for example `app-dk8s1o8gwr03`, `project-vHPyNBcx3RSxs6Nsv`, `yeqemejxnqn7it66n`):
+take them from a list or create response, never build or guess one, and pass them
+in the path (`/api/v1/apps/<id>`).
 
 ## The three things that make Strongly apps different
 

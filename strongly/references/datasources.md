@@ -19,6 +19,7 @@ Strongly:
 
 ```bash
 BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
+# Inside Strongly (a workspace, app or job): BASE="$STRONGLY_API_URL/api/v1"; auth=()   # signed in as you, no key
 ```
 
 Every endpoint below is a real `/api/v1` route. Only the four mutations, create
