@@ -1,15 +1,17 @@
 # Compute
 
 Strongly **compute** is managed infrastructure a user runs interactively or wires
-into their work: **workspaces** (a JupyterLab or VS Code IDE in the cluster),
-saved **environments** (reusable hardware tiers and custom images), attached
+into their work: **workspaces** (a JupyterLab, VS Code, RStudio or custom IDE),
+saved **environments** (a size, and optionally a custom image), attached
 **compute clusters** (Ray, Dask, Spark), **node pools** (pre-warmed capacity per
-workload), **volumes** (a git code half plus a per-file versioned data half), and **code sessions** (a
-coding-assistant CLI driven over a workspace terminal).
+workload), **volumes** (a project's volume: a git code half plus a per-file
+versioned data half; a volume created as shared: the data half only), and
+**code sessions** (a coding-assistant CLI driven over a workspace terminal).
 
 Read this when the task is: creating or starting a workspace, sizing it from a
 saved environment or a custom image, attaching a distributed cluster, pre-warming
-nodes for a workload, provisioning a volume and mounting it into a workspace, or running
+nodes for a workload, creating or sharing a volume (volumes mount automatically,
+there is no attach step), or running
 Claude Code / Codex in a workspace through a code session.
 
 A **workspace is where Claude Code, Codex or OpenCode runs and code executes**.
@@ -198,8 +200,10 @@ A project volume's `code.filesystemType` picks how the code half is backed:
 A volume's **scope** is `local` (a project's own volume, created with its project,
 with code + data) or `shared` (standalone, usable across projects, data only;
 create one with no `code`, which is refused for it). A project's volume kept when
-its project is deleted becomes `shared` with its code read-only. Names are unique
-within an org and scope.
+its project is deleted becomes `shared` with its code read-only. A volume's name is
+unique among its owner's volumes of the same scope (a second one is refused:
+"You already have a shared volume named ..."); a project's volume takes its
+project's name.
 
 **Mount.** Mounting is automatic, there is no attach step: each time a workspace
 (or job run) starts it mounts its project's volume at `/volumes/local/<name>` and

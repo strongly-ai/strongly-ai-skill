@@ -218,7 +218,8 @@ curl -s -X POST "${auth[@]}" "$BASE/workspaces/$WORKSPACE_ID/sync"
 #    folder inside the volume's code that holds strongly.manifest.yaml; omit it
 #    when the app is the whole code. The app needs a size: environmentId, or cpu + memory.
 #    To give the app the volume's data too (its data/ at
-#    /volumes/local/<name>/data), also pick the volume in "volumes" and set a
+#    /volumes/local/<name>/data while the volume is not shared, or
+#    /volumes/shared/<name>/data once it is), also pick the volume in "volumes" and set a
 #    "disk": a volume is kept on the app's disk, and one without a disk is refused.
 #    Size it with cpu/memory/disk as below: an environmentId whose environment has
 #    no disk (the standard Small, Medium and Large have none) is refused volumes.
@@ -406,9 +407,11 @@ Convenience headers also exist (`X-Strongly-User-Id/Email/Name/Roles`,
 **Volumes are not services:** an app reads a volume's files directly. Pass
 `volumes: ["<volume id>", ...]` on create (`POST /apps`) or update (`PUT /apps/:id`,
 applied at the next deploy/start/restart); each must be one the app's owner may
-use (their own, or shared with them). Each mounts at `/volumes/local/<name>` (the
-owner's own) or `/volumes/shared/<name>`: `code/` read-only (absent for a shared
-volume, which holds data only), `data/` at its latest
+use (their own, or shared with them). The owner's own project volume that is not
+shared mounts at `/volumes/local/<name>`; every shared volume, the owner's own
+included, mounts at `/volumes/shared/<name>`. `code/` is read-only (absent for a
+volume created as shared, which holds data only; a project's volume that is shared
+or kept from a deleted project keeps its code), `data/` at its latest
 data, read and write, every written file saved to the volume as a new version as
 the app goes (no Sync). The app needs a disk size (its volumes are kept on it).
 This is how sample data in a volume's `data/` reaches a deployed app.
