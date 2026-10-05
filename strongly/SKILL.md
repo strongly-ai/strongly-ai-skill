@@ -48,8 +48,13 @@ which one you're in **before** doing anything else.
 Code or Codex in a Strongly workspace) or inside a deployed **app**. Tell by the
 environment: `STRONGLY_API_URL` and/or `STRONGLY_SERVICES` are set.
 - The platform base URL is already in the environment: **`$STRONGLY_API_URL`**
-  (an in-cluster address the platform sets); its REST API is
-  `$STRONGLY_API_URL/api/v1`.
+  (an in-cluster address the platform sets, in every workspace, job and app); its
+  REST API is `$STRONGLY_API_URL/api/v1`. Make every API call to it.
+- **Links for the user use `$STRONGLY_BASE_URL`**, the platform's public address
+  (e.g. `https://app.strongly.ai`). `$STRONGLY_API_URL` cannot be opened from a
+  browser, so never give the user a link built from it. A workspace port:
+  `$STRONGLY_BASE_URL/api/workspace-proxy/$STRONGLY_WORKSPACE_ID/port/3000/`;
+  a deployed app: `$STRONGLY_BASE_URL/apps/<app id>/view`.
 - **Auth is handled for you.** The platform injects the caller's bearer token on
   these in-cluster calls, so you do **not** set an `Authorization` header, and you
   do **not** ask the user for a key or host. A workspace holds no API key at all;

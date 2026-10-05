@@ -68,10 +68,13 @@ Two facts drive everything, the same in both:
   header (e.g. `/api/proxy/app-xyz`). Build every URL from it, per request; then
   the same build works deployed and in the workspace. (A deployed app also gets
   `STRONGLY_URL`, `STRONGLY_HOST` and `STRONGLY_APP_ID` env vars; a workspace
-  sets none of them, so don't depend on them for paths.)
+  sets none of them, so don't depend on them for paths. Every workspace, job and
+  app has `STRONGLY_API_URL` for API calls and `STRONGLY_BASE_URL`, the public
+  address, for full links.)
 - Listen on **`PORT`**, else 3000: a deployed app gets `PORT` from the platform;
   in a workspace 8080 is taken by VS Code, so run on 3000 (or another free port)
-  and open `<workspace URL>/port/3000/`. Only the workspace's owner can open its
+  and open `$STRONGLY_BASE_URL/api/workspace-proxy/$STRONGLY_WORKSPACE_ID/port/3000/`
+  (with its trailing slash; without it the platform redirects there). Only the workspace's owner can open its
   port URLs (as only they can open the workspace), signed in to the platform:
   it is for testing while you build, not for sharing; deploy the app to share it.
 
