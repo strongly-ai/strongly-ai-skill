@@ -130,6 +130,14 @@ workspace deploys, deleted when it stops (no idle cost), and recreated on start.
 whole `autoscale` block are optional. Omit `cluster` for a workspace with no
 cluster.
 
+**GPU workers:** a Ray GPU worker has the GPU driver but no GPU framework. Add the
+one the code uses per job with `runtime_env`, packaged with its CUDA libraries,
+then request the GPU per task:
+`ray.init(connect, runtime_env={"pip": ["cupy-cuda12x[ctk]"]})` (or `["torch"]`) and
+`@ray.remote(num_gpus=1)`. Plain `cupy-cuda12x` fails ("libcurand ... No such file").
+Dask GPU workers run RAPIDS (dask-cuda, cuDF, CuPy installed); their numpy 2.0.2 vs
+the workspace's 2.1.3 shows a harmless version note.
+
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"name":"ray-lab","description":"distributed training","environmentType":"jupyter",
