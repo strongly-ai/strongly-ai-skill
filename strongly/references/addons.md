@@ -8,7 +8,8 @@ workflows consume an addon by id; they never manage the pod.
 
 Read this when the task is: choosing and provisioning a managed store,
 starting/stopping/scaling one, fetching its connection string or credentials,
-scheduling it to save cost, backing it up, or wiring it into an app.
+scheduling it to save cost, backing it up or restoring a backup, or wiring it
+into an app.
 
 **Auth** follows `SKILL.md`. Outside Strongly send `X-API-Key` to `$HOST/api/v1`;
 inside Strongly the base is `$STRONGLY_API_URL/api/v1` and the bearer is
@@ -176,19 +177,51 @@ running afterward.
 
 ---
 
-## 9. Backups
+## 9. Backups and restore
+
+Backups are optional and off by default. Each one is taken with the database's
+own export tool (pg_dumpall, mysqldump, mongodump, a Redis RDB snapshot, the
+RabbitMQ definitions, a Neo4j Cypher export, a SurrealDB export, or the Milvus
+backup tool) and kept in the platform's backup storage. Only a running addon
+can be backed up or restored, and one backup or restore of an addon runs at a
+time (a second request gets `422 action-in-progress`).
 
 ```bash
-# Trigger an immediate backup (e.g. a database snapshot).
+# Back up now. Returns the backupId; the backup runs in the background.
 curl -s -X POST "${auth[@]}" "$BASE/addons/$ADDON_ID/backup" | jq '.data'
 
-# Configure automated backups. All three fields are required.
+# Automatic backups. All three fields are required.
 curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"enabled":true,"schedule":"0 2 * * *","retention":7}' \
+  -d '{"enabled":true,"schedule":"daily","retention":7}' \
   "$BASE/addons/$ADDON_ID/backup-config" | jq '.data'
+
+# Backups and restores, newest first, with each one's status and error.
+curl -s "${auth[@]}" "$BASE/addons/$ADDON_ID/backups" \
+  | jq '.data | {backups: [.backups[] | {backupId, status, sizeBytes, error}],
+                 restores: [.restores[] | {restoreId, backupId, status, error}],
+                 restoreEffect}'
+
+# Restore a succeeded backup into the same addon (ask the user first).
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d "{\"backupId\":\"$BACKUP_ID\"}" \
+  "$BASE/addons/$ADDON_ID/restore" | jq '.data'
 ```
 
-`schedule` is a cron expression; `retention` is the number of backups to keep.
+`schedule` is `hourly`, `daily`, `weekly` or `monthly` (the first automatic
+backup runs one interval after it is set); `retention` is how many successful
+backups are kept, manual and scheduled, older ones being deleted.
+
+A backup's `status` goes `starting`, `in_progress`, then `succeeded` (with
+`sizeBytes`) or `failed` (with `error`); a scheduled run that could not start
+is `skipped` with a `reason`. Poll `GET /addons/:id/backups` until it settles.
+
+A restore replaces everything the addon holds with what the backup holds:
+data written after the backup is lost, and anything created since is removed.
+The addon keeps running; `restoreEffect` says what connected apps see
+meanwhile (for example, PostgreSQL closes open connections). A restore's
+`status` goes `starting`, `in_progress`, then `succeeded` or `failed` (with
+`error`, the step that failed and its output). Always confirm with the user
+before restoring.
 
 ---
 
@@ -260,6 +293,8 @@ longer exists.
 | GET | `/addons/:id/logs` | Container logs (`lines`, `since`, `container`) | `addons:read` |
 | POST | `/addons/:id/backup` | Trigger an immediate backup | `addons:write` |
 | PUT | `/addons/:id/backup-config` | Configure automated backups (`enabled`, `schedule`, `retention`) | `addons:write` |
+| GET | `/addons/:id/backups` | Backups and restores (status, size, error) and `restoreEffect` | `addons:read` |
+| POST | `/addons/:id/restore` | Restore a succeeded backup into the addon (`backupId`) | `addons:write` |
 | POST | `/addons/:id/connect/:appId` | Attach the addon to an app | `addons:write` |
 | DELETE | `/addons/:id/connect/:appId` | Detach the addon from an app | `addons:write` |
 | PUT | `/addons/:id/permissions` | Sharing (`isPublic`, `allowedUsers`) | `addons:write` |
