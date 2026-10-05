@@ -552,7 +552,7 @@ name: kanban
 description: Project board with real-time collaboration
 
 ports:
-  - port: 3000          # the Service port; the app listens on $PORT (below)
+  - port: 3000          # the port the app listens on; PORT is set to it
     name: http
 
 env:
@@ -568,7 +568,7 @@ health_check:
 | Key | Purpose |
 |---|---|
 | `version` / `type` / `name` / `description` | Identity; `type` from the list above. |
-| `ports[]` | `port`, `name`, `expose`. The container always listens on the platform's internal port, which it gets as `PORT`: bind `PORT`, never a fixed number. |
+| `ports[]` | `port`, `name`, `expose`. The app listens on its port (the first with `expose`, else the first) and the platform routes to it; `PORT` is set to the same port, so binding `PORT` or the declared port both work, and a Dockerfile that runs the app on that port needs no change. Ports below 1024 (static's 80) work too. |
 | `env[]` | `name`, `value`, `required`, `secret` (stored as a secret), `buildtime` (a build arg), `description`. |
 | `runtime` | `command`, `working_dir`, `health_check_path`, `startup_timeout`. |
 | `health_check` | `path`, `initial_delay`, `period`, `timeout`, `failure_threshold`: the readiness probe (serve it, §1). |
