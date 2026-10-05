@@ -226,6 +226,10 @@ build). That directory is a git clone of the volume's code. The build takes the 
 ```bash
 # 1) Save the code to the volume: the workspace's Sync (commits and pushes the
 #    project volume's code; also the Sync button on the workspace page) ...
+#    Inside the workspace its own id is $STRONGLY_WORKSPACE_ID (the hostname is a
+#    lowercased deployment name, not the id); from outside, find it by name with
+#    GET /workspaces?search=<name>.
+WORKSPACE_ID="${STRONGLY_WORKSPACE_ID}"
 curl -s -X POST "${auth[@]}" "$BASE/workspaces/$WORKSPACE_ID/sync"
 #    ... or from a terminal in the workspace:
 #    cd /volumes/local/my-project/code && git add -A && git commit -m "v2" && git push

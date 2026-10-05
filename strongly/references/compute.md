@@ -63,7 +63,7 @@ take their share out of it).
 | `GET /workspaces/:id/status` | `workspaces:read` | Live status (poll this until running). |
 | `GET /workspaces/:id/metrics` | `workspaces:read` | CPU / memory usage. |
 | `GET /workspaces/:id/logs` | `workspaces:read` | Container logs. `type` is `build`, `deploy`, or `pod` (default `pod`). |
-| `POST /workspaces/:id/sync` | `workspaces:write` | Save to durable storage: commit and push the project volume's code to its configured branch (a shared volume's code is read-only: its result is `skipped: read-only`), and save each changed data file, in every volume the user may write, as a new version. Stop/start/restart keep unsynced work; only delete loses it. Sync to make work durable, visible to others, and buildable (an app builds from synced code) (section 5). |
+| `POST /workspaces/:id/sync` | `workspaces:write` | (Inside a workspace, its own id is `$STRONGLY_WORKSPACE_ID`.) Save to durable storage: commit and push the project volume's code to its configured branch (a shared volume's code is read-only: its result is `skipped: read-only`), and save each changed data file, in every volume the user may write, as a new version. Stop/start/restart keep unsynced work; only delete loses it. Sync to make work durable, visible to others, and buildable (an app builds from synced code) (section 5). |
 
 Optional wiring on `POST /workspaces` (all optional): `projectId` (the project's
 volume mounts at `/volumes/local/<name>/{code,data}`; see `references/projects.md`),
