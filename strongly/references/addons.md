@@ -41,7 +41,10 @@ curl -s "${auth[@]}" "$BASE/addons" | jq '.data'
 what it is best for. Use it to **recommend** a type by reasoning about the data
 need, not from a memorized list. Type keys are vendor keys, e.g. `postgres`
 (**not** `postgresql`, which is the workflow node type), `mysql`, `mongodb`,
-`redis`, `rabbitmq`, `neo4j`, `milvus`, `greenplum`, `surrealdb`.
+`redis`, `rabbitmq`, `neo4j`, `milvus`, `greenplum`, `surrealdb`, `kafka`,
+`mqtt`. Kafka and MQTT are also data source types (a broker the user runs
+elsewhere): streaming workflow nodes and marketplace installs take either,
+so offer an add-on only when the user has no broker of their own.
 
 `GET /addons` lists existing addons and supports `search`, `type`, `status`,
 `limit`, `offset`. Before provisioning a new store, list first and reuse when a
@@ -181,8 +184,11 @@ running afterward.
 
 Backups are optional and off by default. Each one is taken with the database's
 own export tool (pg_dumpall, mysqldump, mongodump, a Redis RDB snapshot, the
-RabbitMQ definitions, a Neo4j Cypher export, a SurrealDB export, or the Milvus
-backup tool) and kept in the platform's backup storage. Only a running addon
+RabbitMQ definitions, a Neo4j Cypher export, a SurrealDB export, the Milvus
+backup tool, every Kafka topic with its records and consumer group positions,
+or the MQTT retained messages) and kept in the platform's backup storage. A
+Kafka restore refuses while a consumer group has members: stop the consumers
+first. Only a running addon
 can be backed up or restored, and one backup or restore of an addon runs at a
 time (a second request gets `422 action-in-progress`).
 
