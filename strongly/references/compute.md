@@ -211,7 +211,8 @@ project's name.
 **Mount.** Each time a workspace (or job run) starts it mounts its project's
 volume at `/volumes/local/<name>`, always, and only the shared volumes chosen for
 it (`sharedVolumeIds` on create, or `PUT` to change from the next start or run;
-none unless chosen) at `/volumes/shared/<name>`, each as
+none unless chosen; `GET $BASE/volumes/available-shared?projectId=<id>` lists
+the ones the user may choose) at `/volumes/shared/<name>`, each as
 `code/` (only when the volume has code; read-only under `/volumes/shared`) and
 `data/` (e.g. `/volumes/local/my-proj/code`, `/volumes/shared/datasets/data`). A chosen volume the user may not mount is refused
 by name; one its owner later takes away is dropped from the choice, and the user's
