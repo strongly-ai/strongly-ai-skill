@@ -7,7 +7,9 @@ description: >-
   workflows, and using MLOps, the model registry, and the AI Gateway. Use this
   whenever the user mentions Strongly, strongly.ai, a Strongly app/agent/
   workflow/addon/datasource/model, STRONGLY_SERVICES, the Strongly proxy, or an
-  X-API-Key / X-Strongly-* header.
+  X-API-Key / X-Strongly-* header, and whenever you write or edit a
+  strongly.manifest.yaml or build an app meant to run on Strongly, even before
+  it is deployed.
 ---
 
 # Strongly.AI
@@ -119,13 +121,41 @@ If the task involves **apps**, three platform mechanics matter. Full detail is i
   and workflows arrive as a JSON env var `STRONGLY_SERVICES`. The app reads
   connection strings and model endpoints from there instead of hardcoding them.
 
+## The app manifest: never guess its fields
+
+Every app has a `strongly.manifest.yaml` in its root, and the build refuses one
+with an unknown field or an invalid `type`, naming it. Write it in this format
+the first time, while you are building the app, not only when you deploy it:
+
+```yaml
+version: "1.0"
+type: nodejs            # react | nodejs | static | fullstack | flask | rshiny | mcp_server | custom
+name: my-app
+description: What the app does
+
+ports:
+  - port: 3000          # the port the app listens on; PORT is set to it
+    name: http
+
+health_check:
+  path: /health
+
+runtime:
+  command: npm start    # optional; how the app starts
+```
+
+`env[]` entries are a list of `{name, value}`, never a map. Volumes, addons, data
+sources and AI models are connected on the app (`references/apps.md` §2 and §4),
+never in this file. Read `references/apps.md` §6 for every key before adding any
+other field.
+
 ## Feature routing
 
 Read the matching reference before doing detailed work in that area:
 
 | The user is asking about… | Read | Key REST prefixes (under `$BASE`) |
 |---|---|---|
-| Deploying/serving **apps**, the proxy, JWT identity, the manifest, artifacts | `references/apps.md` | `/apps`, `/artifacts` |
+| Building, deploying or serving **apps**: writing `strongly.manifest.yaml`, the proxy, JWT identity, artifacts | `references/apps.md` | `/apps`, `/artifacts` |
 | **Addons** (managed Postgres/Mongo/Redis/… provisioned by Strongly) | `references/addons.md` | `/addons`, `/addon-types` |
 | **Data sources** (connect EXTERNAL DBs/warehouses/object stores; data prep) | `references/datasources.md` | `/datasources`, `/data-forge` |
 | **Agents** (deploy & chat with Strongly Agents) | `references/agents.md` | `/agents` |
