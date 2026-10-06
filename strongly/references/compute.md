@@ -208,12 +208,14 @@ unique among its owner's volumes of the same scope (a second one is refused:
 "You already have a shared volume named ..."); a project's volume takes its
 project's name.
 
-**Mount.** Mounting is automatic, there is no attach step: each time a workspace
-(or job run) starts it mounts its project's volume at `/volumes/local/<name>` and
-every shared volume the user can use at `/volumes/shared/<name>`, each as
+**Mount.** Each time a workspace (or job run) starts it mounts its project's
+volume at `/volumes/local/<name>`, always, and only the shared volumes chosen for
+it (`sharedVolumeIds` on create, or `PUT` to change from the next start or run;
+none unless chosen) at `/volumes/shared/<name>`, each as
 `code/` (only when the volume has code; read-only under `/volumes/shared`) and
-`data/` (e.g. `/volumes/local/my-proj/code`, `/volumes/shared/datasets/data`). A volume newly shared with the user mounts from
-the next start. `data/` mounts at its latest version. Another project's unshared
+`data/` (e.g. `/volumes/local/my-proj/code`, `/volumes/shared/datasets/data`). A chosen volume the user may not mount is refused
+by name; one its owner later takes away is dropped from the choice, and the user's
+reads and writes of it are refused at once. `data/` mounts at its latest version. Another project's unshared
 volume never mounts.
 
 **Sync.** The project volume's code half is plain git: in the workspace terminal

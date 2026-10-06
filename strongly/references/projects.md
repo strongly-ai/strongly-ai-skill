@@ -118,9 +118,9 @@ curl -s "${auth[@]}" "$BASE/projects/$PID/workspaces?limit=20" | jq '.data'
 ```
 
 **Volumes.** Every project has one volume of its own, created with the project.
-Nothing is attached to a project or a workspace: each workspace and ML job run
-mounts the project's volume at `/volumes/local/<name>` and every volume shared with
-the user at `/volumes/shared/<name>`, worked out each time it starts. To reuse data
+Each workspace and ML job run mounts the project's volume at
+`/volumes/local/<name>`, always, and only the shared volumes chosen for it
+(`sharedVolumeIds`) at `/volumes/shared/<name>`, checked each time it starts. To reuse data
 across projects, create a **shared** volume (data only) via the compute API; to
 reuse code, share the project volume (others read its code, read-only). Either
 then mounts everywhere the user works. Code is written only in the project's own
@@ -251,8 +251,9 @@ curl -s "${auth[@]}" "$BASE/projects/$PID/board/archive?search=drift&skip=0&limi
       `githubConfig` (with an existing `sshKeyId`) only for a repo-backed project.
 - [ ] `DELETE` needs `volume=delete|keep` (delete the project volume, or keep it
       as a shared volume); use `archive`/`restore` for a recoverable project.
-- [ ] No volume attach step: a workspace or ML job mounts the project volume and
-      every shared volume on start; launch workspaces via `references/compute.md`.
+- [ ] A workspace or ML job mounts the project volume, and only the shared volumes
+      in its `sharedVolumeIds` (none unless chosen); launch workspaces via
+      `references/compute.md`.
 - [ ] `list_board_members` before assigning; send user ids with `assignable=true`,
       not names.
 - [ ] `upsert_board_label` before putting a label on a card; colour from the fixed
