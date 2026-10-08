@@ -156,20 +156,19 @@ Rules the build enforces (it rejects the graph with an actionable error otherwis
 - `inputMappings` paths are relative to the data arriving at the node (a webhook
   payload arrives under `data.body.<field>`); a wrong path yields empty output on
   a green run, so verify with a real execution.
-- A config field the schema types `json` holds a list or an object (Data
-  Aggregator `operations`, Notification `channels`, API Caller
-  `defaultHeaders`): pass the JSON value itself. JSON text is parsed before the
-  node runs, and text that is not valid JSON fails the node naming the field.
+- Give each config field the shape its schema type saves: `tags`/`multiselect`
+  a list of strings, `fieldBuilder`/`array` a list of objects (Data Aggregator
+  `operations`, Notification `channels`), `keyValue`/`object`/`json` an object
+  (API Caller `defaultHeaders`). A `code` field with `language: json` (Edit
+  Fields `jsonData`, a Mongo filter) is JSON text, so `$`-prefixed keys are
+  kept. For `json`/`object` fields JSON text is also parsed before the node
+  runs; text that is not valid JSON fails the node naming the field.
 - There is **no `{{ }}` templating** in node configs or mappings: data reaches a node
   only through `inputMappings` paths into its directly connected upstream node's
   output. A loop body node reads the current item at `data.currentItem`; the node
   after a Loop Accumulator reads the collected array at `data.data` (count at
   `data.count`). Only a few nodes substitute `{{name}}` inside their own template
   fields (Send Email, Notification, Exchange, PDF Generator, String Transform).
-- A config field the schema types `json` holds a list or an object (Data
-  Aggregator `operations`, Notification `channels`, API Caller
-  `defaultHeaders`): pass the JSON value itself. JSON text is parsed before the
-  node runs, and text that is not valid JSON fails the node naming the field.
 
 Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 
