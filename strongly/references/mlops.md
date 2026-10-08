@@ -119,7 +119,7 @@ trainer writes to these automatically; you also drive them directly.
 | `POST /experiments` | Create a tracking record | `name`, `description?`, `parameters?`, `tags?` |
 | `POST /experiments/register` | Create or find by name (idempotent) | `name`, `description?`, `tags?` |
 | `GET /experiments/:id` | Get one | path `id` |
-| `PUT /experiments/:id` | Update | path `id` |
+| `PUT /experiments/:id` | Update | path `id`; `name`, `description`, `status`, `tags`, `framework` (the trained model's; `log_model` sets it) |
 | `DELETE /experiments/:id` | Delete | path `id` |
 | `POST /experiments/:id/pin` | Pin or unpin | path `id`, `pinned` (boolean, required) |
 | `PUT /experiments/:id/tags` | Replace tags | path `id`, `tags` (array) |
