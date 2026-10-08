@@ -105,9 +105,10 @@ WID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
     "nodes": [
       {"id":"in","type":"webhook"},
       {"id":"loop","type":"loop","inputMappings":{"items":"data.body.records"}},
-      {"id":"llm","type":"llm","config":{"model":"<id from services/models>","prompt":"Summarize: {{item}}"}},
+      {"id":"llm","type":"llm","config":{"model":"<id from services/models>","defaultSystemPrompt":"Summarize the text in two sentences."},
+       "inputMappings":{"userPrompt":"data.currentItem.text"}},
       {"id":"acc","type":"merge","inputMappings":{"data":"data"}},
-      {"id":"db","type":"postgresql","category":"destinations","config":{"table":"summaries"},"inputMappings":{"data":"data"}}
+      {"id":"db","type":"postgresql","category":"destinations","config":{"table":"summaries"},"inputMappings":{"data":"data.data"}}
     ],
     "connections": [
       {"source":"in","target":"loop"},
@@ -141,12 +142,35 @@ Rules the build enforces (it rejects the graph with an actionable error otherwis
 - `inputMappings` paths are relative to the data arriving at the node (a webhook
   payload arrives under `data.body.<field>`); a wrong path yields empty output on
   a green run, so verify with a real execution.
+- There is **no `{{ }}` templating** in node configs or mappings: data reaches a node
+  only through `inputMappings` paths into its directly connected upstream node's
+  output. A loop body node reads the current item at `data.currentItem`; the node
+  after a Loop Accumulator reads the collected array at `data.data` (count at
+  `data.count`). Only a few nodes substitute `{{name}}` inside their own template
+  fields (Send Email, Notification, Exchange, PDF Generator, String Transform).
 - A config field the schema types `json` holds a list or an object (Data
   Aggregator `operations`, Notification `channels`, API Caller
   `defaultHeaders`): pass the JSON value itself. JSON text is parsed before the
   node runs, and text that is not valid JSON fails the node naming the field.
 
 Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
+
+### How runs execute
+- A **draft** run (workflow not deployed) runs on the caller's own worker pool: 2
+  pre-warmed workers while they are in the builder, one worker per run, removed
+  after it. A run needing more than 1 vCPU / 1 GB, or reaching data sources or
+  add-ons, gets a worker started for it (allow up to a minute). Deployed runs use
+  the deployment. One in-flight run per workflow unless its concurrency is raised.
+- Loop Pod Scaling works in draft and deployed runs alike; the trace has a
+  `DISTRIBUTED` span for the loop, and the accumulator collects every item.
+- Node data is cached in three tiers (memory for items up to 100 KB, pod disk up to
+  10 MB, object storage for everything, shared across pods). Nothing to configure.
+  A run's cache is deleted 24 h after it ends, except the newest finished run of
+  each workflow (kept for resume).
+- Built-in nodes log **metrics** (judge scores, LLM tokens, `rows_affected`, item
+  counts): each span's `metrics` in `/executions/:id/spans`; when a run ends every
+  metric name also gets trace-level `avg_`/`min_`/`max_` aggregates, shown on the
+  trace's Execution Metrics card.
 
 ### Create or edit incrementally
 
