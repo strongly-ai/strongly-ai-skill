@@ -220,8 +220,12 @@ curl -s -X POST "${auth[@]}" "$BASE/ab-tests/experiments/$EXP/analyze" | jq '.da
   retention).
 - **`analyze`** returns `controlStats` and `treatmentStats` (mean, sample size,
   p-value, confidence interval, relative improvement, significance), a
-  `recommendation` (`treatment`, `control` or `inconclusive`) and
-  `winnerVariantId`, and keeps them on the experiment. It concludes a running
+  `recommendation` (`treatment`, `control` or `inconclusive`),
+  `winnerVariantId` and `reason`, and keeps them on the experiment. A winner
+  needs `minSamplePerVariant` observations in every variant and a significant
+  difference of at least `minimumDetectableEffect` relative to the control's
+  mean; `reason` says which setting left it inconclusive. `relativeImprovement`
+  is `null` when the control's mean is 0. It concludes a running
   experiment (status `completed`) when a sequential test is significant,
   `maxSamplePerVariant` is reached or `maxDurationDays` has passed
   (`concludedReason`).
@@ -230,8 +234,7 @@ curl -s -X POST "${auth[@]}" "$BASE/ab-tests/experiments/$EXP/analyze" | jq '.da
   (status `cancelled`). Either way its analysis covers the predictions until
   then.
 
-Report `inconclusive` as inconclusive, and say when a variant has fewer samples
-than `minSamplePerVariant`.
+Report `inconclusive` as inconclusive, quoting `reason` when it is set.
 
 | Method / path | Does | Scope |
 |---|---|---|
