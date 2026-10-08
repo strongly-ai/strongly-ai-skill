@@ -84,6 +84,12 @@ model goes under **`config.model`** as a real model id from
 returns a JSON object, `response` is a JSON string, so add a `code` node to parse
 it before downstream nodes read the fields.
 
+A `code` node can log its own run metrics: `metric(name, value, unit)` in its
+Python (e.g. `metric("values redacted", n, "count")`) records a span metric with
+the node as source, shown in the run's Execution Metrics with trace-level
+`avg_`/`min_`/`max_` aggregates. `value` is a finite number, `unit` optional text;
+a bad argument fails the node. In `runOnceForEachItem` each item's calls count.
+
 ---
 
 ## 2. Build a workflow in one call
