@@ -49,7 +49,9 @@ Create needs `name`, `strategy` and at least 2 `variants` of `{ variantId,
 modelId, weight?, isControl? }`. `variantId`s must be unique; at most one
 variant is the control (the first, unless one is marked). **`weight` is a 0-1
 fraction** (default an equal share). For `weighted_random` the weights must sum
-to 1 (`0.5 + 0.5`, not `50 + 50`).
+to 1 (`0.5 + 0.5`, not `50 + 50`). Each `modelId` must be a registry model
+the caller can use (own, shared or public); any other id is refused with `403`
+naming it. Pick deployed models: only they can serve the test.
 
 ```bash
 ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ab-tests" \
