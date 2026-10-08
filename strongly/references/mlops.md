@@ -218,22 +218,28 @@ routes are REST-only (no agent tool wrappers). Data-plane calls delegate to the
 platform feature-store service as the calling user, so pass the service's own
 JSON body through unchanged.
 
-| Method + path | Does |
-|---|---|
-| `GET /feature-store/stores` | List feature stores you can access |
-| `GET /feature-store/stores/:id` | Get one store |
-| `POST /feature-store/apply` | Register/update entities, views, services (dependency order) |
-| `POST /feature-store/online-features` | Read low-latency online features for serving |
-| `POST /feature-store/historical-features` | Point-in-time-correct features for training |
-| `POST /feature-store/materialize` | Materialize features from offline to online store (a batch view with a source table pulls the source first; `ingested` counts those rows) |
-| `POST /feature-store/write` | Write feature values |
-| `POST /feature-store/push` | Push features to the online store |
+Reads need `mlops:read`, changes need `mlops:write` (both in the `ml-ops` and `developer` bundles).
+
+| Method + path | Does | Scope |
+|---|---|---|
+| `GET /feature-store/stores` | List feature stores you can access | `mlops:read` |
+| `GET /feature-store/stores/:id` | One store with its `entities`, every version of its `views` (status `active` or `deprecated`) and its `services`: read these before applying a change | `mlops:read` |
+| `POST /feature-store/apply` | Register/update entities, views, services (dependency order) | `mlops:write` |
+| `POST /feature-store/online-features` | Read low-latency online features for serving | `mlops:read` |
+| `POST /feature-store/historical-features` | Point-in-time-correct features for training | `mlops:read` |
+| `POST /feature-store/materialize` | Materialize features from offline to online store (a batch view with a source table pulls the source first; `ingested` counts those rows) | `mlops:write` |
+| `POST /feature-store/write` | Write feature rows into a view's history | `mlops:write` |
+| `POST /feature-store/push` | Push real-time events to a streaming aggregation view | `mlops:write` |
+| `POST /feature-store/views/deprecate` | Deprecate a view version (`store_id`, `view`, `version`): read-only, hidden, still resolved by services pinned to it | `mlops:write` |
+
+A breaking change creates a new view version whose history starts empty: the
+platform pulls the source and publishes it from the beginning for that version.
 
 `apply` takes `store_id` (required) plus optional `entities`, `views`, `services`
 arrays; each view's `change` in the result is `created`, `identical`, `additive`
 or `breaking`. The data-plane bodies (feature refs, entity rows, time ranges) are the
 feature-store service's own contract and are forwarded verbatim; discover a
-store's entities and views with `GET /feature-store/stores/:id`.
+store's entities, views and services with `GET /feature-store/stores/:id`.
 
 ```bash
 STORE=$(curl -s "${auth[@]}" "$BASE/feature-store/stores" | jq -r '.data[0]._id')
