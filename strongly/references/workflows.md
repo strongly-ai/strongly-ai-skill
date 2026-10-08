@@ -133,7 +133,7 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 | PUT | `/workflows/:id/nodes/:nodeId` | Set a node's `config` / `label` |
 | DELETE | `/workflows/:id/nodes/:nodeId` | Remove a node and its connections |
 | PUT | `/workflows/:id/nodes/:nodeId/input-mappings` | Set `inputMappings` (`{ targetField: "data.sourceField" }`) |
-| PUT | `/workflows/:id/nodes/:nodeId/passthrough-values` | Set `passThroughValues` that copy straight from input to output (`values`) |
+| PUT | `/workflows/:id/nodes/:nodeId/passthrough-values` | Set `passThroughValues` (`values`: `{outputKey: "inputName"}`, saved to `node.config`): copies the node's input `inputName` (one of its `inputMappings` keys, so map it first) into its output as `data.<outputKey>` |
 | POST | `/workflows/:id/connections` | Connect nodes (`sourceNodeId`, `targetNodeId`, `sourcePort`, `targetPort`; agent nodes use `targetPort` `"ai"` or `"tools"`; streaming feedback edges pair `feedback` with `maxIterations`) |
 | DELETE | `/workflows/:id/connections/:connectionId` | Remove a connection (use a REAL id from `GET /workflows/:id`; never invent one) |
 | POST | `/workflows/:id/layout` | Auto-arrange nodes left-to-right |
