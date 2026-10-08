@@ -55,7 +55,7 @@ object-storage data source.
 
 | Method + path | Does | Key params |
 |---|---|---|
-| `GET /automl/stats` | Totals (active/completed/failed, cost, accuracy) | none |
+| `GET /automl/stats` | Totals (active/completed/failed, accuracy, models); cost is FinOps' alone | none |
 | `GET /automl/datasets` | List dataset volumes you can train on | none |
 | `GET /automl/datasets/:id/files` | Files inside a volume (pick one to train on) | path `id` |
 | `GET /automl/datasets/:id/columns` | Column headers of a file (pick target/features) | path `id`, `file` |
@@ -171,7 +171,6 @@ with the read endpoints first, then submit and poll.
 | `GET /fine-tuning/base-models` | Fine-tunable base models | none |
 | `GET /fine-tuning/hardware` | Hardware/GPU options | none |
 | `GET /fine-tuning/model-requirements` | VRAM/hardware needs for a base model | `baseModel`, `method?` |
-| `POST /fine-tuning/estimate-cost` | Estimate job cost | `baseModel`, `datasetSize` |
 | `POST /fine-tuning/recommend` | Recommend a config | `baseModel`, `useCase?`, `datasetSize?` |
 | `POST /fine-tuning/validate-config` | Pre-flight validation | `baseModel`, `method`, `hardware?`, `methodConfig?` |
 | `GET /fine-tuning/jobs` | List jobs | `search`, `status`, `baseModel`, `limit`, `offset`, `sortBy`, `sortOrder` |
