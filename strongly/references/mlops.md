@@ -225,12 +225,13 @@ JSON body through unchanged.
 | `POST /feature-store/apply` | Register/update entities, views, services (dependency order) |
 | `POST /feature-store/online-features` | Read low-latency online features for serving |
 | `POST /feature-store/historical-features` | Point-in-time-correct features for training |
-| `POST /feature-store/materialize` | Materialize features from offline to online store |
+| `POST /feature-store/materialize` | Materialize features from offline to online store (a batch view with a source table pulls the source first; `ingested` counts those rows) |
 | `POST /feature-store/write` | Write feature values |
 | `POST /feature-store/push` | Push features to the online store |
 
 `apply` takes `store_id` (required) plus optional `entities`, `views`, `services`
-arrays. The data-plane bodies (feature refs, entity rows, time ranges) are the
+arrays; each view's `change` in the result is `created`, `identical`, `additive`
+or `breaking`. The data-plane bodies (feature refs, entity rows, time ranges) are the
 feature-store service's own contract and are forwarded verbatim; discover a
 store's entities and views with `GET /feature-store/stores/:id`.
 
