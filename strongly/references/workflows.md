@@ -334,6 +334,33 @@ whose `secretConfigured` is false, set `config.secret` first or callers get a 40
 
 To delete: undeploy, stop any running execution, then `DELETE /workflows/:id`.
 
+### Chain workflows and alert on run ends
+
+When a run ends the platform emits `workflow.completed` (completed,
+completed_with_gaps, partial_success) or `workflow.failed` (failed, error,
+timeout); stopped and cancelled runs emit nothing. A **deployed** workflow whose
+first node is an Event trigger (`event`) with `eventTypes: ["workflow.completed"]`
+and `sourceWorkflowId: "<A>"` starts each time A's run completes, as its deployer
+(who must be able to use A), with `event_data = {workflow_id, workflow_name,
+execution_id, status, duration_ms, error_message, trigger_type}`. Drafts never
+auto-run, and a workflow's own run never restarts it. Custom events:
+`POST /workflows/events` `{event_type, event_data, source}`.
+
+To be told yourself, create an alert rule (in-app needs no credentials):
+
+```bash
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/workflow-alerts/rules" \
+  -d '{"name":"A failed","workflowId":"'$WID'","condition":"execution_failed","channels":[{"type":"in_app","config":{}}]}'
+curl -s "${auth[@]}" "$BASE/workflow-alerts/history?workflowId=$WID" | jq '.data'   # each alert + channel outcomes
+```
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/workflows/events` | Emit an event; starts the deployed workflows you may use whose Event trigger listens for it |
+| GET · POST | `/workflow-alerts/rules` | List (`workflowId`) / create alert rules: `condition` = execution_failed, execution_timeout, execution_completed, duration_exceeded (`conditionConfig.durationThresholdMs`), node_failed (`nodeTypes`), consecutive_failures (`failureCount`), dlq_threshold (`dlqCountThreshold`); `channels` = in_app, email (`emailAddresses`), slack (`slackWebhookUrl`), webhook (`webhookUrl`); `throttle` `{enabled, intervalMinutes}` |
+| PUT · DELETE | `/workflow-alerts/rules/:id` | Update (`isEnabled: false` pauses) / delete a rule |
+| GET | `/workflow-alerts/history` | Alerts sent (`workflowId`, `ruleId`, `limit` <= 200) with each channel's outcome |
+
 ---
 
 ## 6. Streaming workflows (real-time sessions)

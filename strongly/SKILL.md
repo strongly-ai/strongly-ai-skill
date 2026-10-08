@@ -159,7 +159,7 @@ Read the matching reference before doing detailed work in that area:
 | **Addons** (managed Postgres/Mongo/Redis/… provisioned by Strongly) | `references/addons.md` | `/addons`, `/addon-types` |
 | **Data sources** (connect EXTERNAL DBs/warehouses/object stores; data prep) | `references/datasources.md` | `/datasources`, `/data-forge` |
 | **Agents** (deploy & chat with Strongly Agents) | `references/agents.md` | `/agents` |
-| **Workflows** (build/run node graphs, batch + streaming) | `references/workflows.md` | `/workflows`, `/workflow-nodes`, `/executions`, `/streaming-workflows` |
+| **Workflows** (build/run node graphs, batch + streaming) | `references/workflows.md` | `/workflows`, `/workflow-nodes`, `/executions`, `/workflow-alerts`, `/streaming-workflows` |
 | **MLOps** (AutoML, experiments, fine-tuning, feature store, inference) | `references/mlops.md` | `/automl`, `/experiments`, `/fine-tuning`, `/feature-store` |
 | **Model registry** (register/version/deploy models) | `references/model-registry.md` | `/model-registry` |
 | **Model evaluation** for registry models (prediction records, Record inputs, actuals, the model card) | `references/model-evaluation.md` | `/model-registry/models/:id/actuals`, `/model-registry/models/:id/monitoring`, `/drift/predictions` |
