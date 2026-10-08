@@ -58,7 +58,8 @@ Provisioning returns immediately and finishes later. **Never hand out a
 connection string or wire the addon into anything until its status is running.**
 
 ```bash
-# Create. Required: label, type, cpu, memory, disk. Optional: description.
+# Create. Required: label, type, cpu, memory, disk. Optional: description, and gpu (a count,
+# as a string) with gpu_type (e.g. "nvidia-t4"): a GPU add-on runs on the AI pool with its GPUs.
 ADDON_ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"label":"Orders DB","type":"postgres","cpu":"500m","memory":"1Gi","disk":"10Gi",
        "description":"Primary store for the orders app"}' \
