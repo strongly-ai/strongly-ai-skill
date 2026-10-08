@@ -258,8 +258,9 @@ EID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 curl -s "${auth[@]}" "$BASE/executions/$EID/progress" | jq '.data'
 # -> repeat while .status is "pending" or "running"; it ends completed |
 #    completed_with_gaps | partial_success | failed | stopped | cancelled.
-#    A loop/map whose items partly failed ends partial_success, one whose items
-#    all failed ends failed; error_message names each loop: "loop: 6 of 6 items failed".
+#    A node that failed under continueOnError, or a loop/map whose items partly
+#    failed, ends partial_success; a loop whose items all failed ends failed.
+#    error_message names each: "Score failed: ValueError ...; loop: 6 of 12 items failed".
 
 # On completion, read the full per-node outputs and VERIFY they are non-empty.
 curl -s "${auth[@]}" "$BASE/executions/$EID" | jq '.data.outputs'
