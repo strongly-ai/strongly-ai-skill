@@ -235,6 +235,11 @@ Reads need `mlops:read`, changes need `mlops:write` (both in the `ml-ops` and `d
 A breaking change creates a new view version whose history starts empty: the
 platform pulls the source and publishes it from the beginning for that version.
 
+A stream view with `aggregations` (`[{column, function, windows}]`, `tileSize`,
+optional `allowedLateness`) serves `<column>_<function>_<window>` features; send events
+with `POST /feature-store/push`. Online windows are as of now (an old event ages out even
+when an entity sends nothing new), matching training data for the same moment.
+
 An on-demand view (`mode: "on_demand"`) computes features at request time:
 `transformCode` defines `transform(df)` (pandas in: its `onDemandSources`' features +
 `requestDataSources` fields; out: a DataFrame with its features, same rows; import
