@@ -66,7 +66,7 @@ required. `cache_config` optionally enables semantic caching.
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai/models" \
-  -d '{"name":"GPT-4o","type":"third-party","provider":"openai","vendorModelId":"gpt-4o",
+  -d '{"name":"GPT-6.1 Sol","type":"third-party","provider":"openai","vendorModelId":"gpt-6.1-sol",
        "cache_config":{"semantic_cache_enabled":true,"semantic_cache_threshold":0.9,"semantic_cache_ttl":3600}}' \
   | jq '.data'
 ```
@@ -116,7 +116,7 @@ curl -s "${auth[@]}" "$BASE/ai/provider-keys?provider=openai&status=active" | jq
 | `GET /ai/provider-keys/:id` | Get one (no secret) | `ai-gateway:read` |
 | `PUT /ai/provider-keys/:id` | Update | `ai-gateway:write` |
 | `DELETE /ai/provider-keys/:id` | Delete | `ai-gateway:write` |
-| `POST /ai/provider-keys/:id/test` | Test the stored key against the provider | `ai-gateway:read` |
+| `POST /ai/provider-keys/:id/test` | Test the stored key: the gateway lists the provider's models with it (no model is called) | `ai-gateway:read` |
 
 ---
 

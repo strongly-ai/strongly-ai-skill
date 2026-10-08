@@ -66,7 +66,7 @@ from strongly import AsyncStrongly
 async def main():
     async with AsyncStrongly() as client:
         resp = await client.ai.inference.chat_completion(
-            model="gpt-4o-mini",
+            model="gpt-6-luna",
             messages=[{"role": "user", "content": "Hello!"}],
         )
         print(resp.content)
@@ -127,7 +127,7 @@ Full detail: `references/ai-gateway.md`. The SDK exposes the gateway under
 ```python
 # Chat completion (client.ai.inference)
 resp = client.ai.inference.chat_completion(
-    model="gpt-4o-mini",
+    model="gpt-6-luna",
     messages=[
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Explain transformers in 3 sentences."},
@@ -139,7 +139,7 @@ print(resp.content)                       # or resp.choices[0].message.content
 
 # Streaming: stream=True yields StreamChunk objects
 for chunk in client.ai.inference.chat_completion(
-    model="gpt-4o-mini",
+    model="gpt-6-luna",
     messages=[{"role": "user", "content": "Write a haiku about Python"}],
     stream=True,
 ):
@@ -241,7 +241,7 @@ job = client.automl.create_job(
 **Fine-tuning.** Fine-tune, monitor, deploy:
 
 ```python
-job = client.fine_tuning.create_job(name="support-classifier", base_model="gpt-4o-mini",
+job = client.fine_tuning.create_job(name="support-classifier", base_model="meta-llama/Llama-3.2-1B-Instruct",
                                      training_dataset="data/training.jsonl",
                                      hyperparameters={"n_epochs": 3})
 job = client.fine_tuning.retrieve_job(job.id)   # poll job.status
