@@ -135,7 +135,21 @@ Rules the build enforces (it rejects the graph with an actionable error otherwis
   Pods = ceil(items / `targetItemsPerPod`), at most `maxPods` (default 10, counts
   the workflow's own pod); `maxWorkers` is threads per worker pod (default 10);
   `retryAttempts` is optional. Worker pods are sized to the largest resources of
-  the loop body's nodes. A map's concurrency is its own `config.maxWorkers`.
+  the loop body's nodes. A map runs in the workflow's pod only: its concurrency is
+  its own `config.maxWorkers` (default 10), `config.inputArrayPath` is the path
+  to the array in its mapped inputs (`items`, or e.g. `data.rows` with `data`
+  mapped), and `config.maxItems` keeps the first N (0 = all).
+- A Goal Loop body hangs off `"continue"` and its accumulator takes
+  `sourcePort: "complete"`; edges from `"complete"` run once the loop ends.
+- Parallel Branch runs the branches wired from its `"output"` at the same time
+  (`config.maxWorkers`, default 10); a node every branch feeds (e.g. a merge with
+  `inputMappings: {"data": "data"}`) is their join and runs after them. A branch
+  cannot hold a Loop or Map.
+- Retry re-runs the one node wired into its input until it succeeds
+  (`config.maxRetries`, `retryDelay`, `backoffType`); wire the next step from
+  `"success"` and the failure path from `"failed"`. That node's failure does not
+  stop the run. Wait holds the run (`config.mode` `delay` + `duration` seconds,
+  or `until` + `untilTime`). Stop and Error always stops the run.
 - An **ambiguous** type (source-and-destination connectors) must set `category`
   (`"sources"` to read, `"destinations"` to write), or both nodes resolve to the
   same one and the write silently never happens.
@@ -258,6 +272,18 @@ A workflow is capped at **3 in-flight executions**; a 4th returns `429
 concurrency-limit`. These are your disposable test runs, so cancel one
 (`POST /executions/:id/cancel`) and re-run the same input rather than waiting.
 
+### A run waiting for a person
+
+Wait for Input, Human Feedback and Human Checkpoint keep a run `running` until
+someone answers. `GET /executions/:id/pending-inputs` lists each pending request
+with `type`, `requestId`, `nodeId` and what it asks. Answer with
+`POST /executions/:id/input` `{request_id, data}`: `input` takes any JSON
+(matching the node's input schema when set); `feedback` takes text, a rating
+from 1 to `ratingScale`, one of `choices`, or a form object; `checkpoint` takes
+`{"decision": "approved" | "rejected", "message", "input"}` and only from an
+approver when `approvers` are set. Never decide a checkpoint for the user.
+In the builder the same requests show in the **Waiting for you** panel.
+
 ### Execution endpoints
 
 | Method | Path | Purpose |
@@ -273,7 +299,7 @@ concurrency-limit`. These are your disposable test runs, so cancel one
 | POST | `/executions/:id/stop` | Graceful stop (only when `running`) |
 | POST | `/executions/:id/cancel` | Hard-cancel any non-terminal run; idempotent |
 | POST | `/executions/:id/resume` | Resume a failed/paused run (`trigger_data`) |
-| GET · POST | `/executions/:id/pending-inputs` · `/executions/:id/input` | Discover, then answer, a run waiting for external input (`request_id`, `data`) |
+| GET · POST | `/executions/:id/pending-inputs` · `/executions/:id/input` | Discover, then answer, what a running run waits on from a person (Wait for Input, Human Feedback, Human Checkpoint); `request_id` plus `data` shaped by the request type (see below) |
 
 ---
 
