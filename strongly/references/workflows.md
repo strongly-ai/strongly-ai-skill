@@ -142,6 +142,10 @@ Rules the build enforces (it rejects the graph with an actionable error otherwis
 - `inputMappings` paths are relative to the data arriving at the node (a webhook
   payload arrives under `data.body.<field>`); a wrong path yields empty output on
   a green run, so verify with a real execution.
+- A config field the schema types `json` holds a list or an object (Data
+  Aggregator `operations`, Notification `channels`, API Caller
+  `defaultHeaders`): pass the JSON value itself. JSON text is parsed before the
+  node runs, and text that is not valid JSON fails the node naming the field.
 - There is **no `{{ }}` templating** in node configs or mappings: data reaches a node
   only through `inputMappings` paths into its directly connected upstream node's
   output. A loop body node reads the current item at `data.currentItem`; the node
