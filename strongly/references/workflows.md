@@ -394,7 +394,7 @@ curl -s -X DELETE "${auth[@]}" "$BASE/streaming-sessions/$SID"
 | POST | `/streaming-workflows/:id/undeploy` | Tear down; return to draft |
 | GET | `/streaming-workflows/:id/deployments` · `/sessions` | Deployments (`status` deploying / deployed / undeploying / undeployed / failed; `ephemeral: true` rows are builder test workers) / sessions for a workflow |
 | POST | `/streaming-sessions` | Start a session (`workflowId` required, `mode` production / draft); returns `sessionId`, `wsUrl`, `wsToken` (and `publicWsUrl` when called from inside the platform) |
-| GET | `/streaming-sessions` · `/streaming-sessions/:id` | List / get sessions |
+| GET | `/streaming-sessions` · `/streaming-sessions/:id` | List / get sessions (a `failed` session's `failure_reason` says why: `deployment_failed` = its pod could never start, and the session fails at once instead of waiting in `pending`; Kubernetes' reason is in the last `state_history` entry) |
 | GET | `/streaming-sessions/:id/status` | Live deployment readiness (gate on `deployment.health.replicas.ready >= 1`) |
 | POST | `/streaming-sessions/:id/inject` | Inject a text message (`text` required, `role`) |
 | DELETE | `/streaming-sessions/:id` | End the live session |
