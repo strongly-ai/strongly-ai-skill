@@ -55,7 +55,7 @@ take their share out of it).
 | `GET /workspaces` | `workspaces:read` | List. Filters: `search`, `status`, `projectId`, `limit`, `offset`, `sort`. |
 | `POST /workspaces` | `workspaces:write` | Create. Required: `name`, `description`, `environmentType`. |
 | `GET /workspaces/:id` | `workspaces:read` | Get one. |
-| `PUT /workspaces/:id` | `workspaces:write` | Update `name`, `description`, its services (`addons`, `dataSources`, `aiGateways`, `mlModels`, `workflows`, `featureStores`, `agents`), `codingAssistants` (at most one) and `skillIds` (from the next start or restart), or `environmentVariables` (before its first start). Size, IDE and image are fixed at create. |
+| `PUT /workspaces/:id` | `workspaces:write` | Update `name`, `description`, its services (`addons`, `dataSources`, `aiGateways`, `mlModels`, `workflows`, `featureStores`, `agents`; each add-on's and data source's Python client is installed at start), `codingAssistants` (at most one) and `skillIds` (from the next start or restart), or `environmentVariables` (before its first start). Size, IDE and image are fixed at create. |
 | `DELETE /workspaces/:id` | `workspaces:write` | Delete. |
 | `POST /workspaces/:id/start` | `workspaces:write` | Start a stopped workspace. |
 | `POST /workspaces/:id/stop` | `workspaces:write` | Stop a running workspace. |
