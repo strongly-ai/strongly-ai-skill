@@ -126,6 +126,7 @@ trainer writes to these automatically; you also drive them directly.
 | `POST /experiments/:id/metrics` | Append metrics to the run | path `id`, `metrics` (`[{key,value,step?}]`) |
 | `POST /experiments/:id/params` | Merge params (upsert by key) | path `id`, `params` (object) |
 | `POST /experiments/:id/artifacts` | Register or upload an artifact | path `id`, `name`, `s3_key?` or `content_base64?`, `path?`, `type?`, `content_type?`, `size?` |
+| `POST /experiments/:id/register-model` | Register the model the run logged (`log_model`) in the model registry | path `id`; `name` (new model) or `model_id` (new version); `description?`, `artifact_path?` (default `model`). The task `log_model` recorded (`problem_type`) becomes the model's `training.problemType`; without one, set it with `PUT /model-registry/models/:id` `problemType` before drift |
 
 ```bash
 EXP=$(curl -s "${auth[@]}" -X POST "$BASE/experiments/register" \

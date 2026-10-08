@@ -10,6 +10,13 @@ Drift is for **model registry** models (traditional ML: classification,
 regression, and other published models). It does not apply to AI Gateway
 models (LLMs, third-party vendors).
 
+Every drift call needs the model's task, `training.problemType`, to be
+`classification` or `regression`; a model without one is refused (`invalid-model`,
+saying where to set it) and the drift overview lists it as `no-task`. Set it
+with `PUT /model-registry/models/:id` `{"problemType":"classification"}` (only
+the task changes; the rest of the training record stays), or in the UI under
+**Task** in the model's Monitoring settings.
+
 Read this when the task is: building or activating a baseline, running a drift
 analysis, finding out why an analysis produced no result, reading a result and
 its per-feature detail, or setting up the drift schedule and thresholds.

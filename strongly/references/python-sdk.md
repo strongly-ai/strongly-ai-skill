@@ -225,6 +225,14 @@ with strongly.start_run(run_name="rf-baseline"):
     strongly.log_model(model, "classifier")
 ```
 
+`log_model` records the model's task (`problem_type` in `MLmodel.json`): a
+scikit-learn, XGBoost or LightGBM classifier is `classification`, a regressor
+`regression`; pass `problem_type="classification"` for a model it cannot tell
+(a PyTorch module). Registering the run's model (`run.register_model(name)`)
+makes it the model's `training.problemType`, which drift needs. Set it on a
+model registered without one with
+`client.model_registry.update(model_id, problem_type="regression")`.
+
 **AutoML.** Train a model from a project dataset:
 
 ```python

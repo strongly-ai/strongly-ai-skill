@@ -96,10 +96,13 @@ Field notes, grounded in the route:
 - **`features.featureNames`** is **required for tabular frameworks** (`sklearn`,
   `xgboost`), in input column order, so predictions are labeled and drift can be
   tracked.
-- **`problemType`** (`classification` or `regression`): stored at
+- **`problemType`** (`classification`, `regression`, `multiclass`, `multilabel`,
+  `timeseries` or `other`; anything else is refused): stored at
   `training.problemType`, it says how the model's predictions are judged against
-  actuals (see `references/model-evaluation.md`). A model published with a
-  manifest declares this in its output schema's `type` instead.
+  actuals (see `references/model-evaluation.md`), and drift needs
+  `classification` or `regression`. A model published with a manifest declares
+  it (`ml.problem_type`); a model registered from a run takes the one the SDK's
+  `log_model` recorded in `MLmodel.json`.
 - **`source`**: `upload` (you trained and uploaded it), `automl`, `experiment`,
   or `external` (metadata only, no artifact). Defaults to `external`.
 - **`artifact`**: `{ s3Key, s3Bucket?, sizeMb? }` from the upload response. For a
@@ -232,9 +235,16 @@ curl -s "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID"            # full d
 curl -s "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID/status"     # lifecycle snapshot
 curl -s -X PUT    "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{ "description": "updated card" }' "$BASE/model-registry/models/$MODEL_ID"
+curl -s -X PUT    "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{ "problemType": "classification" }' "$BASE/model-registry/models/$MODEL_ID"  # set its task only
 curl -s -X DELETE "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID"  # delete
 ```
 
+- **Update** changes only the fields sent. `problemType` sets `training.problemType`
+  (on the card and the active version) and keeps the rest of the training
+  record; `training` replaces the whole record. A model registered without a
+  task (e.g. from a run whose `log_model` could not tell it) needs this before
+  drift can monitor it.
 - **List** accepts `search`, `framework`, `source`, `status` (deployment status),
   `tag`, `workspaceId`, plus `limit`, `offset`, `sortBy`, `sortOrder`. It returns
   lean summaries (the heavy `buildInfo`, `versions`, and `artifact` blobs are
