@@ -235,6 +235,14 @@ Reads need `mlops:read`, changes need `mlops:write` (both in the `ml-ops` and `d
 A breaking change creates a new view version whose history starts empty: the
 platform pulls the source and publishes it from the beginning for that version.
 
+An on-demand view (`mode: "on_demand"`) computes features at request time:
+`transformCode` defines `transform(df)` (pandas in: its `onDemandSources`' features +
+`requestDataSources` fields; out: a DataFrame with its features, same rows; import
+what it uses). Applying it pins the sources' newest active versions and deploys a
+sandboxed transform workflow owned by you; the view's `transformStatus` is
+`provisioning`, `ready` or `failed` (`transformError`; apply again to retry). Callers
+pass the request fields on each entity row (online) or as entity-frame columns (training).
+
 `apply` takes `store_id` (required) plus optional `entities`, `views`, `services`
 arrays; each view's `change` in the result is `created`, `identical`, `additive`
 or `breaking`. The data-plane bodies (feature refs, entity rows, time ranges) are the
