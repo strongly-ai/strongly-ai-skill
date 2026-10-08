@@ -216,7 +216,7 @@ platform models (admins reach all). Anything else is refused with 403 naming
 the model, including a model saved in a workflow before it was unshared.
 Workflows, apps and agents call as their owner; a router must be one the caller
 may use and calls its members as the router's owner. Pick models from
-`GET /ai-models` (what the user may use), never a hard-coded id.
+`GET /ai/models` (section 1: what the user may use), never a hard-coded id.
 
 ## 5. Guardrails
 
