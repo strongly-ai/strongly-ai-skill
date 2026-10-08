@@ -122,8 +122,8 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/workflows` | Create (only `name` required; `description`, `status`, `workflowType`, `nodes`, `connections`, `tags`, `settings`) |
-| GET | `/workflows` | List (`search`, `status`, `tag`, `limit`, `offset`); summaries only, no graph |
-| GET | `/workflows/stats` | Workflow counts by status (total / active / paused / draft / archived) |
+| GET | `/workflows` | List (`search`, `status`, `tag`, `limit`, `offset`); summaries only, no graph; templates are not listed |
+| GET | `/workflows/stats` | Workflow counts by status (total / active / paused / draft / archived), templates not counted |
 | GET | `/workflows/:id` | Full detail including all nodes and connections |
 | PUT | `/workflows/:id` | Partial update (`name`, `description`, `status`, `tags`, `settings`, `deploymentEnvironmentId`) |
 | DELETE | `/workflows/:id` | Delete (409 if deployed or running: undeploy and stop first) |
@@ -138,7 +138,8 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 | DELETE | `/workflows/:id/connections/:connectionId` | Remove a connection (use a REAL id from `GET /workflows/:id`; never invent one) |
 | POST | `/workflows/:id/layout` | Auto-arrange nodes left-to-right |
 
-Templates: `GET /workflows/templates`, `POST /workflows/from-template`
+Templates (including the platform's public `scaffold` starters) are listed only by
+`GET /workflows/templates`; `POST /workflows/from-template`
 (`templateId`), `POST /workflows/:id/save-as-template`. Sharing:
 `GET·POST /workflows/:id/share`, `DELETE /workflows/:id/share/:userId`.
 Versions: `GET·POST /workflows/:id/versions` (a commit takes a `message`; the
