@@ -106,19 +106,29 @@ WID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
       {"id":"in","type":"webhook"},
       {"id":"loop","type":"loop","inputMappings":{"items":"data.body.records"}},
       {"id":"llm","type":"llm","config":{"model":"<id from services/models>","prompt":"Summarize: {{item}}"}},
-      {"id":"db","type":"postgresql","category":"destinations","config":{"table":"summaries"}}
+      {"id":"acc","type":"merge","inputMappings":{"data":"data"}},
+      {"id":"db","type":"postgresql","category":"destinations","config":{"table":"summaries"},"inputMappings":{"data":"data"}}
     ],
     "connections": [
       {"source":"in","target":"loop"},
       {"source":"loop","target":"llm","sourcePort":"continue"},
-      {"source":"llm","target":"db"}
+      {"source":"llm","target":"acc"},
+      {"source":"loop","target":"acc","sourcePort":"completed"},
+      {"source":"acc","target":"db"}
     ]
   }' "$BASE/workflows/build" | jq -r '.data.workflowId')
 ```
 
 Rules the build enforces (it rejects the graph with an actionable error otherwise):
 - `id` is your own reference, reused in `connections`.
-- A loop **body** edge hangs off `sourcePort: "continue"`.
+- An edge leaves from one of the source node's declared outputs (`get_node_schema`
+  lists them), and that output is the branch it runs on: a Loop body hangs off
+  `"continue"`, a Map body off `"output"`; Conditional uses `"if"` / `"else"`;
+  Switch-Case uses `"case_0"`.. (one per entry of `config.cases`, in order) and
+  `"default"`.
+- A Loop or Map body ends in a Loop Accumulator (`merge`) that receives the body's
+  last node AND the Loop's or Map's `sourcePort: "completed"`; the workflow
+  continues from the accumulator. The builder canvas frames exactly that body.
 - To spread a loop's items over pods, set its `config.scaling`:
   `{"enabled": true, "maxPods": 3, "targetItemsPerPod": 50, "maxWorkers": 4, "retryAttempts": 2}`.
   Pods = ceil(items / `targetItemsPerPod`), at most `maxPods` (default 10, counts
