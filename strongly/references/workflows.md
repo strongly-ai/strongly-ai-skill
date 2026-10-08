@@ -108,12 +108,22 @@ WID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 Rules the build enforces (it rejects the graph with an actionable error otherwise):
 - `id` is your own reference, reused in `connections`.
 - A loop **body** edge hangs off `sourcePort: "continue"`.
+- To spread a loop's items over pods, set its `config.scaling`:
+  `{"enabled": true, "maxPods": 3, "targetItemsPerPod": 50, "maxWorkers": 4, "retryAttempts": 2}`.
+  Pods = ceil(items / `targetItemsPerPod`), at most `maxPods` (default 10, counts
+  the workflow's own pod); `maxWorkers` is threads per worker pod (default 10);
+  `retryAttempts` is optional. Worker pods are sized to the largest resources of
+  the loop body's nodes. A map's concurrency is its own `config.maxWorkers`.
 - An **ambiguous** type (source-and-destination connectors) must set `category`
   (`"sources"` to read, `"destinations"` to write), or both nodes resolve to the
   same one and the write silently never happens.
 - `inputMappings` paths are relative to the data arriving at the node (a webhook
   payload arrives under `data.body.<field>`); a wrong path yields empty output on
   a green run, so verify with a real execution.
+- A config field the schema types `json` holds a list or an object (Data
+  Aggregator `operations`, Notification `channels`, API Caller
+  `defaultHeaders`): pass the JSON value itself. JSON text is parsed before the
+  node runs, and text that is not valid JSON fails the node naming the field.
 
 Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 
