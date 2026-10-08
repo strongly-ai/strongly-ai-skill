@@ -238,7 +238,10 @@ EID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 # Poll to terminal. get_execution_status SETTLES: it waits up to ~9s and on
 # completion returns the per-node outputs preview + a nextAction hint.
 curl -s "${auth[@]}" "$BASE/executions/$EID/progress" | jq '.data'
-# -> repeat while .status is "running"; stop at completed | failed | cancelled.
+# -> repeat while .status is "pending" or "running"; it ends completed |
+#    completed_with_gaps | partial_success | failed | stopped | cancelled.
+#    A loop/map whose items partly failed ends partial_success, one whose items
+#    all failed ends failed; error_message names each loop: "loop: 6 of 6 items failed".
 
 # On completion, read the full per-node outputs and VERIFY they are non-empty.
 curl -s "${auth[@]}" "$BASE/executions/$EID" | jq '.data.outputs'
