@@ -77,12 +77,17 @@ negative. Report it with the sign flipped, in the metric's units, never as a per
 
 `POST /automl/jobs` required fields: `name`, `dataset`, `targetColumn`,
 `hardware`. `hardware` is an object and has NO default: it must include
-`cpu_count`, `memory_gb`, `disk_gb` (numbers), `gpu_count` optional. Optional:
+`cpu_count`, `memory_gb`, `disk_gb` (numbers); `gpu_count`, `gpu_type` and `use_spot` (spot capacity)
+optional. Optional:
 `datasetFile` (when a volume has more than one file), `featureColumns`,
 `problemType` (`tabular`|`multimodal`|`timeseries`), `predictorType`
 (`auto`|`BinaryClassifier`|`MultiClassifier`|`Regressor`), `preset`
 (`medium_quality` default, `good_quality`, `high_quality`, `best_quality`,
-`optimize_for_deployment`), `timeLimit` (seconds, default 600), `metric`. The id
+`optimize_for_deployment`), `timeLimit` (seconds, default 600), `metric`, and `advanced`
+(by section: tabular `model_selection`, `ensemble`, `data_handling`, `training`, `hpo`,
+`model_hyperparameters`, `custom`; `timeseries` {`prediction_length`, `freq`, `id_column`,
+`timestamp_column`, ...}; `multimodal` {`text_columns`, `image_columns`, `backbone`, ...}; the
+API reference lists every key). The id
 tools accept **either** the returned `job_id` or the Mongo `_id`.
 
 ```bash
