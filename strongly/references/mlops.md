@@ -71,6 +71,10 @@ object-storage data source.
 | `DELETE /automl/jobs/:id` | Delete a job | path `id` |
 | `POST /automl/jobs/:id/deploy` | Publish the best model of a tabular or multimodal job to the model registry (a timeseries job's is refused) | path `id`, `registryName?` |
 
+A job's scores (`metrics.val_score`, `metrics.test_score`, leaderboard `score`) are AutoGluon's in
+`models_info.eval_metric`: higher is better, so an error metric (RMSE, MAE, MASE, log loss) is
+negative. Report it with the sign flipped, in the metric's units, never as a percentage.
+
 `POST /automl/jobs` required fields: `name`, `dataset`, `targetColumn`,
 `hardware`. `hardware` is an object and has NO default: it must include
 `cpu_count`, `memory_gb`, `disk_gb` (numbers), `gpu_count` optional. Optional:
