@@ -69,7 +69,7 @@ object-storage data source.
 | `GET /automl/jobs/:id/logs` | Trainer logs | path `id`, `lines?`, `since?` |
 | `POST /automl/jobs/:id/stop` | Stop a running job | path `id` |
 | `DELETE /automl/jobs/:id` | Delete a job | path `id` |
-| `POST /automl/jobs/:id/deploy` | Register the best model in the model registry | path `id`, `registryName?` |
+| `POST /automl/jobs/:id/deploy` | Publish the best model of a tabular or multimodal job to the model registry (a timeseries job's is refused) | path `id`, `registryName?` |
 
 `POST /automl/jobs` required fields: `name`, `dataset`, `targetColumn`,
 `hardware`. `hardware` is an object and has NO default: it must include
@@ -100,7 +100,10 @@ curl -s "${auth[@]}" -X POST "$BASE/automl/jobs/$JOB/deploy" -d '{"registryName"
 
 Checklist: pick the exact file (`/files`) and target (`/columns`) before create;
 always send `hardware`; poll `/status` to `completed`; on `failed` read `/logs`;
-deploy only a completed job. Registry details: `references/model-registry.md`.
+deploy only a completed tabular or multimodal job (a timeseries model stays in
+the job's output volume). A published multimodal model (framework
+`strongly-automl-multimodal`) takes its image inputs as base64 or a `data:` URL
+and its text inputs as text. Registry details: `references/model-registry.md`.
 
 ---
 
