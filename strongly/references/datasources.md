@@ -197,11 +197,19 @@ dataset. Reads need `data-forge:read`, writes need `data-forge:write`.
 **Projects.**
 
 ```bash
+curl -s "${auth[@]}" "$BASE/data-forge/embedding-models"                     # models semantic chunking may use
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  "$BASE/data-forge/projects" -d '{"name":"Handbook QA","description":"…"}'   # -> project
+  "$BASE/data-forge/projects" \
+  -d '{"name":"Handbook QA","chunk_strategy":"semantic","embedding_model_id":"<id>"}'   # -> project
 curl -s "${auth[@]}" "$BASE/data-forge/projects"                              # list
 curl -s "${auth[@]}" "$BASE/data-forge/projects/$P_ID"                        # get (counts, config, exports)
 ```
+
+`chunk_strategy` is how documents are split: `semantic` (where the meaning
+shifts, by `embedding_model_id`, required with it), `heading` (one chunk per
+section), `paragraph` (the default) or `sliding_window` (fixed-size windows).
+Change it with `PUT /data-forge/projects/$P_ID` `{"config":{...}}` (only the
+fields given change); it applies to documents parsed afterwards.
 
 **Documents (two-step upload).** Get a presigned URL, PUT the bytes to it, then
 register the document with the returned `s3_key`.
@@ -218,15 +226,15 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 
 **Parse, generate, review, export.** Parse documents into chunks, then start a
 generation with a teacher model (`teacher_model_id` from
-`GET /data-forge/available-models`, `output_format` e.g. `qa`). Generation is
+`GET /data-forge/available-models`, `output_format` `chatml` or `alpaca`). Generation is
 async; poll the generation by id.
 
 ```bash
-curl -s -X POST "${auth[@]}" "$BASE/data-forge/projects/$P_ID/parse"          # -> chunks
+curl -s -X POST "${auth[@]}" "$BASE/data-forge/projects/$P_ID/parse"          # -> chunks (project's chunking)
 curl -s "${auth[@]}" "$BASE/data-forge/available-models"                      # teacher models
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   "$BASE/data-forge/projects/$P_ID/generate" \
-  -d '{"teacher_model_id":"<id>","output_format":"qa","pairs_per_chunk":3}'   # -> generation
+  -d '{"teacher_model_id":"<id>","output_format":"chatml","pairs_per_chunk":3}'   # -> generation
 curl -s "${auth[@]}" "$BASE/data-forge/generations/$G_ID"                     # poll until complete
 ```
 
