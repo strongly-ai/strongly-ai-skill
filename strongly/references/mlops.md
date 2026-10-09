@@ -87,7 +87,9 @@ optional. Optional:
 (by section: tabular `model_selection`, `ensemble`, `data_handling`, `training`, `hpo`,
 `model_hyperparameters`, `custom`; `timeseries` {`prediction_length`, `freq`, `id_column`,
 `timestamp_column`, ...}; `multimodal` {`text_columns`, `image_columns`, `backbone`, ...}; the
-API reference lists every key). The id
+API reference lists every key). Send `model_hyperparameters` only to fix values: a family given
+values keeps them in every model and `hpo` searches only the rest; without it every family uses
+AutoGluon's defaults, which `hpo` tunes. The id
 tools accept **either** the returned `job_id` or the Mongo `_id`.
 
 ```bash
