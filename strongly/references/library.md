@@ -223,7 +223,7 @@ with hybrid relevance retrieval, versions, and a quality assessor.
 | Endpoint | Purpose | Key params / body |
 |---|---|---|
 | `GET /skills` | List | `search, tags, linkedIds, category, limit, offset` |
-| `POST /skills` | Create (deduped: response `action` is `created`, `superseded`, or `unchanged`) | body: `name*, content*, description, category, tags, linkedIds, mcpTools, variables, source` |
+| `POST /skills` | Create (deduped: response `action` is `created`, `superseded`, or `unchanged`). `name` is kebab-case (`unit-converter`, up to 64 chars); any other name is refused | body: `name*, content*, description, category, tags, linkedIds, mcpTools, variables, source` |
 | `GET /skills/:id` | Read full content | |
 | `GET /skills/:id/files` · `GET /skills/:id/file?path=` | List bundled files (paths + sizes) / read one file | |
 | `PUT /skills/:id` · `DELETE /skills/:id` | Update / delete | |
