@@ -168,7 +168,8 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{ "autoShutdownMinutes": 15, "resources": { "cpu": "1", "memory": "2Gi" } }' \
   "$BASE/model-registry/models/$MODEL_ID/deploy"
 
-# Stop (tears down the pod, moves to stopped) / Start (bring a stopped model back)
+# Stop (tears down the pod, moves to stopped) / Start (bring a stopped model back: it is
+# `starting` until its pod is ready, then `running`, or `failed` with the reason; poll it)
 curl -s -X POST "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID/stop"
 curl -s -X POST "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID/start"
 ```
