@@ -181,3 +181,19 @@ Prefixes are a hint, not the contract: the reference for each area lists the exa
 paths, methods, and params. Do not guess a path from the prefix. When you're
 unsure which area a request falls in, list the relevant resource first
 (`GET $BASE/apps`, `/agents`, `/workflows`, …) to orient, then load the reference.
+
+## After a platform update: `platformUpdatePending`
+
+The platform brings running resources up to a new platform version by itself
+(apps restart with no downtime, agents redeploy, deployed workflows redeploy
+their deployed version, models update in place). A resource it did not restart
+carries `platformUpdatePending: true` on its record until it is restarted:
+
+| Resource | Why it waits | Restart that applies it |
+|---|---|---|
+| Workspace (running) | A restart ends open notebooks and terminals | `POST /workspaces/:id/restart` |
+| Add-on (running) | Its probes or server settings changed; a restart restarts the database | `POST /addons/:id/restart` |
+| App, agent, deployed workflow | The platform's restart was refused for its user (access, budget, governance) | `POST /apps/:id/restart`, `POST /agents/:id/redeploy`, `POST /workflows/:id/deploy-version` with its `deployedVersionId` |
+
+Tell the user which of their resources need a restart and what it interrupts;
+restart one only when they agree.
