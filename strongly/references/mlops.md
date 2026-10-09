@@ -74,6 +74,8 @@ object-storage data source.
 A job's scores (`metrics.val_score`, `metrics.test_score`, leaderboard `score`) are AutoGluon's in
 `models_info.eval_metric`: higher is better, so an error metric (RMSE, MAE, MASE, log loss) is
 negative. Report it with the sign flipped, in the metric's units, never as a percentage.
+`metrics.feature_importance` is each feature's permutation importance (a share of the total) on
+the rows `metrics.feature_importance_rows` names, which the model was not trained on.
 
 `POST /automl/jobs` required fields: `name`, `dataset`, `targetColumn`,
 `hardware`. `hardware` is an object and has NO default: it must include
