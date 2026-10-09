@@ -213,7 +213,12 @@ curl -s -X POST "${auth[@]}" "$BASE/ab-tests/experiments/$EXP/analyze" | jq '.da
 ```
 
 - **`primaryMetric`** (required): `success_rate` (higher is better), `latency`
-  (lower is better) or `custom` (the reward from feedback, higher is better).
+  (lower is better), `custom` (the reward from feedback, higher is better), or
+  each prediction against its actual by the variants' models' task: `accuracy`
+  (classification, multiclass; higher is better), `absolute_error` (regression;
+  lower is better) or `review_score` (multilabel, timeseries, other: the
+  reviewers' verdicts, higher is better). An actuals metric that does not fit
+  every compared variant's model is refused, naming the one that does.
 - Optional: `description`, `hypothesis`, `confidenceLevel` (default 0.95),
   `minimumDetectableEffect` (default 0.05), `minSamplePerVariant` (default 100),
   `maxSamplePerVariant`, `maxDurationDays` (default and maximum: the prediction

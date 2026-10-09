@@ -1,7 +1,7 @@
 # Drift
 
 **Drift** tells you whether a registry model's live inputs (and, with actuals,
-its accuracy) still look like what it was trained on. It compares a model
+its performance) still look like what it was trained on. It compares a model
 version's **production predictions** with that version's **baseline**: a
 summary of its reference rows (the data it was trained or validated on). Each
 version has its own baseline, and drift reads only that version's predictions.
@@ -10,9 +10,15 @@ Drift is for **model registry** models (traditional ML: classification,
 regression, and other published models). It does not apply to AI Gateway
 models (LLMs, third-party vendors).
 
-Every drift call needs the model's task, `training.problemType`, to be
-`classification` or `regression`; a model without one is refused (`invalid-model`,
-saying where to set it) and the drift overview lists it as `no-task`. Set it
+Every drift call needs the model's task, `training.problemType`: one of
+`classification`, `multiclass`, `regression`, `multilabel`, `timeseries`,
+`other`. A model without one is refused (`invalid-model`, saying where to set
+it) and the drift overview lists it as `no-task`. The task decides how its
+predictions are scored against actuals: accuracy (`accuracy`) for
+classification and multiclass, mean absolute error (`mae`, lower is better)
+for regression, and the reviewers' mean verdict (`review_score`; an actual is
+`true`/`false` or a 0 to 1 score on the prediction) for multilabel, timeseries
+and other. Set it
 with `PUT /model-registry/models/:id` `{"problemType":"classification"}` (only
 the task changes; the rest of the training record stays), or in the UI under
 **Task** in the model's Monitoring settings.
@@ -35,9 +41,12 @@ $STRONGLY_API_KEY")` outside. **Scopes:** baseline builds live under the model
 
 A baseline is built by a **job** from a CSV of any size with a column for every
 input feature the model declares, optionally `actual`, `prediction` and
-`confidence` (the probability of the predicted class). With those three it also
-records the version's accuracy and calibration, which estimates accuracy on live
-traffic before actuals arrive (CBPE).
+`confidence` (the probability of the predicted class). With `actual` and
+`prediction` (for a reviewed model, `actual` verdicts alone) it records the
+version's performance by its task (`baselinePerformance { metric,
+higherIsBetter, value }`, with `evaluationKind`); with `confidence` as well, its
+calibration, which estimates accuracy on live traffic before actuals arrive
+(CBPE; not for a regressor).
 
 The file comes from an upload (a presigned link, so any size) or from a shared
 volume the caller can read.
@@ -98,7 +107,7 @@ trainer's reference rows.
 | `POST /model-registry/models/:id/baselines` | Build a baseline (`source`, `version?`, `analyzeDaily?`) -> the job | `model-registry:write` |
 | `GET /model-registry/models/:id/baselines/jobs` | The model's baseline jobs, a page at a time | `model-registry:read` |
 | `PUT /model-registry/models/:id/baselines/:baselineId/activate` | Make an earlier baseline its version's active one again | `model-registry:write` |
-| `GET /drift/baselines?modelId=` | The model's baselines, a page at a time (version, rows, accuracy, file, active) | `mlops:read` |
+| `GET /drift/baselines?modelId=` | The model's baselines, a page at a time (version, rows, evaluationKind and baselinePerformance, file, active) | `mlops:read` |
 | `GET /drift/baselines/active?modelId=` | The active version's active baseline | `mlops:read` |
 
 ---
@@ -163,10 +172,13 @@ The result (kept 15 days; its summary stays on the model as `latestDrift`):
 - **`featuresAnalyzed`** / **`featuresWithDrift`**: features some algorithm
   scored, and how many of them drifted.
 - **`sampleSize`**, **`windowStart`** / **`windowEnd`**, **`calculatedAt`**.
-- **`predictionDrift`**: accuracy on the window's predictions that have actuals
-  (`labelledCount`) against the baseline's accuracy (`accuracyCurrent`,
-  `accuracyBaseline`, `accuracyChange`). When it cannot be measured, `error`
-  says why and the numbers are `null`.
+- **`predictionDrift`**: the model's performance by its task on the window's
+  predictions that have actuals (`labelledCount`) against the baseline's:
+  `metric` (`accuracy`, `mae` or `review_score`), `higherIsBetter`, `current`,
+  `baseline`, `change`, `drop` (how much worse, relative) and `status` (`ok`,
+  `warning`, `alert` from the drop thresholds; it raises `overallStatus`). When
+  it cannot be measured (no actuals, no baseline performance, a task changed
+  since the baseline: rebuild it), `error` says why and there are no figures.
 - **`algorithmsRun`**, and **`algorithmsSkipped`** (`{ name, reason }`).
 
 **The rows** (a feature each, plus rows about the whole dataset) are read a
@@ -234,8 +246,10 @@ Only the fields you send change. The fields:
   `jensen_shannon`, `wasserstein`, `domain_classifier`, `pca_reconstruction`,
   `adwin` and `cbpe`. An empty `enabled` runs every one that applies. The
   overall status uses the `psi` thresholds (default warning 0.1, alert 0.2).
-- **`accuracyDropWarning`** / **`accuracyDropAlert`** (defaults 0.05 / 0.10):
-  for prediction drift.
+- **`performanceDropWarning`** / **`performanceDropAlert`** (defaults 0.05 /
+  0.10): how much worse than the baseline, relatively, the model's performance
+  may get before prediction drift is a warning or alert (lower accuracy or
+  review score, higher mean absolute error); the warning must be smaller.
 - **`notifications`**: `{ email: boolean, recipients: [addresses], slack?: Slack
   incoming webhook URL }`. When an analysis finds drift (`warning` or `alert`),
   the model's owner is always notified in Strongly; with `email`, the
