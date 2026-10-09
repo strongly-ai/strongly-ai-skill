@@ -145,12 +145,12 @@ semantic search.
 | Endpoint | Purpose | Key params / body |
 |---|---|---|
 | `GET /prompts` | List | `search, type, tags, linkedIds, limit, offset` |
-| `GET /prompts/search` | Semantic search with keyword fallback | `q, type, limit, popularity, mmr, mmr_lambda` |
+| `GET /prompts/search` | Search by meaning and words at once (vector + text, fused), best first; each hit has a rank `score` | `q*, type, tags, limit, popularity, mmr, mmr_lambda` |
 | `POST /prompts` | Create | body: `name*, content*, type, description, variables, tags, linkedIds, source` |
 | `GET /prompts/:id` · `PUT /prompts/:id` · `DELETE /prompts/:id` | Fetch / update (new version) / delete | |
-| `GET /prompts/:id/versions` · `POST /prompts/:id/restore` | Versions + restore | restore body: `versionNumber*` |
+| `GET /prompts/:id/versions` · `POST /prompts/:id/restore` | Versions (each with its full `content`) + restore | restore body: `versionNumber*` |
 | `POST /prompts/:id/duplicate` | Copy to a new prompt | |
-| `POST /prompts/:id/render` | Substitute variables and return the rendered text | body: `variables` |
+| `POST /prompts/:id/render` | Substitute variables and return the rendered text; a variable with no default is required (400 naming it when missing) | body: `variables` |
 | `POST /prompts/:id/usage` | Record a usage event | |
 
 `type`: `system-prompt | user-prompt | template` (an unrecognised type is coerced
@@ -159,7 +159,7 @@ to `user-prompt`).
 ```bash
 curl -s -X POST "${auth[@]}" "$BASE/prompts" -H 'Content-Type: application/json' \
   -d '{"name":"Weekly summary","type":"template","content":"Summarize {{topic}} for {{audience}}.",
-       "variables":["topic","audience"],"linkedIds":["<agentWorkflowId>"]}'  # -> data.promptId
+       "variables":[{"name":"audience","defaultValue":"the team"}],"linkedIds":["<agentWorkflowId>"]}'  # -> data.promptId
 
 curl -s -X POST "${auth[@]}" "$BASE/prompts/<id>/render" -H 'Content-Type: application/json' \
   -d '{"variables":{"topic":"sales","audience":"the board"}}' | jq '.data'
@@ -167,7 +167,7 @@ curl -s -X POST "${auth[@]}" "$BASE/prompts/<id>/render" -H 'Content-Type: appli
 
 Checklist:
 - [ ] `name` + `content` on create; pick a `type` or accept the `user-prompt` default.
-- [ ] Declare `{{variables}}` and fill them with `POST /:id/render`.
+- [ ] `{{variables}}` are detected from the content; give one a `defaultValue` to make it optional, and pass every variable without a default to `POST /:id/render`.
 - [ ] Find by meaning with `GET /prompts/search`, not just tag/name filters.
 
 ---
