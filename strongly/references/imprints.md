@@ -1,7 +1,7 @@
 # Imprints
 
 An **Imprint** is a named, distributable bundle of Library primitives (skills,
-memories, rules, prompts, tasks, preferences) that an agent can **learn in one
+memories, rules, prompts, tasks, preferences, artifacts) that an agent can **learn in one
 step**. Build an imprint once (say "Helicopter Piloting" or "Invoice Handling"),
 fill it with the skills and memories that make an agent good at that job, then
 **install** it on any agent. The agent starts recalling everything in the bundle,
