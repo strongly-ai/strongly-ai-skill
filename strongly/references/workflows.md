@@ -332,7 +332,7 @@ triggers poll: the deployed workflow checks the mailbox / feed / S3 location eve
 `config.pollInterval` minutes (same even intervals; default 15) and runs with only
 what is new; their block gives `pollIntervalMinutes` and no URL. A **Queue** trigger
 consumes its SQS / RabbitMQ / Kafka queue (`config.connectionType` `datasource` +
-`dataSourceId`, or `addon` + `addonId`; `config.queue` for RabbitMQ/Kafka) and runs once
+`dataSourceId`, or `addon` + `addonId` for a RabbitMQ or Kafka add-on; `config.queue` for RabbitMQ/Kafka) and runs once
 per message, up to `maxConcurrentExecutions` (1-10, default 1, set with `PUT
 /workflows/:id`); its lifecycle must be `always-on` or `scheduled-window`. Put messages on
 the queue itself (an sqs-dest / rabbitmq-dest / kafka-dest node), not through the API.
