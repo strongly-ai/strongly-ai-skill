@@ -109,7 +109,7 @@ ordered (`system > org > user > agent`), enforceable at the tool boundary, versi
 | `POST /rules/tool-gate` | Deterministic pre-tool-call gate; returns `refused` + blocking rule | body: `toolName*, args, userTurn, linkedIds` |
 | `POST /rules/check` | Pattern pre-call gate; returns `allowed, blockedBy, reason` | body: `toolName, description, args, userTurn` |
 | `POST /rules/:id/assess` | Quality ruleset score | |
-| `POST /rules/:id/violation` · `GET /rules/:id/violations` | Record / list violations (list paginated) | violation body: `attemptedAction*, detectedBy, threadId, runId, evidence` |
+| `POST /rules/:id/violation` · `GET /rules/:id/violations` | Record / list violations (list paginated, newest first; `limit` up to 200) | violation body: `attemptedAction*, detectedBy, agentId, threadId, runId, evidence` |
 | `GET /rules/violations/aggregate` | Cross-rule stats over the last N days | `days, topRules, topTools` |
 | `POST /rules/:id/toggle-enabled` · `/toggle-public` · `/share` · `/unshare` | Enable/disable, public toggle, per-user share/revoke | share body: `userId*` |
 | `GET /rules/:id/versions` · `/versions/:n` · `POST /versions/:n/restore` | Version history + restore | |
