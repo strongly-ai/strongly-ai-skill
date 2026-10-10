@@ -113,7 +113,7 @@ ordered (`system > org > user > agent`), enforceable at the tool boundary, versi
 | `GET /rules/violations/aggregate` | Cross-rule stats over the last N days | `days, topRules, topTools` |
 | `POST /rules/:id/toggle-enabled` · `/toggle-public` · `/share` · `/unshare` | Enable/disable, public toggle, per-user share/revoke | share body: `userId*` |
 | `GET /rules/:id/versions` · `/versions/:n` · `POST /versions/:n/restore` | Version history + restore | |
-| `GET /rules/export` · `POST /rules/import` · `POST /rules/import-github` | Bulk dump / re-ingest / import `RULE.md` from a repo | github body: `githubUrl*` |
+| `GET /rules/export` · `POST /rules/import` · `POST /rules/import-github` | Bulk dump / re-ingest (returns `imported, unchanged, skipped, errors`) / import `RULE.md` from a repo | import body: `rules*`; github body: `githubUrl*` |
 
 `category`: `must | must-not | should`. `severity`: `critical | high | medium | low`.
 `hierarchyScope`: `system | org | user | agent`. `enforcementMode`:
