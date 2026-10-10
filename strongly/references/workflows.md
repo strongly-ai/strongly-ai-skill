@@ -169,6 +169,12 @@ Rules the build enforces (it rejects the graph with an actionable error otherwis
   after a Loop Accumulator reads the collected array at `data.data` (count at
   `data.count`). Only a few nodes substitute `{{name}}` inside their own template
   fields (Send Email, Notification, Exchange, PDF Generator, String Transform).
+- A node that connects to a database, queue or store takes the connection only by id:
+  `dataSourceId` (a data source), or, for the platform's add-on types (PostgreSQL,
+  MySQL, MongoDB, Redis, Neo4j, Milvus, RabbitMQ, Greenplum, SurrealDB, Kafka, MQTT),
+  `connectionType` `addon` + `addonId` or `datasource` + `dataSourceId`. The run
+  receives it through STRONGLY_SERVICES; a node never takes a host or password. An
+  unset `connectionType` runs as the default its definition shows.
 
 Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 
