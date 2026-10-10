@@ -49,6 +49,17 @@ curl -s "${auth[@]}" "$BASE/workflow-nodes?workflowType=streaming" | jq '.data'
 curl -s "${auth[@]}" "$BASE/workflow-nodes/postgresql/schema?category=destinations" | jq '.data'
 ```
 
+**Search the catalog before writing code.** For every step you would otherwise
+put in a `code` node, search `/workflow-nodes?search=` for what the step DOES
+(not "code"), in at least two phrasings ("parse JSON string" / "convert JSON
+text to object"; "group and sum" / "aggregate by key"; "look up a value" /
+"join two datasets"; "compare records"; "split text into chunks"; "parse CSV /
+XML / Excel / PDF"), and use the node that does it. The catalog has ~480 nodes
+(parsers, aggregation, lookup, merge, compare, chunking, formatting and more);
+input mappings and `set-fields` also cover most reshaping with no extra node.
+Use a `code` node only when those searches find nothing that does the step, and
+say which searches you ran.
+
 Categories are `triggers`, `sources`, `transform`, `ai`, `agents`,
 `control-flow`, `destinations`, `utilities`. Some connector types
 (`postgresql`, `mysql`, `mongodb`, `s3`, ...) exist as **both** a source and a
@@ -66,7 +77,7 @@ Wire real connections, not invented ones. List what the user actually has:
 | GET | `/workflow-nodes/services/addons` | Connected addons usable as nodes |
 | GET | `/workflow-nodes/services/models` | AI models the gateway will serve (ranked) |
 | GET | `/workflow-nodes/services/datasource-fields/:type` | Credential fields a datasource type needs |
-| POST · PUT · DELETE | `/workflow-nodes` · `/workflow-nodes/:id` | Register/update/delete a REUSABLE custom node type. For one-off logic inside a single workflow, prefer the built-in `code` node instead. |
+| POST · PUT · DELETE | `/workflow-nodes` · `/workflow-nodes/:id` | Register/update/delete a REUSABLE custom node type. For one-off logic inside a single workflow that no catalog node does, use the built-in `code` node instead. |
 | POST | `/workflow-nodes/:id/duplicate` | Copy an existing node type into a new editable custom node ("copy & edit"), then edit it with `PUT` |
 
 Data sources, addons, and models come from their own areas
@@ -81,8 +92,10 @@ safe inside a Loop or Map with several parallel workers and pods.
 The `llm` node's live output is at **`data.response`** (the model text), and its
 model goes under **`config.model`** as a real model id from
 `/workflow-nodes/services/models` (never a vendor name like `gpt-4o-mini`). If it
-returns a JSON object, `response` is a JSON string, so add a `code` node to parse
-it before downstream nodes read the fields.
+returns a JSON object (`config.defaultResponseFormat: "json_object"`), `response`
+is a JSON string, so add a `json-parser` node with `inputMappings
+{"text": "data.response"}`: its output `data` is the parsed object, so
+downstream nodes read `data.<field>`.
 
 A `code` node can log its own run metrics: `metric(name, value, unit)` in its
 Python (e.g. `metric("values redacted", n, "count")`) records a span metric with
