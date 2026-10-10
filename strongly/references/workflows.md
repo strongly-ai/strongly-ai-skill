@@ -111,6 +111,11 @@ a bad argument fails the node. In `runOnceForEachItem` each item's calls count.
 `config` and `inputMappings`) and every connection. Prefer it over creating an
 empty workflow and adding nodes one at a time.
 
+Every save, draft run and deploy pins each node to the latest published
+version of its catalog node. `PUT /workflows/:id` returns
+`inputsNoLongerDeclared`: mappings to inputs a node's newer version dropped,
+which now feed nothing; remap them.
+
 An input that is also a setting (a database source's `query`, the REST API
 source's `url`, Google Sheets' `spreadsheetId`/`range`) takes its mapped value
 when `inputMappings` maps it, and the `config` value otherwise: map it to make
