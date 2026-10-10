@@ -46,7 +46,11 @@ input feature the model declares, optionally `actual`, `prediction` and
 version's performance by its task (`baselinePerformance { metric,
 higherIsBetter, value }`, with `evaluationKind`); with `confidence` as well, its
 calibration, which estimates accuracy on live traffic before actuals arrive
-(CBPE; not for a regressor).
+(CBPE; not for a regressor). A baseline needs at least the model's
+`minBaselineSampleSize` rows (default 30): a smaller one (an AutoML model trained
+on a small set gets its few held-back rows) is kept but not analyzed or scheduled,
+and its build job's `driftError` says so. Build from more rows, or lower
+`minBaselineSampleSize` in the drift settings only if the user asks.
 
 The file comes from an upload (a presigned link, so any size) or from a shared
 volume the caller can read.
