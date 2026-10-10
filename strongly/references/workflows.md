@@ -290,7 +290,6 @@ In the builder the same requests show in the **Waiting for you** panel.
 |---|---|---|
 | POST | `/workflows/:id/execute` | Test-run with `triggerInputs`; returns `{executionId, status, outputs, invocation?}` |
 | POST | `/workflows/:id/enqueue` | Run via a queue-trigger node (`message`, `priority`) |
-| POST | `/workflows/:id/email-trigger` | Run via an email-trigger node (`from`, `to`, `subject`, `body_text`) |
 | GET | `/executions` | List runs (`workflow_id`, `status`, `trigger_type`, `since`, `until`, `limit`, `offset`) |
 | GET | `/executions/:id` | Full execution: definition + per-node `outputs` |
 | GET | `/executions/:id/progress` | Status + progress; **settles** the run and returns the outputs preview on completion |
@@ -323,7 +322,10 @@ A **Form** trigger's block gives its public URL (`POST /api/v1/forms/<id>`, no a
 multipart or JSON) and `captcha`: with CAPTCHA on, `config.captchaSecretKey` must be
 set or every submission is refused. A **Schedule** trigger's block gives the
 schedule as it runs (`cron`, `dailyTime` or `intervalMinutes`, plus `timezone`);
-it runs only while deployed, and undeploying stops it.
+it runs only while deployed, and undeploying stops it. **Email**, **RSS** and **File**
+triggers poll: the deployed workflow checks the mailbox / feed / S3 location every
+`config.pollInterval` minutes (same even intervals; default 15) and runs with only
+what is new; their block gives `pollIntervalMinutes` and no URL.
 
 | Method | Path | Purpose |
 |---|---|---|
