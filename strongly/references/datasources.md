@@ -86,7 +86,9 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 
 **List / get / update / delete.** List supports `search`, `type`, `category`,
 `status`, plus `limit`/`offset`/`sort`. List and get responses **never include
-credentials** (they are stripped server-side).
+credentials** (they are stripped server-side). Each carries `usageCount` and
+`lastUsed`: the times a workload was given the data source (an app, workspace
+or job deploy or start, or a workflow run) and when it last was.
 
 ```bash
 curl -s "${auth[@]}" "$BASE/datasources?type=postgres&search=warehouse"   # list
@@ -95,6 +97,8 @@ curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
   "$BASE/datasources/$DS_ID" -d '{"label":"Warehouse (RO)"}'             # partial update
 curl -s -X DELETE "${auth[@]}" "$BASE/datasources/$DS_ID"                # delete
 ```
+
+Delete is refused while an app, workspace, job or workflow uses the data source.
 
 Update accepts the same fields as create (`name`, `label`, `type`, `credentials`,
 `description`, `category`); send only what changes.
@@ -127,14 +131,14 @@ the source is connected.
 Before a workflow database node or an input mapping reads from a source, learn its
 shape:
 
-- `GET /datasources/:id/metadata` lists the tables/schemas (relational and
-  warehouse) or collections (mongodb) the source exposes. Start here when you do
-  not know the table names.
+- `GET /datasources/:id/metadata` lists what the source holds: databases,
+  schemas, tables or collections, buckets, indexes or topics, with counts and
+  sizes where the system reports them. Start here when you do not know the table
+  names. An `api` key and an `mqtt` broker hold no catalogue and have none.
 - `GET /datasources/:id/table-columns?table=<name>&schema=<optional>` returns one
-  table's columns (name, type, nullable, and so on). Supported for the SQL and
-  warehouse types (`postgres`, `mysql`, `mssql`, `oracle`, `redshift`,
-  `snowflake`, `bigquery`) and for `mongodb` collection fields; other types return
-  a not-implemented error.
+  table's columns (name, type, nullable, key). Every type with tables or
+  collections supports it; where the store declares no schema, fields come from
+  a sample of its documents.
 - `GET /datasources/:id/objects?bucket=<opt>&prefix=<opt>` lists objects and
   folder prefixes inside an object-storage source (`s3`, `minio`, `gcs`,
   `azure-blob`). Omit `bucket` to use the source's configured bucket; pass
