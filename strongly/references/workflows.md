@@ -111,6 +111,11 @@ a bad argument fails the node. In `runOnceForEachItem` each item's calls count.
 `config` and `inputMappings`) and every connection. Prefer it over creating an
 empty workflow and adding nodes one at a time.
 
+An input that is also a setting (a database source's `query`, the REST API
+source's `url`, Google Sheets' `spreadsheetId`/`range`) takes its mapped value
+when `inputMappings` maps it, and the `config` value otherwise: map it to make
+the setting come from upstream data.
+
 ```bash
 WID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{
