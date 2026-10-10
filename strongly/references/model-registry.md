@@ -108,6 +108,19 @@ Field notes, grounded in the route:
 - **`artifact`**: `{ s3Key, s3Bucket?, sizeMb? }` from the upload response. For a
   zip bundle also pass **`manifest`** from that same response so the deploy step
   can wrap your own serving script.
+- **A single model file** (`.joblib`/`.pkl`/`.pickle`, `.pt`/`.pth` TorchScript,
+  `.onnx`) is served by a server the platform builds, so registering one also
+  needs: a `framework` its file type is served as (`sklearn`, `xgboost`,
+  `lightgbm`, `custom` for a pickle; `pytorch` for `.pt`; `onnx`);
+  **`frameworkVersion`**, the library version it was saved with
+  (`sklearn.__version__`; required for sklearn/xgboost/lightgbm/pytorch);
+  **`pythonVersion`**, the Python it was saved with (required for a
+  `.joblib`/`.pkl`; it is served on that Python); **`schema.input.fields`**
+  (`[{name, type}]` in the order the model takes them; predictions are fed in
+  that order); and optional **`requirements`**, extra pip specs the model
+  imports (`["category-encoders==2.6.3"]`). A file missing one is refused with
+  what is missing. Never guess the versions: read them where the model was
+  trained.
 - **`algorithm`**, **`metrics`**, **`description`**, **`tags`** are optional model
   card fields.
 
@@ -129,7 +142,9 @@ curl -s "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID/versions" | jq '.dat
 ### Add a new version
 
 Upload the retrained artifact first (section 2a), then register it as a new
-version. `artifact.s3Key` is required.
+version. `artifact.s3Key` is required. For a single model file the artifact
+also carries `frameworkVersion`, `pythonVersion` and `requirements` (as in
+register); pass `schema` only when its inputs differ from the model's.
 
 ```bash
 # POST /model-registry/models/:id/versions -> { version, modelId }
