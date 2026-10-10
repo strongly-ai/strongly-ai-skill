@@ -118,6 +118,11 @@ ordered (`system > org > user > agent`), enforceable at the tool boundary, versi
 `category`: `must | must-not | should`. `severity`: `critical | high | medium | low`.
 `hierarchyScope`: `system | org | user | agent`. `enforcementMode`:
 `inject | gate | both`. `triggers`: `{keywords?, toolName?, embedding?, always?}`.
+A `critical` or `high` rule loads on every turn whatever its triggers; a `medium` or
+`low` rule loads when `always` is set, a keyword or tool name matches, or the turn is
+close in meaning to it (and with no keywords or tool names, on every turn of the agents
+it is linked to). Assess checks report `status` `pass | fail | skipped`; skipped ones
+do not apply and are not scored.
 
 ```bash
 # A hard constraint, then the pre-tool-call gate an agent runs before a dangerous tool.
