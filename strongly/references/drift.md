@@ -178,7 +178,8 @@ The result (kept 15 days; its summary stays on the model as `latestDrift`):
   `baseline`, `change`, `drop` (how much worse, relative) and `status` (`ok`,
   `warning`, `alert` from the drop thresholds; it raises `overallStatus`). When
   it cannot be measured (no actuals, no baseline performance, a task changed
-  since the baseline: rebuild it), `error` says why and there are no figures.
+  since the baseline: rebuild it), `error` says why and there are no figures,
+  except that without baseline performance `current` is still measured.
 - **`algorithmsRun`**, and **`algorithmsSkipped`** (`{ name, reason }`).
 
 **The rows** (a feature each, plus rows about the whole dataset) are read a
