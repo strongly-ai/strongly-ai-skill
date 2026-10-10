@@ -240,7 +240,7 @@ workflow and just turn agent mode off.
 
 ## 8. Knowledge base (optional RAG)
 
-Knowledge is **opt-in**; the wizard does not auto-provision it. Two steps:
+Knowledge is **opt-in**; the wizard does not auto-provision it. Three steps:
 
 1. `POST /agents/:id/knowledge/provision` builds and deploys the agent's
    document-ingest pipeline (document to chunk to embed to vector store) and a
@@ -249,14 +249,21 @@ Knowledge is **opt-in**; the wizard does not auto-provision it. Two steps:
    loud with `422` if no embedding model or vector store is available.
 2. `POST /agents/:id/knowledge` adds a document. Send the text inline as JSON
    `{ "content": "..." }` (the path a programmatic caller uses), or a file as
-   `multipart/form-data`. Optional `filename`, `documentId`, `tags`,
-   `description`. It requires the ingest workflow from step 1 to be attached,
-   otherwise it returns `422 not-configured`.
+   `multipart/form-data`; a file must be text (`.txt .md .markdown .csv .html
+   .htm .json`), anything else is refused with `400`. Optional `filename`,
+   `documentId`, `tags`, `description`. It requires step 1, otherwise it returns
+   `422 not-configured`.
+3. Restart a running agent (`POST /agents/:id/redeploy`, or Settings → Apply
+   changes) so it gets its knowledge search tool.
+
+`DELETE /agents/:id/knowledge` turns it off again: deletes the knowledge
+workflows with their documents, and the vector store unless something else
+uses it (`addonKeptReason` says why). Redeploy a running agent afterwards.
 
 ```bash
 curl -s -X POST "${auth[@]}" "$BASE/agents/$AGENT_ID/knowledge/provision"   # step 1
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"content":"Refunds are issued within 30 days...","tags":"policy"}' \
+  -d '{"content":"The planning meeting is held in Room 4B.","tags":"meetings"}' \
   "$BASE/agents/$AGENT_ID/knowledge"                                         # step 2
 ```
 
@@ -320,7 +327,8 @@ Agents can message each other. These routes are scoped by agent authorization
 | POST | `/agents/:id/chat` | Send a message (SSE stream) |
 | GET | `/agents/:id/analytics` | Usage analytics (`days`) |
 | POST | `/agents/:id/knowledge/provision` | Enable a knowledge base (RAG) |
-| POST | `/agents/:id/knowledge` | Add a document (JSON `content` or multipart file) |
+| POST | `/agents/:id/knowledge` | Add a text document (JSON `content` or multipart file) |
+| DELETE | `/agents/:id/knowledge` | Turn the knowledge base off (deletes its documents) |
 | GET/POST | `/agents/:id/skills` | List / add skill associations |
 | PUT/DELETE | `/agents/:id/skills/:sub` | Update / remove a skill association |
 | GET | `/agents/:id/artifacts` | List agent artifacts (metadata) |
