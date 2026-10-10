@@ -289,7 +289,6 @@ In the builder the same requests show in the **Waiting for you** panel.
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/workflows/:id/execute` | Test-run with `triggerInputs`; returns `{executionId, status, outputs, invocation?}` |
-| POST | `/workflows/:id/enqueue` | Run via a queue-trigger node (`message`, `priority`) |
 | GET | `/executions` | List runs (`workflow_id`, `status`, `trigger_type`, `since`, `until`, `limit`, `offset`) |
 | GET | `/executions/:id` | Full execution: definition + per-node `outputs` |
 | GET | `/executions/:id/progress` | Status + progress; **settles** the run and returns the outputs preview on completion |
@@ -325,7 +324,12 @@ schedule as it runs (`cron`, `dailyTime` or `intervalMinutes`, plus `timezone`);
 it runs only while deployed, and undeploying stops it. **Email**, **RSS** and **File**
 triggers poll: the deployed workflow checks the mailbox / feed / S3 location every
 `config.pollInterval` minutes (same even intervals; default 15) and runs with only
-what is new; their block gives `pollIntervalMinutes` and no URL.
+what is new; their block gives `pollIntervalMinutes` and no URL. A **Queue** trigger
+consumes its SQS / RabbitMQ / Kafka queue (`config.connectionType` `datasource` +
+`dataSourceId`, or `addon` + `addonId`; `config.queue` for RabbitMQ/Kafka) and runs once
+per message, up to `maxConcurrentExecutions` (1-10, default 1, set with `PUT
+/workflows/:id`); its lifecycle must be `always-on` or `scheduled-window`. Put messages on
+the queue itself (an sqs-dest / rabbitmq-dest / kafka-dest node), not through the API.
 
 | Method | Path | Purpose |
 |---|---|---|
