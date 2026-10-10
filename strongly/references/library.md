@@ -272,7 +272,7 @@ supersession.
 | `GET /preferences/:id` | Read one by id | |
 | `GET /preferences/by-key/:key` | Look up the active value for a key (null if unset) | `touch` |
 | `PATCH /preferences/:id` | Update only supplied fields; a new `value` supersedes (old value kept as history) and returns the new row, with a new id | body: `value, category, preferenceSource, confidence, evidence, tags, linkedIds` |
-| `DELETE /preferences/:id` · `POST /preferences/forget` | Delete by id / delete by key (idempotent) | forget body: `key*` |
+| `DELETE /preferences/:id` · `POST /preferences/forget` | Delete by id / by key (idempotent): the current value goes with its earlier values; a superseded value goes alone | forget body: `key*` |
 | `POST /preferences/relevant` | Turn-aware relevance; returns `contextBlock` | body: `userTurn, category, limit, tags, linkedIds` |
 | `POST /preferences/:id/share` · `/unshare` · `/toggle-public` | Per-user share/revoke, public toggle | share body: `userId*` |
 
