@@ -319,6 +319,11 @@ The `status` response carries an **`invocation`** block once a trigger exists:
 after a successful deploy, relay `invocation.url`, the auth mode(s), and the exact
 signing header to the user, so they can actually call their workflow. For a webhook
 whose `secretConfigured` is false, set `config.secret` first or callers get a 401.
+A **Form** trigger's block gives its public URL (`POST /api/v1/forms/<id>`, no auth,
+multipart or JSON) and `captcha`: with CAPTCHA on, `config.captchaSecretKey` must be
+set or every submission is refused. A **Schedule** trigger's block gives the
+schedule as it runs (`cron`, `dailyTime` or `intervalMinutes`, plus `timezone`);
+it runs only while deployed, and undeploying stops it.
 
 | Method | Path | Purpose |
 |---|---|---|
