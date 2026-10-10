@@ -72,7 +72,7 @@ Durable facts and episodes an agent recalls. Bitemporal (`validFrom`/`validUntil
 | `GET /memory/:id/versions` · `/versions/:n` · `POST /versions/:n/restore` | Version history + restore | |
 | `POST /memory/:id/share` · `/unshare` · `/toggle-public` | Per-user share/revoke, public toggle | share body: `userId*` |
 | `POST /memory/:id/share-to-org` · `DELETE` same path | Promote/demote to org-global so EVERY agent in the org reads it | |
-| `GET /memory/export` · `POST /memory/import` | Bulk JSON dump / re-ingest | |
+| `GET /memory/export` · `POST /memory/import` | Bulk JSON dump / re-ingest (returns `imported, unchanged, skipped, errors`) | import body: `memories*` |
 
 `kind`: `fact | episodic | semantic | instruction | preference`. Link `relation`:
 `supports | contradicts | refines | related`.
