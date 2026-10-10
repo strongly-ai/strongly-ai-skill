@@ -199,7 +199,12 @@ claim-locked so a task shared by several agents is never worked twice.
 at an exact time). `recurrence`: `{kind, time_of_day?, day_of_week?, day_of_month?,
 cron?, timezone, until?, max_fires?}` where `kind` is `daily | weekly | monthly |
 cron`. **For any repeating schedule set `recurrence` and leave `due_at` empty; use
-`due_at` only for a single one-off time.**
+`due_at` only for a single one-off time.** A heartbeat task with neither `due_at`
+nor `recurrence` is intent-only: no heartbeat runs it on its own. `linkedIds` says
+which agents work a task; `assigned_to_agent` is only a label a Task Due workflow
+trigger filters on. `PUT` with `due_at`, `assigned_to_agent` or `subject_ref` set
+to `null` removes that field. Completing a claimed task counts the run
+(`fire_count`, `last_fired_at` = claim time).
 
 ```bash
 # Recurring: every weekday 9am ET. NOTE recurrence, not due_at.
