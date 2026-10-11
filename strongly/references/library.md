@@ -192,7 +192,7 @@ claim-locked so a task shared by several agents is never worked twice.
 | `POST /primitives/tasks` | Create | body: `description*, recurrence, dueAt, triggerType, notes, tags, subjectRef, linkedIds, assignedToAgent, createdByAgent` |
 | `GET /primitives/tasks/:id` · `PATCH /primitives/tasks/:id` · `DELETE /primitives/tasks/:id` | Fetch (with its status and scheduling fields) / update (a recurrence change recomputes `nextDueAt`) / delete | |
 | `POST /primitives/tasks/:id/complete` | Mark done; recurring advances to the next occurrence | body: `notes, executionId` |
-| `POST /primitives/tasks/:id/claim` | First-claim-wins execution lock | body: `claimantId*` |
+| `POST /primitives/tasks/:id/claim` | First-claim-wins execution lock: answers the task, or `409` when another agent holds it | body: `claimantId*` |
 | `POST /primitives/tasks/:id/cancel` | Cancel | body: `reason` |
 | `POST /primitives/tasks/:id/skip-next` · `/end-recurrence` | Skip one fire / stop recurring | |
 | `GET/PATCH /primitives/tasks/:id/permissions` · `POST …/permissions/members` · `DELETE /primitives/tasks/:taskId/permissions/members/:userId` | Who can reach it / visibility, share with a user, stop sharing | member body: `userId*, role*` |
@@ -214,11 +214,12 @@ to `null` removes that field. Completing a claimed task counts the run
 curl -s -X POST "${auth[@]}" "$BASE/primitives/tasks" -H 'Content-Type: application/json' \
   -d '{"description":"Post the standup summary","triggerType":"scheduled",
        "recurrence":{"kind":"cron","cron":"0 9 * * 1-5","timezone":"America/New_York"},
-       "linkedIds":["<agentWorkflowId>"]}'                                   # -> data.taskId
+       "linkedIds":["<agentWorkflowId>"]}'                                   # -> the task, its id in data._id
 
-# An agent claims a due task before executing it (skip if it loses the claim).
+# An agent claims a due task before executing it: 200 answers the task (claimedBy = you);
+# 409 conflict means another agent has it (skip it).
 curl -s -X POST "${auth[@]}" "$BASE/primitives/tasks/<id>/claim" -H 'Content-Type: application/json' \
-  -d '{"claimantId":"<agentWorkflowId>"}' | jq '.data.claimed'
+  -d '{"claimantId":"<agentWorkflowId>"}' | jq '.data.claimedBy // .detail'
 ```
 
 Checklist:

@@ -153,8 +153,8 @@ List everything the user has deployed, and control an in-progress deploy:
 
 ```bash
 curl -s "${auth[@]}" "$BASE/marketplace/deployments" | jq '.data'                        # all my deployments
-curl -s -X POST "${auth[@]}" "$BASE/marketplace/deployments/$ITEM_ID/cancel"             # cancel in-progress
-curl -s -X POST "${auth[@]}" "$BASE/marketplace/deployments/$ITEM_ID/clear-progress"     # clear stale progress
+curl -s -X POST "${auth[@]}" "$BASE/marketplace/deployments/$DEPLOYMENT_ID/cancel"     # cancel in-progress; answers the deployment
+curl -s -X DELETE "${auth[@]}" "$BASE/marketplace/deployments/$DEPLOYMENT_ID"          # remove a finished deployment's record (204)
 ```
 
 | Method | Path | Scope | Purpose |
@@ -163,10 +163,10 @@ curl -s -X POST "${auth[@]}" "$BASE/marketplace/deployments/$ITEM_ID/clear-progr
 | GET | `/marketplace/deployments` | `marketplace:deploy` | List the user's deployed offerings |
 | GET | `/marketplace/deployments/:id` | `marketplace:deploy` | Full deploy info (progress, result, createdResources) |
 | GET | `/marketplace/deployments/:id/status` | `marketplace:deploy` | Lightweight status + percentage |
-| POST | `/marketplace/deployments/:id/cancel` | `marketplace:deploy` | Cancel an in-progress deploy |
-| POST | `/marketplace/deployments/:id/clear-progress` | `marketplace:deploy` | Clear stale progress data |
+| POST | `/marketplace/deployments/:id/cancel` | `marketplace:deploy` | Cancel an in-progress deploy; answers the deployment, `cancelling` |
+| DELETE | `/marketplace/deployments/:id` | `marketplace:deploy` | Remove a finished (complete, failed, cancelled) deployment's record; 204 |
 
-`:id` on the deployment routes is the **marketplace item id**, not an app id.
+`:id` on the deployment routes is the **`deploymentId`** that `POST /marketplace/deploy` returns, not the marketplace item id or an app id.
 
 ---
 
@@ -365,7 +365,7 @@ Field reference:
 - [ ] Inspect `/deploy-config`, `/license`, `/reviews` before installing.
 - [ ] Ground the deploy `config` against real `available-addons` / `available-models`, never a guessed id.
 - [ ] Deploy needs `appName` + `config` with `marketplaceItemId` and `termsAccepted: true`; it returns 202.
-- [ ] Poll `/marketplace/deployments/:id/status` (by the marketplace item id) until `status` is `complete`; never claim success before that; read `error` on `failed`.
+- [ ] Poll `/marketplace/deployments/:id/status` (by the `deploymentId`) until `status` is `complete`; never claim success before that; read `error` on `failed`.
 - [ ] Once complete, treat `result.appId` as a normal app and use `references/apps.md` (`/apps` routes, proxy, identity, manifest).
 - [ ] Usage events: one per use, unique `idempotencyKey`, positive `quantity`; a 200 `deduplicated:true` is success, not an error.
 - [ ] Plugins: browse `GET /plugins`, install with `POST /plugins/instances` (`pluginId`, `values` matching the plugin's `configSchema`; `marketplace:deploy`); `PATCH /plugins/instances/:id` `{enabled}` turns one on or off and `DELETE` uninstalls it; managing them needs admin (or developer in multitenant).
