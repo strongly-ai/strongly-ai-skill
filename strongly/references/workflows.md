@@ -328,6 +328,8 @@ In the builder the same requests show in the **Waiting for you** panel.
 | POST | `/workflows/-/executions/:id/cancel` | Hard-cancel any non-terminal run; idempotent |
 | POST | `/workflows/-/executions/:id/resume` | Resume a failed/paused run (`trigger_data`) |
 | GET · POST | `/executions/:id/pending-inputs` · `/executions/:id/input` | Discover, then answer, what a running run waits on from a person (Wait for Input, Human Feedback, Human Checkpoint); `request_id` plus `data` shaped by the request type (see above) |
+| GET | `/workflows/:workflowId/dead-letters` | Runs that could not be submitted (dead letters) of a workflow, or of every workflow with `-`; `status` filters (`pending`, `retrying`, `resolved`, `exhausted`, `discarded`) |
+| GET · POST | `/workflows/-/dead-letters/:id` · `…/:id/retry` · `…/:id/discard` | One dead letter; retry it now as you, or give up on it (`notes`) |
 
 ---
 

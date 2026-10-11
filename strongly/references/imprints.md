@@ -35,13 +35,14 @@ returns `403`. Responses use the standard envelope (see `SKILL.md`): `data` on s
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
 | GET | `/library/imprints` | List imprints you can see, with per-primitive content counts | `memory:read` |
-| POST | `/library/imprints` | Create an imprint; returns its id | `memory:write` |
+| POST | `/library/imprints` | Create an imprint; `201` with the imprint | `memory:write` |
 | GET | `/library/imprints/:id` | Get one imprint with its contents (rows grouped by primitive) + counts | `memory:read` |
 | DELETE | `/library/imprints/:id` | Delete an imprint (its items are kept and lose the grouping; agents stop reading it) | `memory:write` |
-| POST | `/library/imprints/:id/items` | Add an existing library row to the imprint | `memory:write` |
+| POST | `/library/imprints/:id/items` | Add an existing library row to the imprint; `201` with `{ resourceType, _id, label }` | `memory:write` |
 | DELETE | `/library/imprints/:imprintId/items/:resourceType/:resourceId` | Remove a row from the imprint | `memory:write` |
 | POST | `/agents/:id/imprints` | Install the imprint on an agent | `memory:write` |
 | DELETE | `/agents/:agentId/imprints/:id` | Uninstall the imprint from an agent | `memory:write` |
+| GET · POST · DELETE · PATCH | `/library/imprints/:id/permissions` (`/members`, `/members/:userId`) | Share an imprint: owner, members (`editor` or `user`), visibility (the one sharing shape) | `memory:read` / `memory:write` |
 
 ---
 
