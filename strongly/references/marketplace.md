@@ -109,7 +109,9 @@ runs in the background. Body requires `appName` (the name for the new app) and a
 `config` object. `config` must include `marketplaceItemId` and
 `termsAccepted: true`; the rest of `config` carries the wizard selections the
 offering declared (resources, addons, models, permissions) grounded from §1 and
-§2. Missing `appName`/`config` is a 400, missing `marketplaceItemId` a 400, and
+§2. `config.resources` is the app's `cpu`, `memory`, `disk`, `instances`, and
+`useSpot` (spot capacity) with `spotFallback` (default true: on-demand when no
+spot is available). Missing `appName`/`config` is a 400, missing `marketplaceItemId` a 400, and
 `termsAccepted` not true a 422.
 
 ```bash

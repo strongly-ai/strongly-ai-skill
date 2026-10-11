@@ -154,7 +154,8 @@ poll `/status` until `active` first. Third-party models have no pod: `deploy`/
 
 | Method / path | Does | Scope |
 |---|---|---|
-| `POST /ai-gateway/models/:id/deploy` | Deploy self-hosted (build+run) or activate third-party. Body: `instance_type`, `port`, `replicas`, `volume_size`, `gpu`, `cpu`, `memory`, `auto_shutdown_minutes`, `autoscaling`, `env_vars` | `ai-gateway:write` |
+| `POST /ai-gateway/models/:id/deploy` | Deploy self-hosted (build+run) or activate third-party. Body: `instance_type`, `port`, `replicas`, `volume_size`, `gpu`, `cpu`, `memory`, `auto_shutdown_minutes`, `autoscaling`, `env_vars`, `useSpot` (spot capacity) with `spotFallback` (default true: on-demand when no spot is available; false waits for spot) | `ai-gateway:write` |
+| `PATCH /ai-gateway/models/:id/resources` | Change a deployed self-hosted model in place: `cpu`, `memory`, `disk`, `gpu`, and/or `useSpot` + `spotFallback` (moves it on or off spot); it restarts, never redeploys | `ai-gateway:write` |
 | `POST /ai-gateway/models/:id/start` | Start a stopped model | `ai-gateway:write` |
 | `POST /ai-gateway/models/:id/stop` | Stop self-hosted pod / deactivate third-party | `ai-gateway:write` |
 | `GET /ai-gateway/models/:id/status` | Live deployment status (self-hosted) or db status (third-party) | `ai-gateway:read` |
