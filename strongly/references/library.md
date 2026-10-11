@@ -65,7 +65,7 @@ Durable facts and episodes an agent recalls. Bitemporal (`validFrom`/`validUntil
 | `POST /memory/search` | Hybrid BM25 + dense-vector search with RRF fusion and temporal-decay re-rank; returns `contextBlock` | body: `query*, k, kind, tags, linkedIds, weights, rrfK, decayHalfLifeDaysOverride, asOf, rerank, rerankModel, includeInvalidated` |
 | `POST /memory/ingest` | Mem0-style judge that decides ADD/UPDATE/DELETE/NOOP against similar rows | body: `content*, kind*, tags, model, candidateK, linkedIds` |
 | `POST /memory/consolidate` | Sleep-time pass: dedup, evict stale, promote used. `dryRun` to preview | body: `config, dryRun` |
-| `POST /memory/:id/assess` | Run the quality ruleset, cache the score | |
+| `POST /memory/:id/assess` | The quality ruleset's full report (each check); the score is also kept on the row (`scoreResult`) by every write | |
 | `POST /memory/:id/invalidate` | Mark contradicted/superseded (sets `validUntil=now`) | body: `supersededBy` |
 | `POST /memory/:id/access` | Increment `usageCount` + `lastAccessedAt` | |
 | `POST /memory/:id/links` · `DELETE /memory/:id/links/:targetId` · `GET /memory/:id/linked-to` | Add/update, remove, and reverse-lookup graph edges | link body: `targetId*, relation*, weight` |
@@ -108,7 +108,7 @@ ordered (`system > org > user > agent`), enforceable at the tool boundary, versi
 | `POST /rules/applicable` | Enabled rules matching turn/tool/scope, hierarchy-sorted; returns `contextBlock` | body: `userTurn, toolName, linkedIds` |
 | `POST /rules/tool-gate` | Deterministic pre-tool-call gate; returns `refused` + blocking rule | body: `toolName*, args, userTurn, linkedIds` |
 | `POST /rules/check` | Pattern pre-call gate; returns `allowed, blockedBy, reason` | body: `toolName, description, args, userTurn` |
-| `POST /rules/:id/assess` | Quality ruleset score | |
+| `POST /rules/:id/assess` | The quality ruleset's full report; the score is also kept on the row (`scoreResult`) by every write | |
 | `POST /rules/:id/violation` · `GET /rules/:id/violations` | Record / list violations (list paginated, newest first; `limit` up to 200) | violation body: `attemptedAction*, detectedBy, agentId, threadId, runId, evidence` |
 | `GET /rules/violations/aggregate` | Cross-rule stats over the last N days | `days, topRules, topTools` |
 | `POST /rules/:id/toggle-enabled` · `/toggle-public` · `/share` · `/unshare` | Enable/disable, public toggle, per-user share/revoke | share body: `userId*` |

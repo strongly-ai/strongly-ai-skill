@@ -114,6 +114,8 @@ counts. Use this to confirm a bundle is complete before installing it.
 curl -s "${auth[@]}" "$BASE/imprints/$IMPRINT_ID" | jq '.data.contents'
 ```
 
+Each item is `{ _id, label }`: a memory's content, a rule's description, a task's description, an artifact's title, a skill's or prompt's name, a preference's key.
+
 An unknown id returns `404 not-found`.
 
 ---
