@@ -279,10 +279,10 @@ Data Forge:
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET / POST | `/data-forge/projects` | List / create projects |
-| GET / PUT / DELETE | `/data-forge/projects/:id` | Get / update / delete a project |
+| GET / POST | `/ai-gateway/data-forge/projects` | List / create projects |
+| GET / PATCH / DELETE | `/ai-gateway/data-forge/projects/:id` | Get / update / delete a project |
 | POST | `/ai-gateway/data-forge/projects/:id/uploads` | Presigned upload URL for a document |
-| GET / POST | `/data-forge/projects/:id/documents` | List / register documents |
+| GET / POST | `/ai-gateway/data-forge/projects/:id/documents` | List / register documents |
 | DELETE | `/ai-gateway/data-forge/projects/:projectId/documents/:id` | Delete a document |
 | GET | `/ai-gateway/data-forge/projects/:id/chunks` | List parsed chunks (paginated) |
 | PATCH | `/ai-gateway/data-forge/projects/:projectId/chunks/:id` | Edit a chunk |

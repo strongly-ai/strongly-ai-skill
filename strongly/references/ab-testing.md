@@ -58,7 +58,7 @@ ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/mlo
   -d '{"name":"churn: current vs challenger","strategy":"weighted_random",
        "variants":[{"variantId":"control","modelId":"'"$MODEL_A"'","weight":0.5,"isControl":true},
                    {"variantId":"challenger","modelId":"'"$MODEL_B"'","weight":0.5}]}' \
-  | jq -r '.data.abTestId')
+  | jq -r '.data._id')
 ```
 
 Optional at create:
@@ -206,7 +206,7 @@ metric**, over the predictions the test routes while the experiment runs.
 EXP=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/mlops/ab-tests/$ID/experiments" \
   -d '{"name":"challenger beats current?","controlVariantId":"control",
        "treatmentVariantIds":["challenger"],"primaryMetric":"success_rate",
-       "confidenceLevel":0.95,"minSamplePerVariant":500}' | jq -r '.data.experimentId')
+       "confidenceLevel":0.95,"minSamplePerVariant":500}' | jq -r '.data._id')
 
 curl -s -X POST "${auth[@]}" "$BASE/mlops/ab-tests/-/experiments/$EXP/start"     # status running
 curl -s -X POST "${auth[@]}" "$BASE/mlops/ab-tests/-/experiments/$EXP/analyze" | jq '.data'

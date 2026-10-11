@@ -77,7 +77,7 @@ Wire real connections, not invented ones. List what the user actually has:
 | GET | `/workflow-nodes/services/models` | AI models the gateway will serve (ranked) |
 | GET | `/workflow-nodes/services/data-source-fields/:id` | Credential fields a datasource type needs |
 | POST · PUT · DELETE | `/workflow-nodes` · `/workflow-nodes/:id` | Register/update/delete a REUSABLE custom node type. For one-off logic inside a single workflow that no catalog node does, use the built-in `code` node instead. |
-| POST | `/workflow-nodes/:id/duplicate` | Copy an existing node type into a new editable custom node ("copy & edit"), then edit it with `PUT` |
+| POST | `/workflow-nodes/:id/duplicate` | Copy an existing node type into a new editable custom node ("copy & edit"), then edit it with `PATCH` |
 
 Data sources, addons, and models come from their own areas
 (`references/datasources.md`, `references/addons.md`, `references/ai-gateway.md`);
@@ -139,7 +139,7 @@ WID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
       {"source":"loop","target":"acc","sourcePort":"completed"},
       {"source":"acc","target":"db"}
     ]
-  }' "$BASE/workflows/build" | jq -r '.data.workflowId')
+  }' "$BASE/workflows/build" | jq -r '.data._id')
 ```
 
 Rules the build enforces (it rejects the graph with an actionable error otherwise):
@@ -227,7 +227,7 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 | GET | `/workflows/:id` | Full detail including all nodes and connections |
 | PATCH | `/workflows/:id` | Partial update (`name`, `description`, `status`, `tags`, `settings`, `deploymentEnvironmentId`) |
 | DELETE | `/workflows/:id` | Delete (409 if deployed or running: undeploy and stop first) |
-| POST | `/workflows/:id/duplicate` | Copy the workflow |
+| POST | `/workflows/:id/duplicate` | Copy the workflow; returns the copy |
 | POST | `/workflows/:id/nodes` | Add one node (`nodeType` required; `label`, `config`, `position`) |
 | GET | `/workflows/:id/nodes` | List nodes with inbound/outbound connection counts |
 | PATCH | `/workflows/:workflowId/nodes/:id` | Set a node's `config` / `label` |

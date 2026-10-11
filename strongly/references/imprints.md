@@ -64,7 +64,7 @@ response returns the new id as both `_id` and `imprintId`.
 ```bash
 IMPRINT_ID=$(curl -s -X POST "${auth[@]}" "$BASE/library/imprints" -H 'Content-Type: application/json' \
   -d '{"name":"Helicopter Piloting","description":"What an agent needs to fly a helicopter"}' \
-  | jq -r '.data.imprintId')
+  | jq -r '.data._id')
 ```
 
 Body: `name` (required), `description` (optional). `name` is the only required

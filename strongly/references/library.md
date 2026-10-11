@@ -324,7 +324,7 @@ when creating the memory, skills, etc. that should belong to the bundle.
 
 ```bash
 POOL_ID=$(curl -s -X POST "${auth[@]}" "$BASE/library/pools" -H 'Content-Type: application/json' \
-  -d '{"name":"Helicopter Piloting","scope":"imprint"}' | jq -r '.data.poolId')
+  -d '{"name":"Helicopter Piloting","scope":"imprint"}' | jq -r '.data._id')
 # attach primitives to it via linkedIds: ["$POOL_ID"] when you create them
 ```
 

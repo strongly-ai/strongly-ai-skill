@@ -65,7 +65,7 @@ placeholder and `start` rejects it with `422 unresolved-model-placeholder`.
 AGENT_ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"name":"Support Bot","personality":"Warm, concise.",
        "aiModelId":"<ai-model-_id>"}' \
-  "$BASE/agents" | jq -r '.data.workflowId // .data._id')
+  "$BASE/agents" | jq -r '.data._id')
 ```
 
 Notable optional fields on the wizard body: `personality`, `operatingPromptId`

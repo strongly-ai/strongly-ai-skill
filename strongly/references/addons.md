@@ -62,7 +62,7 @@ connection string or wire the addon into anything until its status is running.**
 ADDON_ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"label":"Orders DB","type":"postgres","cpu":"500m","memory":"1Gi","disk":"10Gi",
        "description":"Primary store for the orders app"}' \
-  "$BASE/addons" | jq -r '.data.addonId')
+  "$BASE/addons" | jq -r '.data._id')
 
 # Poll live Kubernetes status until it reports running. It is "requested" until the deploy
 # is accepted, then "deploying". Do NOT skip this.

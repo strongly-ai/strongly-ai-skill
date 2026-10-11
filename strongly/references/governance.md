@@ -54,7 +54,7 @@ POLICY=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' -d '{
   "stages":[],
   "isActive":true,
   "isDraft":false
-}' "$BASE/governance/policies" | jq -r '.data.policyId')
+}' "$BASE/governance/policies" | jq -r '.data._id')
 
 # Get, update, delete
 curl -s "${auth[@]}" "$BASE/governance/policies/$POLICY" | jq '.data'
@@ -105,7 +105,7 @@ returns `data.solutionId`.
 # Create -> data.solutionId
 SOL=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"name":"Fraud model v2","description":"Q3 fraud scoring model"}' \
-  "$BASE/governance/solutions" | jq -r '.data.solutionId')
+  "$BASE/governance/solutions" | jq -r '.data._id')
 
 # What must this solution clear? (policies + gates that apply)
 curl -s "${auth[@]}" "$BASE/governance/solutions/$SOL/requirements" | jq '.data'

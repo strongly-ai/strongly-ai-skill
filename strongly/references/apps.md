@@ -254,7 +254,7 @@ APP_ID=$(curl -s "${auth[@]}" -H 'Content-Type: application/json' -X POST "$BASE
   \"bundleSourceType\": \"volume\",
   \"bundleSource\": {\"volumeId\": \"$VOLUME_ID\", \"folderPath\": \"apps/my-app\"},
   \"volumes\": [\"$VOLUME_ID\"]
-}" | jq -r '.data.appId')
+}" | jq -r '.data._id')
 ```
 
 ### From GitHub (a GitHub-backed volume, or a repo the user names)
@@ -269,7 +269,7 @@ APP_ID=$(curl -s "${auth[@]}" -H 'Content-Type: application/json' -X POST "$BASE
   \"name\": \"my-app\", \"cpu\": \"0.5\", \"memory\": \"1GB\",
   \"bundleSourceType\": \"github\",
   \"bundleSource\": {\"repoUrl\": \"git@github.com:acme/my-app.git\", \"branch\": \"main\", \"sshKeyId\": \"$SSH_KEY_ID\"}
-}" | jq -r '.data.appId')
+}" | jq -r '.data._id')
 ```
 
 ### From an uploaded zip
