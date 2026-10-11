@@ -49,8 +49,8 @@ Every prediction a registry model serves is recorded, whether it came through
 the REST predict route, an A/B test, a workflow, an app or the model page's Test
 tab. The record holds its model version, prediction, confidence or score,
 latency, success or error, `predictionId`, your `entityId`, where it came from
-(`source`: `production`, `test` for the Test tab or `source: "test"` calls,
-`shadow`), and the A/B test and variant that served it. Records are kept 90
+(`source`: `production`, or `test` for the Test tab and `source: "test"`
+calls), and the A/B test and variant that served it. Records are kept 90
 days.
 
 `predict` returns the `predictionId`. Keep it, or send your own `entityId`, to
