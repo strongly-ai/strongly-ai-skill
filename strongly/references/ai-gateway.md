@@ -56,9 +56,9 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/models?q=embed&modelType=embedding" | jq 
 vendor or model list):
 
 ```bash
-curl -s "${auth[@]}" "$BASE/ai-gateway/models/providers"            | jq '.data.providers'   # distinct third-party providers + counts
-curl -s "${auth[@]}" "$BASE/ai-gateway/models/certified?provider=openai" | jq '.data.models' # curated third-party catalog
-curl -s "${auth[@]}" "$BASE/ai-gateway/models/prebuilt?category=llm" | jq '.data.templates'   # self-hosted prebuilt templates
+curl -s "${auth[@]}" "$BASE/ai-gateway/models/providers"            | jq '.data'   # distinct third-party providers + counts
+curl -s "${auth[@]}" "$BASE/ai-gateway/models/certified?provider=openai" | jq '.data' # curated third-party catalog
+curl -s "${auth[@]}" "$BASE/ai-gateway/models/prebuilt?category=llm" | jq '.data'   # self-hosted prebuilt templates
 ```
 
 **Register a model.** `name`, `type`, `provider`, and `vendorModelId` are

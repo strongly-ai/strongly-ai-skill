@@ -172,8 +172,8 @@ curl -s -X POST "${auth[@]}" "$BASE/avatars/$ID/preview" | jq '.data'
 
 ```bash
 # List everything you can access (newest first). Optional exact-name filter.
-curl -s "${auth[@]}" "$BASE/avatars"                 | jq '.data | {count, names: [.avatars[].name]}'
-curl -s "${auth[@]}" "$BASE/avatars?name=Guide%20Orb" | jq '.data.avatars[0]._id'
+curl -s "${auth[@]}" "$BASE/avatars"                 | jq '{total: .meta.total, names: [.data[].name]}'
+curl -s "${auth[@]}" "$BASE/avatars?name=Guide%20Orb" | jq '.data[0]._id'
 
 # Get one
 curl -s "${auth[@]}" "$BASE/avatars/$ID" | jq '.data | {name, tier, status}'

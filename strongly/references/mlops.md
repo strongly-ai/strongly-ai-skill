@@ -142,7 +142,7 @@ trainer writes to these automatically; you also drive them directly.
 | `POST /mlops/experiments/:id/artifacts/multipart-uploads` | Start a large (over 5 GB) upload in parts; then `…/multipart-uploads/:id/complete` (`path`, `parts: [{partNumber, etag}]`) or `…/abort` | path `id`; `path`, `size`, `contentType?` |
 | `POST /mlops/experiments/:id/artifacts` | Record an uploaded artifact (its size is read from storage) | path `id`; `path`, `name?`, `type?`, `description?` |
 | `GET /mlops/experiments/:id/artifacts` · `GET …/artifacts/download-url?path=` | List the run's artifacts / a one-hour download link | path `id` |
-| `GET /mlops/experiments/:id/metrics` · `GET /mlops/experiments/:experimentId/metrics/:key` | Latest metrics / one metric's history | |
+| `GET /mlops/experiments/:id/metrics` · `GET /mlops/experiments/:experimentId/metrics/:key` | The keys the run has logged metrics under (a list) / one metric's history | |
 | `POST /mlops/experiments/:id/models` | Register the model the run logged (`log_model`) in the model registry | path `id`; `name` (new model) or `modelId` (new version); `description?`, `artifactPath?` (default `model`). The task `log_model` recorded (`problemType`) becomes the model's `training.problemType`; without one, set it with `PATCH /mlops/models/:id` `problemType` before drift |
 
 ```bash

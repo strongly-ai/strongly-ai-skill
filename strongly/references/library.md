@@ -71,7 +71,7 @@ Durable facts and episodes an agent recalls. Bitemporal (`validFrom`/`validUntil
 | `POST /primitives/memories/consolidate` | Sleep-time pass: dedup, evict stale, promote used. `dryRun` to preview | body: `config, dryRun` |
 | `POST /primitives/memories/:id/assess` | The quality ruleset's full report (each check); the score is also kept on the row (`scoreResult`) by every write | |
 | `POST /primitives/memories/:id/invalidate` | Mark contradicted/superseded (sets `validUntil=now`) | body: `supersededBy` |
-| `POST /primitives/memories/:id/access-events` | Increment `usageCount` + `lastAccessedAt` | |
+| `POST /primitives/memories/:id/access-events` | Record a use (`usageCount`, `lastAccessedAt`); `201` with `{ usageCount }` | |
 | `POST /primitives/memories/:id/links` · `DELETE /primitives/memories/:memoryId/links/:id` · `GET /primitives/memories/:id/backlinks` | Add/update, remove, and reverse-lookup graph edges | link body: `targetId*, relation*, weight` |
 | `GET /primitives/memories/:id/versions` · `GET /primitives/memories/:memoryId/versions/:version` · `POST …/versions/:version/restore` | Version history + restore | |
 | `GET/PATCH /primitives/memories/:id/permissions` · `POST …/permissions/members` · `DELETE /primitives/memories/:memoryId/permissions/members/:userId` | Who can reach it / visibility, share with a user, stop sharing | member body: `userId*, role*` |
@@ -160,7 +160,7 @@ semantic search.
 | `GET /library/prompts/:id/versions` · `POST /library/prompts/:promptId/versions/:version/restore` | Versions (each with its full `content`) + restore | |
 | `POST /library/prompts/:id/duplicate` | Copy to a new prompt | |
 | `POST /library/prompts/:id/render` | Substitute variables and return the rendered text; a variable with no default is required (400 naming it when missing) | body: `variables` |
-| `POST /library/prompts/:id/usage-events` | Record a usage event | |
+| `POST /library/prompts/:id/usage-events` | Record a use; `201` with `{ usageCount }` | |
 
 `type`: `system-prompt | user-prompt | template` (an unrecognised type is coerced
 to `user-prompt`).
@@ -243,7 +243,7 @@ with hybrid relevance retrieval, versions, and a quality assessor.
 | `POST /library/skills/search` | Hybrid (semantic + keyword) relevance; returns `contextBlock` | body: `userTurn, limit, tags` |
 | `POST /library/skills/:id/render` | Variable substitution | body: `variables` |
 | `POST /library/skills/:id/assess` | Score against the skill-building guide | |
-| `POST /library/skills/:id/duplicate` · `POST /library/skills/:id/usage-events` | Copy / record usage | |
+| `POST /library/skills/:id/duplicate` · `POST /library/skills/:id/usage-events` | Copy / record a use (`201` with `{ usageCount }`) | |
 | `GET /library/skills/:id/versions` · `POST /library/skills/:skillId/versions/:version/restore` | Versions + restore | |
 | `POST /library/skills/import` | Import a skill from a GitHub URL | body: `githubUrl*` |
 

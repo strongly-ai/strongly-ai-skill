@@ -268,7 +268,7 @@ Report `inconclusive` as inconclusive, quoting `reason` when it is set.
 | `GET /mlops/ab-tests/:id/metrics` | Totals, overall and per variant | `mlops:read` |
 | `GET /mlops/ab-tests/:id/traffic` | Requests, errors, latency over time | `mlops:read` |
 | `GET /mlops/ab-tests/:id/predictions` | Routed predictions, a page at a time | `mlops:read` |
-| `POST /mlops/ab-tests/-/predictions/:id/feedback` | Record `reward` and/or `label` | `mlops:write` |
+| `POST /mlops/ab-tests/-/predictions/:id/feedback` | Record `reward` and/or `label`; answers the prediction | `mlops:write` |
 
 ---
 

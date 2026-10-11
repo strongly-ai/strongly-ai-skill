@@ -134,9 +134,9 @@ push device mutates your user record, so it needs a write scope.
 |---|---|---|---|
 | GET | `/me/notifications` | List your notifications (`unreadOnly`, `limit`, `cursor`) | `notifications:read` |
 | GET | `/me/notifications/unread-count` | Count of your unread notifications | `notifications:read` |
-| POST | `/me/notifications/mark-all-read` | Mark all your notifications read | `notifications:read` |
-| POST | `/me/notifications/:id/read` | Mark one notification read (yours only) | `notifications:read` |
-| DELETE | `/me/notifications/:id` | Delete one notification (yours only) | `notifications:read` |
+| POST | `/me/notifications/mark-all-read` | Mark all your notifications read; answers `{ count }` | `notifications:write` |
+| PATCH | `/me/notifications/:id` | `{ read }`: mark one of your notifications read or unread; answers the notification | `notifications:write` |
+| DELETE | `/me/notifications/:id` | Delete one of your notifications (`204`) | `notifications:write` |
 | POST | `/me/push-devices` | Register an APNs/device push token (`token`, optional `platform`, default `ios`) | `notifications:write` |
 
 ```bash
@@ -145,7 +145,7 @@ curl -s "${auth[@]}" "$BASE/me/notifications?unreadOnly=true" | jq '.data'
 curl -s "${auth[@]}" "$BASE/me/notifications/unread-count" | jq '.data.count'
 
 # Mark all read, then clear one
-curl -s -X POST "${auth[@]}" "$BASE/me/notifications/mark-all-read" | jq '.data'
+curl -s -X POST "${auth[@]}" "$BASE/me/notifications/mark-all-read" | jq '.data.count'
 curl -s -X DELETE "${auth[@]}" "$BASE/me/notifications/$NOTIF_ID" | jq '.data'
 
 # Register a mobile push token (from the mobile app after the user grants push)

@@ -163,7 +163,7 @@ instance family and size. `workloadType` is one of: `general`, `ai`, `mcp`,
 |---|---|---|
 | `GET /compute/warm-pools` | `compute:read` | Get pre-warmed configs for all workload pools. |
 | `PUT /compute/warm-pools/:workloadType` | `compute:write` | Set a pool config. Required body: `enabled`, `count` (1-5), `instanceCategory`, `instanceSize`. |
-| `DELETE /compute/warm-pools/:workloadType` | `compute:write` | Remove the size override, restoring the pool's normal allowlist. |
+| `DELETE /compute/warm-pools/:workloadType` | `compute:write` | Remove the size override, restoring the pool's normal allowlist (`204`). |
 
 `instanceCategory` is a family letter (`m`, `c`, `g`, ...); `instanceSize` is one
 of `small`, `medium`, `large`, `xlarge`, `2xlarge`, `4xlarge`.

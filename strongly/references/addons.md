@@ -30,7 +30,7 @@ Two different questions, two different endpoints. Do not confuse them.
 
 ```bash
 # What KINDS of store can I spin up? (the create catalog, dynamic, read it, don't assume)
-curl -s "${auth[@]}" "$BASE/addon-types" | jq '.data.types'
+curl -s "${auth[@]}" "$BASE/addon-types" | jq '.data'
 
 # What addons has the user ALREADY provisioned? (reuse these instead of creating another)
 curl -s "${auth[@]}" "$BASE/addons" | jq '.data'
