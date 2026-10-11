@@ -334,6 +334,7 @@ curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP
 
 # The app's users: status active | pending (waiting for approval) | archived
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/users?status=pending&q=&sort=-createdAt&limit=50"
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/users/$USER_ID"                       # one user; PATCH and reset-password answer it too
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"active":true}' \
   "$BASE/apps/$APP_ID/users/$USER_ID"                                         # approve / re-enable
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"active":false}' \
