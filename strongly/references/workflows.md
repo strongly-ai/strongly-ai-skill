@@ -243,7 +243,9 @@ Templates (including the platform's public `scaffold` starters) are listed only 
 (`templateId`), `POST /workflows/:id/save-as-template`. Sharing:
 `GET·PATCH /workflows/:id/permissions` (owner, members, `visibility`),
 `POST /workflows/:id/permissions/members` `{ userId, role }`,
-`DELETE /workflows/:workflowId/permissions/members/:userId`.
+`DELETE /workflows/:workflowId/permissions/members/:userId`. An agent
+(`mode: 'agent'`) is never shared: those calls refuse it (409), and only its owner
+(and admins) reach it.
 Versions: `GET·POST /workflows/:id/versions` (a commit takes a `message`; the
 platform assigns the integer `versionNumber`), `GET /workflows/:workflowId/versions/:id`
 (one version plus its full `.strongly.json` definition), and

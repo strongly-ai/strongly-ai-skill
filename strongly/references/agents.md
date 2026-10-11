@@ -25,6 +25,10 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # outside Strong
 # Inside Strongly (a workspace, app or job): BASE="$STRONGLY_API_URL/api/v1"; auth=()   # signed in as you, no key
 ```
 
+An agent is only for the user who made it: it is never shared or made public,
+and another user never sees it (admins can manage it). To give others what an
+agent knows, share its Library items (skills, prompts, knowledge bases).
+
 All agent routes carry the `agents:read` or `agents:write` scope. Responses use
 the standard envelope (see `SKILL.md`): `data` on success, lists page with `cursor` / `meta.nextCursor`, and a failure is problem details whose `detail` and `code` to surface.
 
