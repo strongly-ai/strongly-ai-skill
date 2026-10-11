@@ -194,21 +194,36 @@ Deploy body fields, from the route:
 - **`autoShutdownMinutes`**: `> 0` deploys on-demand (replicas start at 0, the pod
   wakes on the first inference request and scales back to zero after this idle
   window). `0` or omitted means always-on.
-- **`schedulingMode`**: `always_on` or `on_demand`.
+- **`schedulingMode`**: `always_on`, `on_demand` or `scheduled`.
+- **`scheduleRules`** (with `scheduled`): `[{ id, action: "start" | "stop", dayOfWeek: [0-6] (0 = Sunday),
+  time: "HH:MM", timezone: IANA name }]`, at least one start and one stop. The platform starts the
+  model at each start time and stops it at each stop time, on the listed days.
 - **`scalingMode`**: `fixed` (default, wakes to `replicas`) or `auto` (demand
   autoscaling: the gateway ramps 0 to `maxReplicas` on live load). With `auto`,
   set **`minReplicas`**, **`maxReplicas`**, and **`targetConcurrency`** (desired =
-  ceil(demand / targetConcurrency)). Combine `auto` with `autoShutdownMinutes > 0`
-  for autoscale-from-zero.
+  ceil(demand / targetConcurrency)). `auto` is on-demand only (`autoShutdownMinutes > 0`).
+- **`autoscaling`**: the always-on HPA, `{ enabled, minReplicas, maxReplicas, cpuThreshold,
+  memoryThreshold }`; always-on only.
+- **`useSpot`** / **`spotFallback`**: run on spot capacity; with `spotFallback` (default true)
+  fall back to on-demand capacity when spot is unavailable.
 - **`instanceType`**: Karpenter instance type override.
-- **`resources`**: `{ cpu, memory, cpuLimit, memoryLimit, gpu, gpu_type, replicas }`.
-- **`environmentVariables`**: non-secret env vars injected into the serving pod.
+- **`resources`**: `{ cpu, memory, gpu, gpu_type, replicas }`: the one size the model runs at
+  (it requests exactly what it is limited to).
 
-**Poll before claiming success.** Deploy returns immediately. The registry-side
-lifecycle is on `GET /mlops/models/:id/status`; once deployed, the live
-**pod** state moves to the ai-models row, so track the running pod with
-`/ai/models/:id/status` (see `references/ai-gateway.md`). Do not report the model
-as serving until the pod is running.
+Change any of these without deploying with `PATCH /mlops/models/:id/serving` (same fields, plus
+`environmentId`): scheduling and demand scaling apply to a deployed model at once, resources and
+spot from its next deploy.
+
+```bash
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/mlops/models/$MODEL_ID/serving" \
+  -d '{"schedulingMode":"scheduled","scheduleRules":[
+        {"id":"wk-start","action":"start","dayOfWeek":[1,2,3,4,5],"time":"09:00","timezone":"America/New_York"},
+        {"id":"wk-stop","action":"stop","dayOfWeek":[1,2,3,4,5],"time":"17:00","timezone":"America/New_York"}]}'
+```
+
+**Poll before claiming success.** Deploy returns immediately. Poll
+`GET /mlops/models/:id/status` until it is `running` (or `idle` for an on-demand model), or
+`failed` with the reason. Do not report the model as serving before that.
 
 ---
 
@@ -290,12 +305,13 @@ curl -s -X DELETE "${auth[@]}" "$BASE/mlops/models/$MODEL_ID"  # delete
 | POST | `/mlops/models/:modelId/versions/:id/activate` | Set the active version (no deploy) |
 | POST | `/mlops/models/:modelId/versions/:id/deploy` | Set active + deploy that version |
 | POST | `/mlops/models/:id/deploy` | Deploy the model for inference |
+| PATCH | `/mlops/models/:id/serving` | Change how it is served (strategy, schedule, spot) without deploying |
 | POST | `/mlops/models/:id/stop` | Stop the serving pod |
 | POST | `/mlops/models/:id/start` | Start a stopped model |
 | POST | `/mlops/models/:id/predict` | Run inference on a deployed model |
 
 Monitoring settings, actuals and baselines also live under
-`/model-registry/models/:id` (`/monitoring`, `/actuals...`, `/baselines...`);
+`/mlops/models/:id` (`/monitoring`, `/actuals...`, `/baselines...`);
 they are documented in `references/model-evaluation.md` and
 `references/drift.md`.
 
@@ -306,6 +322,6 @@ they are documented in `references/model-evaluation.md` and
 - [ ] Tabular models (`sklearn`, `xgboost`): include `features.featureNames` in input order.
 - [ ] Set `problemType` at register time so its predictions are judged as classification or regression (`references/model-evaluation.md`).
 - [ ] Retrain by adding a version (never overwrite), then `activate` (pointer) or `deploy` (roll the pod). Stop a live model before deploying a different version.
-- [ ] After deploy, poll `/model-registry/models/:id/status` for the registry lifecycle and `/ai/models/:id/status` for the live pod before predicting or claiming success.
+- [ ] After deploy, poll `/mlops/models/:id/status` until it is `running` (or `idle` on demand) before predicting or claiming success.
 - [ ] Predict requires `deployment.status === 'running'`; every prediction is recorded, so keep `predictionId`/`entityId` to attach actuals (`references/model-evaluation.md`); send `source: "test"` for trial calls.
 - [ ] Serving pod state, inference gateway routing: `references/ai-gateway.md`. Drift: `references/drift.md`. A/B tests: `references/ab-testing.md`. Experiments, AutoML: `references/mlops.md`.
