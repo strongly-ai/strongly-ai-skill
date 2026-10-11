@@ -179,6 +179,17 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gatew
 curl -sN -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gateway/chat/completions" \
   -d '{"model":"'"$ID"'","messages":[{"role":"user","content":"Write a haiku."}],"stream":true}'
 
+# Images and PDFs: a user message's content is an array of OpenAI chat parts.
+# An image needs a model with capabilityConfig.supportsVision; a PDF (type "file",
+# file_data a data: URL) needs capabilityConfig.supportsPdf, else 400 naming the model.
+IMG=$(base64 < chart.png | tr -d '\n'); PDF=$(base64 < report.pdf | tr -d '\n')
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gateway/chat/completions" \
+  -d '{"model":"'"$ID"'","messages":[{"role":"user","content":[
+        {"type":"text","text":"What do the chart and the report say?"},
+        {"type":"image_url","image_url":{"url":"data:image/png;base64,'"$IMG"'"}},
+        {"type":"file","file":{"filename":"report.pdf","file_data":"data:application/pdf;base64,'"$PDF"'"}}]}]}' \
+  | jq '.choices[0].message.content'
+
 # Embeddings
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gateway/embeddings" \
   -d '{"model":"'"$EMBED_ID"'","input":"text to embed"}' | jq '.data[0].embedding | length'
@@ -190,7 +201,7 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gatew
 
 | Method / path | Does | Notes |
 |---|---|---|
-| `POST /ai-gateway/chat/completions` | Chat completion | `model`, `messages`, `stream`, `temperature`, `max_tokens` |
+| `POST /ai-gateway/chat/completions` | Chat completion | `model`, `messages` (a user `content` may be parts: `text`, `image_url`, `file` for a PDF), `stream`, `temperature`, `max_tokens` |
 | `POST /ai-gateway/completions` | Text completion | `model`, `prompt`, `stream`, ... |
 | `POST /ai-gateway/embeddings` | Embeddings | `model`, `input` |
 | `POST /ai-gateway/audio/speech` | Text to speech (returns binary audio) | `model`, `input`, `voice` |
