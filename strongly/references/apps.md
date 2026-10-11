@@ -534,7 +534,7 @@ app.get('/download/:id', async (req, res) => {
 ```
 
 Also: `GET /library/artifacts` (gallery), `/artifacts/:id/versions` + `/restore`,
-`PATCH`/`DELETE`, and `/share` · `/unshare` · `/toggle-public` · `/toggle-org-share`.
+`PATCH`/`DELETE`, and sharing through `/library/artifacts/:id/permissions` (members and visibility).
 
 ---
 
