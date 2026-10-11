@@ -312,7 +312,7 @@ TUI, not a bash shell: send natural-language tasks with
 | `GET /code-sessions/:id` | `code-sessions:read` | Get one, including `provisioningStep`; polling drives the provisioning transition. |
 | `GET /code-sessions/:id/status` | `code-sessions:read` | Focused lifecycle status. |
 | `POST /code-sessions/:id/inputs` | `code-sessions:write` | Send `text` (a task or prompt-answer) to the assistant terminal. |
-| `POST /code-sessions/:id/login` | `code-sessions:write` | Start Claude Code login. Returns `{ authUrl }` (relay verbatim), or `{ alreadyAuthenticated }` / `{ pending }` / `{ ready:false }` / `{ useTerminal }` for Codex. |
+| `POST /code-sessions/:id/login` | `code-sessions:write` | Start Claude Code login. Returns the login `{ state, authUrl, message }`: `url` (relay `authUrl` verbatim), `authenticated`, `pending` (call again), `starting` (workspace still starting) or `terminal` (Codex). |
 | `POST /code-sessions/:id/login-codes` | `code-sessions:write` | Submit the `code` the user pasted from the auth page. |
 | `GET /code-sessions/:id/output` | `code-sessions:read` | Terminal output. Use `afterSeq` to poll for new chunks. |
 | `POST /code-sessions/:id/deploy` | `code-sessions:deploy` | Deploy the session's workspace as an app (zip, build, deploy). See `references/apps.md`. |
@@ -333,7 +333,7 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 
 Login is the user's own Claude account: Strongly supplies no credential. Relay the
 `authUrl` as a clickable link, take the code the user pastes back, and submit it
-with `login-code`. For Codex (`useTerminal:true`), drive `codex login` through the
+with `login-code`. For Codex (`state: "terminal"`), drive `codex login` through the
 terminal endpoints (`POST /code-sessions/:id/inputs`, `GET /code-sessions/:id/output`).
 
 **The `react-starter` scaffold is deploy-ready.** It seeds a verified Strongly
