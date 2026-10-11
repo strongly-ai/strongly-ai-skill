@@ -70,8 +70,11 @@ volume mounts at `/volumes/local/<name>/{code,data}`; see `references/projects.m
 `dataSources`, `addons`, `aiGateways`, `workflows` (arrays of ids),
 `environmentVariables` (object), `codeSessionEnabled` (add a terminal an assistant
 can drive), `codingAssistants` (at most one) and `skillIds`, `environmentId`, `customResources`,
-`customPort` (for `custom`), `cluster` (section 3), and `capacity_type: "spot"`
-/ `useSpotInstances` for spot capacity.
+`customPort` (for `custom`), `cluster` (section 3), and `useSpot` (spot
+capacity: cheaper, can be reclaimed) with `spotFallback` (default true: on-demand
+when no spot is available; false waits for spot). Apps (`POST /apps`, `PATCH
+/apps/:id`) and jobs (`POST /jobs`, `PATCH /jobs/:id`) take the same two fields;
+an environment carries no spot setting.
 
 ```bash
 # Create a Jupyter workspace, then poll status until it is running.

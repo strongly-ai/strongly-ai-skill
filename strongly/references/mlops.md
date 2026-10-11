@@ -78,7 +78,7 @@ the rows `metrics.feature_importance_rows` names, which the model was not traine
 
 `POST /mlops/automl-jobs` required fields: `name`, `dataset`, `targetColumn`,
 `hardware`. `hardware` is an object and has NO default: it must include
-`cpu_count`, `memory_gb`, `disk_gb` (numbers); `gpu_count`, `gpu_type` and `use_spot` (spot capacity)
+`cpu_count`, `memory_gb`, `disk_gb` (numbers); `gpu_count`, `gpu_type`, `use_spot` (spot capacity) and `spot_fallback` (default true: on-demand when no spot is available)
 optional. Optional:
 `datasetFile` (when a volume has more than one file), `featureColumns`,
 `problemType` (`tabular`|`multimodal`|`timeseries`), `predictorType`
