@@ -300,6 +300,14 @@ problem details: read `code` and `detail`.
 - **Skills:** `GET/POST /agents/:id/skills`, `PATCH/DELETE /agents/:agentId/skills/:id`.
   Associate a Library skill with the agent (adding it also links it into the
   agent's recall scope).
+- **Attachments:** `GET /agents/:id` lists `attachments`: the workflows the agent
+  calls as tools (`toolWorkflows`) and the add-ons provisioned for it (`addons`).
+  Each keeps that workflow or add-on in use, so deleting it is refused.
+  `DELETE /agents/:agentId/tool-workflows/:id` and `DELETE /agents/:agentId/addons/:id`
+  take one off the agent (nothing is deleted; both answer the agent). Then delete
+  the workflow or add-on itself, and redeploy a running agent. SDK:
+  `client.agents.remove_tool_workflow(agent_id, workflow_id)` /
+  `client.agents.remove_addon(agent_id, addon_id)`.
 - **Artifacts:** the files an agent produces are Library artifacts linked to the
   agent: `GET /library/artifacts?linkedIds=<agentId>` (metadata; filter by
   `artifactType` or `tags`), `GET /library/artifacts/:id` and
@@ -368,6 +376,8 @@ Agents can message each other. These routes are scoped by agent authorization
 | DELETE | `/library/knowledge-bases/:knowledgeBaseId/documents/:id` | Remove a document |
 | GET/POST | `/agents/:id/skills` | List / add skill associations |
 | PATCH/DELETE | `/agents/:agentId/skills/:id` | Update / remove a skill association |
+| DELETE | `/agents/:agentId/tool-workflows/:id` | Take a tool workflow off the agent (answers the agent) |
+| DELETE | `/agents/:agentId/addons/:id` | Take an attached add-on off the agent (answers the agent) |
 | GET | `/library/artifacts?linkedIds=<agentId>` | The agent's artifacts (Library artifacts linked to it) |
 | GET | `/agents/-/messages`, `/agents/:id/messages` | Inter-agent messages: all you can see / one agent's |
 | POST | `/agents/:id/messages` | Send a message as the agent |
