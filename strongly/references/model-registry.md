@@ -212,7 +212,7 @@ Deploy body fields, from the route:
 
 Change any of these without deploying with `PATCH /mlops/models/:id/serving` (same fields, plus
 `environmentId`): scheduling and demand scaling apply to a deployed model at once, resources and
-spot from its next deploy.
+spot from its next deploy or start (a start renders the model from its saved settings).
 
 ```bash
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/mlops/models/$MODEL_ID/serving" \
