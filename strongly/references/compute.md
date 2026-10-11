@@ -88,23 +88,24 @@ curl -s "${auth[@]}" "$BASE/workspaces/$WS/status" | jq '.data'   # repeat until
 ## 2. Environments
 
 An environment is a saved, named hardware tier (and optionally a prebuilt custom
-image) that a workspace sizes from via `environmentId`. Supplying `base_image`
-and/or `dockerfile` triggers an image build: poll `GET /environments/:id` for
-`build_status: "success"` and `image_name` before binding it.
+image) that a workspace sizes from via `environmentId` (the environment's `_id`).
+Supplying `baseImage` and/or `dockerfile` triggers an image build: poll
+`GET /environments/:id` for `buildStatus: "success"` and `imageName` before
+binding it.
 
 | Method + path | Scope | Purpose |
 |---|---|---|
-| `GET /environments` | `workspaces:read` | List saved environments. Query `enabledOnly`, `includeUsage`. |
-| `POST /environments` | `workspaces:write` | Create. Required: `name`. Optional: `description`, `cpu`, `memory_gb`, `gpu_count`, `gpu_type`, `storage_gb`, `is_public`, `base_image`, `dockerfile`. |
-| `GET /environments/base-image-status` | `workspaces:read` | Per-environment base-image freshness (`current` / `outdated` / `unknown`). |
-| `GET /environments/:id` | `workspaces:read` | Get one, including `build_status` and `image_name`. |
-| `PATCH /environments/:id` | `workspaces:write` | Update; a `base_image` / `dockerfile` change triggers a rebuild. |
-| `DELETE /environments/:id` | `workspaces:write` | Delete (fails if still referenced by any app, job, workspace, workflow, or model). |
+| `GET /environments` | `workspaces:read` | List saved environments (cursor-paged). Query `enabledOnly`; `includeUsage` adds `usageCount` and `inUse` to each. |
+| `POST /environments` | `workspaces:write` | Create; answers `201` with the environment. Required: `name`. Optional: `description`, `cpu`, `memoryGb`, `gpuCount`, `gpuType`, `storageGb`, `isPublic`, `baseImage`, `dockerfile`. |
+| `GET /environments/base-image-status` | `workspaces:read` | `statuses` by environment id: `current` / `outdated` / `unknown`. |
+| `GET /environments/:id` | `workspaces:read` | Get one, including `buildStatus`, `imageName`, `buildLogs`, `versions` and `usageCount`. |
+| `PATCH /environments/:id` | `workspaces:write` | Update; answers with the environment. A `baseImage` / `dockerfile` change triggers a rebuild. |
+| `DELETE /environments/:id` | `workspaces:write` | Delete (`204`; refused while any app, job, workspace, workflow, or model uses it). |
 | `POST /environments/:id/rebuild` | `workspaces:write` | Rebuild as a new immutable version against the current base-image digest. |
 
 ```bash
 # Pick a saved tier for a workspace, or fall back to customResources if none fits.
-curl -s "${auth[@]}" "$BASE/environments?enabledOnly=true" | jq '.data'
+curl -s "${auth[@]}" "$BASE/environments?enabledOnly=true" | jq '.data[] | {_id, name, vcpu, memoryGb, gpuCount}'
 ```
 
 ---
