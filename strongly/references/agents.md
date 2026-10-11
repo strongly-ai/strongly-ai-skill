@@ -126,8 +126,10 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
 `sessionPolicy`, `heartbeatEnabled`, `heartbeatCron`, `heartbeatTimezone`,
 `maxIterations`, `temperature` (0 to 2), `maxTokens`, `responseFormat`,
 `builtInTools`, plus workflow-level `name` / `description` / `nodes` /
-`connections`. **Operating-prompt changes live-reload; other config changes need
-a redeploy** (section 6) to take effect on a running pod. `PUT /agents/:id`
+`connections`. **Edits to the operating prompt's text and the session policy
+apply live; every other change, including switching to a different operating
+prompt, needs a redeploy** (section 6) to take effect on a running pod.
+`GET /agents/:id/config` returns `applyPending: true` while one is waiting. `PUT /agents/:id`
 does the same via a nested `config` object.
 
 ---
