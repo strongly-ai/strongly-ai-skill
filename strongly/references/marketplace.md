@@ -30,14 +30,14 @@ listing-management routes need `marketplace:admin`.
 
 ## 1. Browse the catalog
 
-List is paginated and filterable. Filters: `search` (matches name, description,
+List is paginated and filterable. Filters: `q` (matches name, description,
 tags), `vertical` (category), `type` (`app` or `agent`), `featured=true`, plus
-`limit`, `offset`, `sort`.
+`limit`, `cursor`, `sort`.
 
 ```bash
 # List / search / filter
 curl -s "${auth[@]}" "$BASE/marketplace/items?type=app&featured=true&limit=20" | jq '.data'
-curl -s "${auth[@]}" "$BASE/marketplace/items?search=resume&vertical=HR"        | jq '.data'
+curl -s "${auth[@]}" "$BASE/marketplace/items?q=resume&vertical=HR"        | jq '.data'
 
 # Categories with counts (to build a vertical filter)
 curl -s "${auth[@]}" "$BASE/marketplace/verticals" | jq '.data'
@@ -60,7 +60,7 @@ curl -s "${auth[@]}" "$BASE/marketplace/items/$ITEM_ID/reviews"  | jq '.data'
 
 | Method | Path | Scope | Purpose |
 |---|---|---|---|
-| GET | `/marketplace/items` | `marketplace:read` | List/search offerings (`search`, `vertical`, `type`, `featured`, `limit`, `offset`, `sort`) |
+| GET | `/marketplace/items` | `marketplace:read` | List/search offerings (`q`, `vertical`, `type`, `featured`, `limit`, `cursor`, `sort`) |
 | GET | `/marketplace/verticals` | `marketplace:read` | Categories with item counts |
 | GET | `/marketplace/items/:id` | `marketplace:read` | Full detail for one offering |
 | GET | `/marketplace/items/:id/deploy-config` | `marketplace:read` | The offering's `deploy.json` |
@@ -193,7 +193,7 @@ double-counts.
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"offeringId":"my-resume-app","meterKey":"resumes","quantity":1,
        "idempotencyKey":"resume-8f21c-2026-09-15"}' \
-  "$BASE/offering-usage/events" | jq '.data'
+  "$BASE/marketplace/usage-events" | jq '.data'
 ```
 
 Required: `offeringId` (the app's `appName`), `meterKey`, `quantity` (a positive
@@ -213,7 +213,7 @@ Responses and rules:
 
 | Method | Path | Scope | Purpose |
 |---|---|---|---|
-| POST | `/offering-usage/events` | `offering-usage:write` | Record one metered usage event (idempotent) |
+| POST | `/marketplace/usage-events` | `offering-usage:write` | Record one metered usage event (idempotent) |
 
 ---
 
@@ -280,7 +280,7 @@ Creating/editing catalog listings is `marketplace:admin`. Create requires
 | Method | Path | Scope | Purpose |
 |---|---|---|---|
 | POST | `/marketplace/items` | `marketplace:admin` | Create a listing |
-| PUT | `/marketplace/items/:id` | `marketplace:admin` | Update a listing |
+| PATCH | `/marketplace/items/:id` | `marketplace:admin` | Update a listing |
 | DELETE | `/marketplace/items/:id` | `marketplace:admin` | Delete a listing |
 
 ---
@@ -360,7 +360,7 @@ Field reference:
 ---
 
 ## Checklist
-- [ ] Browse/filter with `GET /marketplace/items` (`search`, `vertical`, `type`, `featured`); read one with `/items/:id`.
+- [ ] Browse/filter with `GET /marketplace/items` (`q`, `vertical`, `type`, `featured`); read one with `/items/:id`.
 - [ ] Inspect `/deploy-config`, `/license`, `/reviews` before installing.
 - [ ] Ground the deploy `config` against real `available-addons` / `available-models`, never a guessed id.
 - [ ] Deploy needs `appName` + `config` with `marketplaceItemId` and `termsAccepted: true`; it returns 202.

@@ -40,7 +40,7 @@ and deploy the ones to compare (a test can only deploy when its variants'
 models are deployed, see `references/model-registry.md`):
 
 ```bash
-curl -s "${auth[@]}" "$BASE/model-registry/models?search=churn" | jq '.data[] | {_id,name,activeVersion,deployment}'
+curl -s "${auth[@]}" "$BASE/mlops/models?q=churn" | jq '.data[] | {_id,name,activeVersion,deployment}'
 MODEL_A=...   # the current model (the control)
 MODEL_B=...   # the challenger
 ```
@@ -54,7 +54,7 @@ the caller can use (own, shared or public); any other id is refused with `403`
 naming it. Pick deployed models: only they can serve the test.
 
 ```bash
-ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ab-tests" \
+ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/mlops/ab-tests" \
   -d '{"name":"churn: current vs challenger","strategy":"weighted_random",
        "variants":[{"variantId":"control","modelId":"'"$MODEL_A"'","weight":0.5,"isControl":true},
                    {"variantId":"challenger","modelId":"'"$MODEL_B"'","weight":0.5}]}' \
@@ -79,7 +79,7 @@ Optional at create:
   rewardMetric (success_rate default, latency, custom) }`. For `linucb`,
   `contextFeatures` are numeric input features that **every** variant model
   declares as numbers (check `schema.input.fields` on each model), and every
-  variant model needs Record inputs on (`PUT /model-registry/models/:id/monitoring`
+  variant model needs Record inputs on (`PATCH /mlops/models/:id/monitoring`
   with `recordInputs: true`), because LinUCB learns from each prediction's
   recorded inputs. Create refuses otherwise, saying why.
 - `canaryConfig` (for `canary`): `{ controlVariantId, targetVariantId (default
@@ -90,13 +90,13 @@ Optional at create:
   advances after `bakeMinutes` and `minRequestsForDecision` canary predictions
   in it, while the canary's error rate and p95 latency in that stage stay
   within the deltas of the control's; otherwise it rolls back to 0% and stays
-  there. `GET /ab-tests/:id` shows `canaryConfig.currentPercentage`,
+  there. `GET /mlops/ab-tests/:id` shows `canaryConfig.currentPercentage`,
   `rollbackReason` and `lastCheck` (`{ at, action: advance | rollback | wait |
   complete, reason }`): read `lastCheck.reason` to tell the user why a canary
   is waiting or rolled back.
 - `description`, `tags`, `workspaceId`.
 
-A new test's status is `registered`. `PUT /ab-tests/:id` changes only `name`,
+A new test's status is `registered`. `PATCH /mlops/ab-tests/:id` changes only `name`,
 `description` and `tags`; change traffic with section 3. `DELETE` stops a
 running test first; its recorded predictions are kept for their retention.
 
@@ -105,12 +105,12 @@ running test first; its recorded predictions are kept for their retention.
 ## 2. Deploy, predict, stop
 
 ```bash
-curl -s -X POST "${auth[@]}" "$BASE/ab-tests/$ID/deploy" | jq '.data'   # { deployed: true }
+curl -s -X POST "${auth[@]}" "$BASE/mlops/ab-tests/$ID/deploy" | jq '.data'   # { deployed: true }
 ```
 
 Deploy returns once the test is routing: its status is `running`. If it could
 not deploy, the call fails (`deployment-failed`, with the reason) and the test's
-status is `failed`. Check `GET /ab-tests/:id` (`deployment.status`:
+status is `failed`. Check `GET /mlops/ab-tests/:id` (`deployment.status`:
 `registered`, `deploying`, `running`, `stopped`, `failed`).
 
 Predict through the running test; it picks the variant by its strategy:
@@ -118,7 +118,7 @@ Predict through the running test; it picks the variant by its strategy:
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"input_data":{"tenure":12,"plan":"pro"},"entityId":"cust-4821"}' \
-  "$BASE/ab-tests/$ID/predict" | jq '.data'
+  "$BASE/mlops/ab-tests/$ID/predict" | jq '.data'
 # the serving model's output, plus prediction_id and variant_id
 ```
 
@@ -128,10 +128,10 @@ experiments are kept); `start` re-deploys a stopped test.
 
 | Method / path | Does |
 |---|---|
-| `POST /ab-tests/:id/deploy` | Start routing (the variants' models must be deployed) |
-| `POST /ab-tests/:id/predict` | Predict through the test (`input_data`, `entityId?`) -> output + `prediction_id`, `variant_id` |
-| `POST /ab-tests/:id/stop` | Stop routing |
-| `POST /ab-tests/:id/start` | Re-deploy a stopped test |
+| `POST /mlops/ab-tests/:id/deploy` | Start routing (the variants' models must be deployed) |
+| `POST /mlops/ab-tests/:id/predict` | Predict through the test (`input_data`, `entityId?`) -> output + `prediction_id`, `variant_id` |
+| `POST /mlops/ab-tests/:id/stop` | Stop routing |
+| `POST /mlops/ab-tests/:id/start` | Re-deploy a stopped test |
 
 ---
 
@@ -142,15 +142,15 @@ other enabled variants are rescaled so the enabled weights still sum to 1:
 
 ```bash
 curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"weight":0.7}' "$BASE/ab-tests/$ID/variants/challenger/weight"
+  -d '{"weight":0.7}' "$BASE/mlops/ab-tests/$ID/variants/challenger"
 ```
 
 Turn a variant off or on. A disabled variant gets no traffic, and at least 2
 must stay enabled:
 
 ```bash
-curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"enabled":false}' "$BASE/ab-tests/$ID/variants/challenger/toggle"
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"enabled":false}' "$BASE/mlops/ab-tests/$ID/variants/challenger"
 ```
 
 ---
@@ -159,11 +159,11 @@ curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
 
 ```bash
 # Totals since the test was created, overall and per variant (variantMetrics)
-curl -s "${auth[@]}" "$BASE/ab-tests/$ID/metrics" | jq '.data'
+curl -s "${auth[@]}" "$BASE/mlops/ab-tests/$ID/metrics" | jq '.data'
 # Requests, errors and latency over time, per variant
-curl -s "${auth[@]}" "$BASE/ab-tests/$ID/traffic" | jq '.data'
+curl -s "${auth[@]}" "$BASE/mlops/ab-tests/$ID/traffic" | jq '.data'
 # The routed predictions, a page at a time
-curl -s "${auth[@]}" "$BASE/ab-tests/$ID/predictions?variantId=challenger&limit=50" | jq '.data'
+curl -s "${auth[@]}" "$BASE/mlops/ab-tests/$ID/predictions?variantId=challenger&limit=50" | jq '.data'
 ```
 
 - `metrics`: `totalRequests`, `successCount`, `errorCount`, `successRate` and
@@ -173,16 +173,16 @@ curl -s "${auth[@]}" "$BASE/ab-tests/$ID/predictions?variantId=challenger&limit=
   requests, errors and `avgLatencyMs` per bucket (`null` for a bucket without a
   successful prediction).
 - `predictions`: which variant served each and why, latency, success, and its
-  actual and reward when recorded. Query: `variantId`, `search`, `sort`
+  actual and reward when recorded. Query: `variantId`, `q`, `sort`
   (`-timestamp` default, `latencyMs`, `variantId`, `success`, `confidence`),
-  `limit`, `offset`.
+  `limit`, `cursor`.
 
 **Feedback** on a routed prediction (the path takes the **prediction id** from
 `predict`, not the test id). Send `reward`, `label` or both:
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"reward":1,"label":"churn"}' "$BASE/ab-tests/predictions/$PREDICTION_ID/feedback"
+  -d '{"reward":1,"label":"churn"}' "$BASE/mlops/ab-tests/-/predictions/$PREDICTION_ID/feedback"
 ```
 
 - `reward` (0 to 1) is kept on the prediction; sending it again replaces it
@@ -203,13 +203,13 @@ An experiment compares each treatment variant with the control on **one primary
 metric**, over the predictions the test routes while the experiment runs.
 
 ```bash
-EXP=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ab-tests/$ID/experiments" \
+EXP=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/mlops/ab-tests/$ID/experiments" \
   -d '{"name":"challenger beats current?","controlVariantId":"control",
        "treatmentVariantIds":["challenger"],"primaryMetric":"success_rate",
        "confidenceLevel":0.95,"minSamplePerVariant":500}' | jq -r '.data.experimentId')
 
-curl -s -X POST "${auth[@]}" "$BASE/ab-tests/experiments/$EXP/start"     # status running
-curl -s -X POST "${auth[@]}" "$BASE/ab-tests/experiments/$EXP/analyze" | jq '.data'
+curl -s -X POST "${auth[@]}" "$BASE/mlops/ab-tests/-/experiments/$EXP/start"     # status running
+curl -s -X POST "${auth[@]}" "$BASE/mlops/ab-tests/-/experiments/$EXP/analyze" | jq '.data'
 ```
 
 - **`primaryMetric`** (required): `success_rate` (higher is better), `latency`
@@ -243,13 +243,13 @@ Report `inconclusive` as inconclusive, quoting `reason` when it is set.
 
 | Method / path | Does | Scope |
 |---|---|---|
-| `POST /ab-tests/:id/experiments` | Create (status `draft`) | `mlops:write` |
-| `GET /ab-tests/:id/experiments` | The test's experiments, a page at a time, with their latest results | `mlops:read` |
-| `POST /ab-tests/experiments/:experimentId/start` | Start (status `running`) | `mlops:write` |
-| `POST /ab-tests/experiments/:experimentId/analyze` | Analyze, and conclude when its limits are met | `mlops:read` |
-| `POST /ab-tests/experiments/:experimentId/conclude` | End a running experiment as finished | `mlops:write` |
-| `POST /ab-tests/experiments/:experimentId/stop` | Cancel it | `mlops:write` |
-| `DELETE /ab-tests/experiments/:experimentId` | Delete it and its results (the test's predictions are kept) | `mlops:write` |
+| `POST /mlops/ab-tests/:id/experiments` | Create (status `draft`) | `mlops:write` |
+| `GET /mlops/ab-tests/:id/experiments` | The test's experiments, a page at a time, with their latest results | `mlops:read` |
+| `POST /mlops/ab-tests/-/experiments/:id/start` | Start (status `running`) | `mlops:write` |
+| `POST /mlops/ab-tests/-/experiments/:id/analyze` | Analyze, and conclude when its limits are met | `mlops:read` |
+| `POST /mlops/ab-tests/-/experiments/:id/conclude` | End a running experiment as finished | `mlops:write` |
+| `POST /mlops/ab-tests/-/experiments/:id/stop` | Cancel it | `mlops:write` |
+| `DELETE /mlops/ab-tests/-/experiments/:id` | Delete it and its results (the test's predictions are kept) | `mlops:write` |
 
 ---
 
@@ -257,24 +257,23 @@ Report `inconclusive` as inconclusive, quoting `reason` when it is set.
 
 | Method / path | Does | Scope |
 |---|---|---|
-| `GET /ab-tests` | List, a page at a time (`status`, `strategy`, `modelId`, `workspaceId`, `search`, `sort`) | `mlops:read` |
-| `POST /ab-tests` | Create | `mlops:write` |
-| `GET /ab-tests/:id` | Variants and their counters, strategy config, deployment | `mlops:read` |
-| `PUT /ab-tests/:id` | Update `name`, `description`, `tags` | `mlops:write` |
-| `DELETE /ab-tests/:id` | Delete (stopped first when running) | `mlops:write` |
-| `POST /ab-tests/:id/deploy` / `stop` / `start` | Start, stop, restart routing | `mlops:write` |
-| `POST /ab-tests/:id/predict` | Predict through the test | `mlops:write` |
-| `PUT /ab-tests/:id/variants/:variantId/weight` | Set a variant's weight (`weighted_random`) | `mlops:write` |
-| `PUT /ab-tests/:id/variants/:variantId/toggle` | Enable or disable a variant | `mlops:write` |
-| `GET /ab-tests/:id/metrics` | Totals, overall and per variant | `mlops:read` |
-| `GET /ab-tests/:id/traffic` | Requests, errors, latency over time | `mlops:read` |
-| `GET /ab-tests/:id/predictions` | Routed predictions, a page at a time | `mlops:read` |
-| `POST /ab-tests/predictions/:predictionId/feedback` | Record `reward` and/or `label` | `mlops:write` |
+| `GET /mlops/ab-tests` | List, a page at a time (`status`, `strategy`, `modelId`, `workspaceId`, `q`, `sort`) | `mlops:read` |
+| `POST /mlops/ab-tests` | Create | `mlops:write` |
+| `GET /mlops/ab-tests/:id` | Variants and their counters, strategy config, deployment | `mlops:read` |
+| `PATCH /mlops/ab-tests/:id` | Update `name`, `description`, `tags` | `mlops:write` |
+| `DELETE /mlops/ab-tests/:id` | Delete (stopped first when running) | `mlops:write` |
+| `POST /mlops/ab-tests/:id/deploy` / `stop` / `start` | Start, stop, restart routing | `mlops:write` |
+| `POST /mlops/ab-tests/:id/predict` | Predict through the test | `mlops:write` |
+| `PATCH /mlops/ab-tests/:testId/variants/:id` | Set a variant's `weight` (`weighted_random`) and/or `enabled` | `mlops:write` |
+| `GET /mlops/ab-tests/:id/metrics` | Totals, overall and per variant | `mlops:read` |
+| `GET /mlops/ab-tests/:id/traffic` | Requests, errors, latency over time | `mlops:read` |
+| `GET /mlops/ab-tests/:id/predictions` | Routed predictions, a page at a time | `mlops:read` |
+| `POST /mlops/ab-tests/-/predictions/:id/feedback` | Record `reward` and/or `label` | `mlops:write` |
 
 ---
 
 ## Checklist
-- [ ] Variants serve registry models (`GET /model-registry/models`), deployed before the test deploys; never AI Gateway models.
+- [ ] Variants serve registry models (`GET /mlops/models`), deployed before the test deploys; never AI Gateway models.
 - [ ] Weights are 0-1 fractions; `weighted_random` weights sum to 1; keep at least 2 variants enabled.
 - [ ] `deploy` returns with the test `running` or fails with the reason; predict only through a running test.
 - [ ] Keep `prediction_id` from `predict` to record `reward` / `label`.

@@ -26,8 +26,7 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # outside Strong
 ```
 
 All agent routes carry the `agents:read` or `agents:write` scope. Responses use
-the standard envelope: `{ "success": true, "data": ... }`, or
-`{ "success": false, "error": { "code", "message" } }` on failure.
+the standard envelope (see `SKILL.md`): `data` on success, lists page with `cursor` / `meta.nextCursor`, and a failure is problem details whose `detail` and `code` to surface.
 
 ---
 
@@ -35,15 +34,15 @@ the standard envelope: `{ "success": true, "data": ... }`, or
 
 Every reliable agent flow is the same shape. Do not skip the poll.
 
-1. **Create** an agent: `POST /agents/create-from-wizard` (recommended), or
-   `POST /agents/promote` an existing workflow, or `POST /agents` (bare).
-2. **Configure** the brain if needed: `GET/PATCH /agents/:id`,
-   `GET /agents/:id/config`.
+1. **Create** an agent: `POST /agents` (the Agent Builder create), or
+   `POST /workflows/:id/promote` an existing workflow.
+2. **Configure** the brain if needed: `GET/PATCH /agents/:id/config`
+   (name, description and graph: `PATCH /agents/:id`).
 3. **Start** the pod: `POST /agents/:id/start`.
 4. **Poll** `GET /agents/:id/status` until it reports `healthy`. Check the start
-   result's `mcp_register_failures` first.
+   result's `mcpRegisterFailures` first.
 5. **Create a thread** (`POST /agents/:id/threads`), then **chat**
-   (`POST /agents/:id/chat`, SSE).
+   (`POST /agents/:agentId/threads/:id/runs`, SSE).
 6. Change model / stop / delete as needed.
 
 A create leaves the agent in DRAFT (no pod). Bringing it LIVE is `start`, **not**
@@ -55,10 +54,10 @@ A create leaves the agent in DRAFT (no pod). Bringing it LIVE is `start`, **not*
 
 ### 2a. From the Agent Builder wizard (recommended)
 
-`POST /agents/create-from-wizard` is the one-shot create the Agent Builder UI
+`POST /agents` is the one-shot create the Agent Builder UI
 uses. It auto-provisions required add-ons, builds the brain workflow, and seeds a
 Library scoped to the agent. Only `name` is required. **Pass a real `aiModelId`**
-(resolve one from `references/ai-gateway.md`, `GET $BASE/ai-models`) when building
+(resolve one from `references/ai-gateway.md`, `GET $BASE/ai-gateway/models`) when building
 programmatically: omit it and the brain keeps the literal `{{AI_MODEL_ID}}`
 placeholder and `start` rejects it with `422 unresolved-model-placeholder`.
 
@@ -66,7 +65,7 @@ placeholder and `start` rejects it with `422 unresolved-model-placeholder`.
 AGENT_ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"name":"Support Bot","personality":"Warm, concise.",
        "aiModelId":"<ai-model-_id>"}' \
-  "$BASE/agents/create-from-wizard" | jq -r '.data.workflowId // .data._id')
+  "$BASE/agents" | jq -r '.data.workflowId // .data._id')
 ```
 
 Notable optional fields on the wizard body: `personality`, `operatingPromptId`
@@ -80,8 +79,9 @@ default is ALL disabled), and `workspace` (a persistent code-execution workspace
 provisioned at start).
 
 Reference-agent starting points (for prefilling the wizard) are served by
-`GET /agents/wizard/reference/{iris|atlas|sage|aria}`. Check a proposed name with
-`GET /agents/check-name?name=...` (names are unique per user).
+`GET /agents/templates` (and one: `GET /agents/templates/:key`, key
+`iris|atlas|sage|aria`). Check a proposed name with
+`GET /agents/name-availability?name=...` (names are unique per user).
 
 ### 2b. Promote an existing workflow
 
@@ -89,21 +89,15 @@ If the user already has a workflow, promote it:
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"workflowId":"<workflow-_id>","toolWorkflowIds":["<wf-a>","<wf-b>"]}' \
-  "$BASE/agents/promote"
+  -d '{"toolWorkflowIds":["<wf-a>","<wf-b>"]}' \
+  "$BASE/workflows/$WORKFLOW_ID/promote"
 ```
 
 Promote validates that the workflow has a function-calling node, a resolved LLM
 model, and at least one trigger. On a validation failure it returns
-`422 validation-failed` with the per-rule errors in `error.details`. The reverse
+`422 validation-failed` with the per-rule errors in the problem's `errors`. The reverse
 is `POST /agents/:id/demote` (flip back to a plain workflow; it does NOT tear
 down a running pod, so `stop` first).
-
-### 2c. Bare create
-
-`POST /agents` creates a workflow and flips it to agent mode with no
-provisioning. Prefer the wizard unless you are assembling the node graph
-yourself. Body: `name` (required), `description`, `nodes[]`, `connections[]`.
 
 ---
 
@@ -114,23 +108,23 @@ operating prompt id, context/session policy, heartbeat, primary + fallback
 models, running status). Get the full agent record (live status, config, node
 graph) with `GET /agents/:id`.
 
-Update flat brain-config keys with `PATCH /agents/:id`:
+Update brain-config keys with `PATCH /agents/:id/config` (only the keys sent change;
+it returns the config):
 
 ```bash
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"personality":"Terse and factual.","temperature":0.3,"maxIterations":8}' \
-  "$BASE/agents/$AGENT_ID"
+  "$BASE/agents/$AGENT_ID/config"
 ```
 
-`PATCH /agents/:id` accepts `personality`, `operatingPromptId`, `contextPolicy`,
+`PATCH /agents/:id/config` accepts `personality`, `operatingPromptId`, `contextPolicy`,
 `sessionPolicy`, `heartbeatEnabled`, `heartbeatCron`, `heartbeatTimezone`,
 `maxIterations`, `temperature` (0 to 2), `maxTokens`, `responseFormat`,
-`builtInTools`, plus workflow-level `name` / `description` / `nodes` /
-`connections`. **Edits to the operating prompt's text and the session policy
+`builtInTools` and `knowledgeBaseIds`. The workflow-level `name` / `description` /
+`nodes` / `connections` are `PATCH /agents/:id`. **Edits to the operating prompt's text and the session policy
 apply live; every other change, including switching to a different operating
 prompt, needs a redeploy** (section 6) to take effect on a running pod.
-`GET /agents/:id/config` returns `applyPending: true` while one is waiting. `PUT /agents/:id`
-does the same via a nested `config` object.
+`GET /agents/:id/config` returns `applyPending: true` while one is waiting.
 
 ---
 
@@ -142,8 +136,8 @@ Start the pod:
 curl -s -X POST "${auth[@]}" "$BASE/agents/$AGENT_ID/start" | jq '.data'
 ```
 
-The start result carries `tools_count` and `mcp_register_failures`. **A
-non-empty `mcp_register_failures` means the pod started but is MISSING those
+The start result carries `toolsCount` and `mcpRegisterFailures`. **A
+non-empty `mcpRegisterFailures` means the pod started but is MISSING those
 connectors' tools** (it will answer "I cannot do that" on first use). Do not
 report the agent ready: read `GET /agents/:id/logs`, fix or re-provision the
 connector, and start again. Start is idempotent (a second start returns
@@ -164,7 +158,7 @@ a truly ready agent reports `healthy`. Other values are `starting`, `running`
 (`starting`, `running`, or `stopped`), never the live `healthy`, so poll
 `GET /agents/:id/status` for readiness.
 
-**Why the poll is non-negotiable.** `POST /agents/:id/chat` returns
+**Why the poll is non-negotiable.** A chat run (`POST /agents/:agentId/threads/:id/runs`) returns
 `409 agent-not-running` only when there is NO pod at all. A pod in `starting` is
 not yet answering: chat it too early and the stream can come back empty or null.
 That empty/null answer is a DEPLOY problem, not the agent's response. When it
@@ -178,9 +172,9 @@ curl -s "${auth[@]}" "$BASE/agents/$AGENT_ID/logs?lines=200" | jq -r '.data'
 
 ## 5. Chat over threads
 
-Chat is scoped to a **thread**. Create one first, then post messages into it.
-`POST /agents/:id/chat` streams the response as **Server-Sent Events** and
-requires both `message` (string, 100000 chars max) and `threadId`.
+Chat is scoped to a **thread**. Create one first, then run a message in it.
+`POST /agents/:agentId/threads/:id/runs` streams the response as
+**Server-Sent Events** and requires `message` (string, 100000 chars max).
 
 ```bash
 # 1) create a thread
@@ -190,8 +184,8 @@ THREAD_ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 
 # 2) chat (SSE: use -N and read data: lines until data: [DONE])
 curl -sN -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"message":"Summarize our refund policy.","threadId":"'"$THREAD_ID"'"}' \
-  "$BASE/agents/$AGENT_ID/chat"
+  -d '{"message":"Summarize the notes in the shared folder."}' \
+  "$BASE/agents/$AGENT_ID/threads/$THREAD_ID/runs"
 ```
 
 The stream is SSE `data:` lines terminated by `data: [DONE]`. A runtime failure
@@ -200,7 +194,7 @@ arrives as an event `data: {"event":"error","data":{"error":"...","code":"...",
 thread must belong to this agent and to the caller, or chat returns 404/403.
 
 Manage threads with `GET /agents/:id/threads` (list) and
-`DELETE /agents/:id/threads?threadId=<id>` (delete one).
+`DELETE /agents/:agentId/threads/:id` (delete one).
 
 ---
 
@@ -240,47 +234,78 @@ workflow and just turn agent mode off.
 
 ---
 
-## 8. Knowledge base (optional RAG)
+## 8. Knowledge bases
 
-Knowledge is **opt-in**; the wizard does not auto-provision it. Three steps:
+An agent answers from **knowledge bases**: Library resources whose documents the platform
+indexes into section trees. There is no vector store and no chunking: the agent sees what each
+base holds, finds sections by keyword or by a document's outline, and reads the ones it needs.
 
-1. `POST /agents/:id/knowledge/provision` builds and deploys the agent's
-   document-ingest pipeline (document to chunk to embed to vector store) and a
-   knowledge-search tool, provisions the agent's vector store, and attaches
-   both. It is idempotent and SLOW (real workflow deploys, minutes). It fails
-   loud with `422` if no embedding model or vector store is available.
-2. `POST /agents/:id/knowledge` adds a document. Send the text inline as JSON
-   `{ "content": "..." }` (the path a programmatic caller uses), or a file as
-   `multipart/form-data`; a file must be text (`.txt .md .markdown .csv .html
-   .htm .json`), anything else is refused with `400`. Optional `filename`,
-   `documentId`, `tags`, `description`. It requires step 1, otherwise it returns
-   `422 not-configured`.
-3. Restart a running agent (`POST /agents/:id/redeploy`, or Settings → Apply
-   changes) so it gets its knowledge search tool.
+1. `POST /library/knowledge-bases` `{ "name", "description", "indexModelId" }` creates one and
+   returns it (`data._id`). `indexModelId` is an AI Gateway **chat** model that writes each
+   section's summary while a document is indexed (billed to whoever adds the document); ask
+   the user which of their chat models to use.
+2. Add documents:
+   - `POST /library/knowledge-bases/:id/documents` `{ "filename": "notes.md", "content": "..." }`
+     for text (Markdown headings become sections), or `{ "filename", "fileBase64",
+     "contentType" }` for a file (`.pdf .md .markdown .txt .html .htm .docx .csv .json`).
+   - `POST /library/knowledge-bases/:id/documents/import` `{ "artifactIds": [...] }` adds
+     Library artifacts. They are read where they are stored (never copied), indexed again when
+     they change, and dropped from answers if the person who added them can no longer open
+     them. Images cannot be indexed.
+   Indexing runs in the background: `GET /library/knowledge-bases/:id` lists each document's
+   `status` (`pending`, `indexing`, `ready`, `failed`), its `error`, and what indexing found.
+   Poll it until every document is `ready` (or `failed`, then fix and
+   `POST /library/knowledge-bases/:knowledgeBaseId/documents/:id/reindex`).
+3. Give the agent the knowledge base: `PATCH /agents/:id/config` `{ "knowledgeBaseIds": [...] }`
+   (the complete list; each one added must be one you may use). A running agent gets its
+   knowledge tools at the next restart (`POST /agents/:id/redeploy`, or Settings, Apply
+   changes).
 
-`DELETE /agents/:id/knowledge` turns it off again: deletes the knowledge
-workflows with their documents, and the vector store unless something else
-uses it (`addonKeptReason` says why). Redeploy a running agent afterwards.
+Sharing uses the one permissions shape: `GET /library/knowledge-bases/:id/permissions`,
+`POST …/permissions/members` `{ "userId", "role": "editor" }` (knowledge bases have no
+use-only tier, so `"user"` is refused; an editor can read the base, add and remove documents,
+and give it to their own agents), `DELETE …/permissions/members/:userId`, and
+`PATCH …/permissions` `{ "visibility": "public" | "private" }`.
+
+What the agent does with them (and what you can call to check):
+`GET /agents/:id/knowledge` (catalog), `GET /agents/:id/knowledge/search?q=…` (keyword search,
+best first), `GET /agents/:agentId/knowledge/documents/:id/outline`,
+`GET /agents/:agentId/knowledge/documents/:documentId/sections/:id`. Documents carry `_id`;
+an outline's sections carry `id`. Inside the agent these are its `knowledge_catalog`,
+`knowledge_search`, `knowledge_outline` and `knowledge_read` tools.
 
 ```bash
-curl -s -X POST "${auth[@]}" "$BASE/agents/$AGENT_ID/knowledge/provision"   # step 1
+KB=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"name":"Meeting notes","indexModelId":"'"$MODEL_ID"'"}' \
+  "$BASE/library/knowledge-bases" | jq -r .data._id)
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"content":"The planning meeting is held in Room 4B.","tags":"meetings"}' \
-  "$BASE/agents/$AGENT_ID/knowledge"                                         # step 2
+  -d '{"filename":"rooms.md","content":"# Rooms\n\nThe planning meeting is held in Room 4B."}' \
+  "$BASE/library/knowledge-bases/$KB/documents"
+curl -s "${auth[@]}" "$BASE/library/knowledge-bases/$KB" | jq '.data.documents[] | {name, status}'
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"knowledgeBaseIds":["'"$KB"'"]}' "$BASE/agents/$AGENT_ID/config"
+curl -s -X POST "${auth[@]}" "$BASE/agents/$AGENT_ID/redeploy"
 ```
+
+`GET /library/knowledge-bases` lists the ones you can use (cursor-paged: `limit`, `cursor` from
+`meta.nextCursor`). `PATCH /library/knowledge-bases/:id` renames it, changes its description or
+its indexing model. `DELETE /library/knowledge-bases/:id` deletes a knowledge base with its
+documents and removes it from every agent (artifacts added to it are kept). Errors are RFC 9457
+problem details: read `code` and `detail`.
 
 ---
 
 ## 9. Skills, artifacts, analytics
 
-- **Skills:** `GET/POST /agents/:id/skills`, `PUT/DELETE /agents/:id/skills/:sub`.
+- **Skills:** `GET/POST /agents/:id/skills`, `PATCH/DELETE /agents/:agentId/skills/:id`.
   Associate a Library skill with the agent (adding it also links it into the
   agent's recall scope).
-- **Artifacts:** the files an agent produces live in the canonical Library, linked
-  to the agent. `GET /agents/:id/artifacts` (metadata; filter by `type` or `tag`),
-  `GET /agents/:id/artifacts/:sub` (metadata plus a short-lived signed
-  `downloadUrl`), `POST /agents/:id/artifacts` (save `title` + `content`),
-  `DELETE /agents/:id/artifacts/:sub`.
+- **Artifacts:** the files an agent produces are Library artifacts linked to the
+  agent: `GET /library/artifacts?linkedIds=<agentId>` (metadata; filter by
+  `artifactType` or `tags`), `GET /library/artifacts/:id` and
+  `GET /library/artifacts/:id/download-url` (a short-lived signed URL),
+  `POST /library/artifacts` (`title`, `content`, `linkedIds: [agentId]`),
+  `DELETE /library/artifacts/:id`.
 - **Analytics:** `GET /agents/:id/analytics?days=30` (1 to 365).
 
 ---
@@ -290,14 +315,16 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 Agents can message each other. These routes are scoped by agent authorization
 (you may only act on messages involving an agent you can access).
 
-- `GET /agent-messages` lists messages (filters: `type`, `category`, `since`,
-  `agentId`, `limit`).
-- `POST /agent-messages` sends one AS an agent you are authorized to. Requires
-  `fromAgentId`, `fromAgentName`, `content`; add `toAgentId` for a direct message
-  (omit for a broadcast), plus optional `toAgentName`, `category`, `metadata`,
+- `GET /agents/-/messages` lists the messages of every agent you can see, and
+  `GET /agents/:id/messages` one agent's (filters: `type`, `category`, `since`;
+  `limit`, `cursor`).
+- `POST /agents/:id/messages` sends one AS that agent (one you are authorized
+  to; its name is the agent's own). Requires `content`; add `toAgentId` for a
+  direct message (omit for a broadcast), plus optional `category`, `metadata`,
   `expiresAt` (defaults to 24h).
-- `DELETE /agent-messages/:id` and `POST /agent-messages/:id/read`
-  (body `{ "agentId": "..." }`) delete or mark-read a message.
+- `DELETE /agents/:agentId/messages/:id` and
+  `POST /agents/:agentId/messages/:id/read` delete or mark-read a message (as
+  the agent in the path).
 
 ---
 
@@ -305,17 +332,15 @@ Agents can message each other. These routes are scoped by agent authorization
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/agents` | List agents with live status |
-| POST | `/agents` | Bare create (workflow in agent mode) |
-| POST | `/agents/create-from-wizard` | One-shot Agent Builder create (recommended) |
-| POST | `/agents/promote` | Promote a workflow to agent mode |
+| GET | `/agents` | List agents with live status (`q`, `status`, `limit`, `cursor`) |
+| POST | `/agents` | Create an agent, as the Agent Builder does |
+| POST | `/workflows/:id/promote` | Promote a workflow to an agent (`toolWorkflowIds`) |
 | POST | `/agents/:id/demote` | Turn an agent back into a workflow |
-| GET | `/agents/check-name` | Check name availability |
-| GET | `/agents/wizard/reference/{iris\|atlas\|sage\|aria}` | Reference wizard payloads |
+| GET | `/agents/name-availability` | Check a name (`name`) |
+| GET | `/agents/templates`, `/agents/templates/:key` | Reference agent payloads (`iris`, `atlas`, `sage`, `aria`) |
 | GET | `/agents/:id` | Agent details + live status + node graph |
-| GET | `/agents/:id/config` | Read brain config |
-| PUT | `/agents/:id` | Update workflow fields and/or nested `config` |
-| PATCH | `/agents/:id` | Flat partial brain-config update |
+| PATCH | `/agents/:id` | Update `name`, `description`, `nodes`, `connections` |
+| GET/PATCH | `/agents/:id/config` | Read / update the brain config (only the fields sent change) |
 | DELETE | `/agents/:id` | Delete (stop pod + remove agent mode) |
 | PATCH | `/agents/:id/model` | Swap primary model + fallbacks (rebuilds bundle) |
 | POST | `/agents/:id/start` | Start the pod |
@@ -323,23 +348,31 @@ Agents can message each other. These routes are scoped by agent authorization
 | POST | `/agents/:id/stop` | Stop the pod |
 | GET | `/agents/:id/status` | Live pod status (poll to `healthy`) |
 | GET | `/agents/:id/logs` | Recent pod log lines (`lines`, `container`) |
-| POST | `/agents/:id/threads` | Create a conversation thread |
-| GET | `/agents/:id/threads` | List threads |
-| DELETE | `/agents/:id/threads?threadId=` | Delete a thread |
-| POST | `/agents/:id/chat` | Send a message (SSE stream) |
+| POST/GET | `/agents/:id/threads` | Create / list conversation threads |
+| DELETE | `/agents/:agentId/threads/:id` | Delete a thread |
+| POST | `/agents/:agentId/threads/:id/runs` | Send a message (SSE stream) |
 | GET | `/agents/:id/analytics` | Usage analytics (`days`) |
-| POST | `/agents/:id/knowledge/provision` | Enable a knowledge base (RAG) |
-| POST | `/agents/:id/knowledge` | Add a text document (JSON `content` or multipart file) |
-| DELETE | `/agents/:id/knowledge` | Turn the knowledge base off (deletes its documents) |
+| GET | `/agents/:id/sessions` | Chat sessions (`state`) |
+| GET | `/agents/:id/knowledge` | The agent's knowledge catalog |
+| GET | `/agents/:id/knowledge/search?q=` | Search the agent's document sections |
+| GET | `/agents/:agentId/knowledge/documents/:id/outline` | A document's section tree |
+| GET | `/agents/:agentId/knowledge/documents/:documentId/sections/:id` | One section's text |
+| GET/POST | `/library/knowledge-bases` | List (cursor-paged) / create knowledge bases |
+| GET/PATCH/DELETE | `/library/knowledge-bases/:id` | One knowledge base (with documents) / update / delete |
+| GET/PATCH | `/library/knowledge-bases/:id/permissions` | Owner, members, visibility / set visibility |
+| POST | `/library/knowledge-bases/:id/permissions/members` | Share with a user (`role: "editor"`) |
+| DELETE | `/library/knowledge-bases/:knowledgeBaseId/permissions/members/:userId` | Remove a member |
+| POST | `/library/knowledge-bases/:id/documents` | Add a document (text `content` or `fileBase64`) |
+| POST | `/library/knowledge-bases/:id/documents/import` | Add artifacts (`artifactIds`) |
+| POST | `/library/knowledge-bases/:knowledgeBaseId/documents/:id/reindex` | Index a document again |
+| DELETE | `/library/knowledge-bases/:knowledgeBaseId/documents/:id` | Remove a document |
 | GET/POST | `/agents/:id/skills` | List / add skill associations |
-| PUT/DELETE | `/agents/:id/skills/:sub` | Update / remove a skill association |
-| GET | `/agents/:id/artifacts` | List agent artifacts (metadata) |
-| GET | `/agents/:id/artifacts/:sub` | Get one artifact + signed download URL |
-| POST | `/agents/:id/artifacts` | Save an artifact |
-| DELETE | `/agents/:id/artifacts/:sub` | Delete an artifact |
-| GET/POST | `/agent-messages` | List / send inter-agent messages |
-| DELETE | `/agent-messages/:id` | Delete a message |
-| POST | `/agent-messages/:id/read` | Mark a message read |
+| PATCH/DELETE | `/agents/:agentId/skills/:id` | Update / remove a skill association |
+| GET | `/library/artifacts?linkedIds=<agentId>` | The agent's artifacts (Library artifacts linked to it) |
+| GET | `/agents/-/messages`, `/agents/:id/messages` | Inter-agent messages: all you can see / one agent's |
+| POST | `/agents/:id/messages` | Send a message as the agent |
+| DELETE | `/agents/:agentId/messages/:id` | Delete a message |
+| POST | `/agents/:agentId/messages/:id/read` | Mark a message read |
 
 ---
 
@@ -347,9 +380,9 @@ Agents can message each other. These routes are scoped by agent authorization
 
 - [ ] Create with a real `aiModelId` (from `references/ai-gateway.md`), or `start` returns `422 unresolved-model-placeholder`.
 - [ ] To bring a fresh or stopped agent LIVE use `start`, not `redeploy` (redeploy no-ops on a draft).
-- [ ] After `start`, check `mcp_register_failures` is empty, then poll `GET /agents/:id/status` until `healthy`.
+- [ ] After `start`, check `mcpRegisterFailures` is empty, then poll `GET /agents/:id/status` until `healthy`.
 - [ ] Never chat a non-running agent: an empty/null answer is a DEPLOY failure, read `GET /agents/:id/logs`.
-- [ ] Chat needs a `threadId`; create a thread first; it streams SSE ending in `data: [DONE]`.
+- [ ] Chat runs in a thread (`POST /agents/:agentId/threads/:id/runs`); create the thread first; it streams SSE ending in `data: [DONE]`.
 - [ ] Model change is two steps: `PATCH /agents/:id/model` then `redeploy` (running) or `start` (stopped), then poll back to `healthy`.
-- [ ] Knowledge is opt-in: `provision` first, then add documents.
+- [ ] Knowledge: create a knowledge base (`/library/knowledge-bases`) with a chat `indexModelId`, add documents, wait for `ready`, then `PATCH /agents/:id/config` `knowledgeBaseIds` and restart the agent.
 - [ ] An agent is a workflow (`references/workflows.md`) whose model is an AI Gateway model (`references/ai-gateway.md`).

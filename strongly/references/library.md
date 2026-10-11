@@ -14,6 +14,10 @@ recurring or one-off tasks, or reading/writing any of these from your own client
 > **Artifacts** are also a Library primitive, but they are files an app or agent
 > produces for the user. They are documented in `references/apps.md` (Artifacts).
 > Do not look for them here.
+>
+> **Knowledge bases** (`/library/knowledge-bases`) are the Library's documents agents
+> answer from: uploads and artifacts indexed into section trees. They are documented in
+> `references/agents.md` section 8.
 
 **Auth** follows `SKILL.md`: outside Strongly send `-H "X-API-Key: $STRONGLY_API_KEY"`
 to `$HOST/api/v1`; inside Strongly call `$STRONGLY_API_URL/api/v1` with the bearer
@@ -26,27 +30,27 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # outside Strong
 
 ## Conventions that hold across every primitive
 
-- **Envelope.** Success is `{ "success": true, "data": … }`; lists add
-  `pagination`. Read `data`; surface `error.message` on failure. (Same as `SKILL.md`.)
+- **Envelope.** The standard envelope (see `SKILL.md`): `data` on success, lists page with `cursor` / `meta.nextCursor`, and a failure is problem details whose `detail` and `code` to surface.
 - **Scopes.** Reads need `<primitive>:read`, writes need `<primitive>:write`
   (`memory:read`, `rules:write`, `tasks:read`, …). A missing scope returns `403`.
 - **Visibility is user-level:** owner, then rows shared with you, then public.
-  Memory, rules, tasks, and preferences expose `POST /:id/share` and `/:id/unshare`
-  (a `userId`) plus `POST /:id/toggle-public`; memory adds org-global promotion.
-  Prompts and skills have no per-row share endpoints.
+  Memory, rules, tasks, and preferences share the platform's one way:
+  `GET …/:id/permissions`, `POST …/:id/permissions/members` `{ userId, role }`,
+  `DELETE …/:{name}Id/permissions/members/:userId`, `PATCH …/:id/permissions`
+  `{ visibility }`; memory adds org-global promotion. Prompts and skills have no
+  per-row sharing.
 - **`linkedIds` = agent membership.** Pass agent `workflowId`s to attach a row to
   agents (a row can belong to many). On **list/GET** filters, `linkedIds` is AND
   (a row must belong to ALL supplied ids). On **recall** endpoints
-  (`/search`, `/applicable`, `/relevant`) it is ANY (match rows in any linked pool).
+  (the `…/search` endpoints) it is ANY (match rows in any linked pool).
 - **`tags`** on list endpoints are comma-separated with AND semantics (a row must
   carry every supplied tag).
 - **Versioning.** Memory, rules, prompts, and skills keep full version history:
-  each has `GET /:id/versions` plus a restore that appends a new version rather than
-  mutating history. Memory and rules also expose a single-version read
-  (`GET /:id/versions/:n`) and restore by path (`POST /:id/versions/:n/restore`);
-  prompts and skills restore via `POST /:id/restore` with `versionNumber` in the body.
-- **Retrieval blocks.** `POST /memory/search`, `POST /rules/applicable`,
-  `POST /skills/relevant`, and `POST /preferences/relevant` each return both the
+  each has `GET …/:id/versions` plus `POST …/versions/:version/restore`, which
+  appends a new version rather than mutating history. Memory and rules also
+  expose a single-version read (`GET …/versions/:version`).
+- **Retrieval blocks.** `POST /primitives/memories/search`, `POST /primitives/rules/search`,
+  `POST /library/skills/search`, and `POST /primitives/preferences/search` each return both the
   matched rows and a canonical markdown `contextBlock` an agent drops straight into
   its system prompt. Use these for injection; use plain `GET` lists to browse.
 
@@ -59,39 +63,39 @@ Durable facts and episodes an agent recalls. Bitemporal (`validFrom`/`validUntil
 
 | Endpoint | Purpose | Key params / body |
 |---|---|---|
-| `GET /memory` | List | `kind, tags, linkedIds, search, asOf, includeInvalidated, limit, offset` |
-| `POST /memory` | Create | body: `kind*, content*, summary, tags, category, importance, confidence, links, linkedIds, source, eventTime, validFrom, validUntil` |
-| `GET /memory/:id` · `PUT /memory/:id` · `DELETE /memory/:id` | Fetch / update (content change appends a version) / delete | update body adds `changeNote` |
-| `POST /memory/search` | Hybrid BM25 + dense-vector search with RRF fusion and temporal-decay re-rank; returns `contextBlock` | body: `query*, k, kind, tags, linkedIds, weights, rrfK, decayHalfLifeDaysOverride, asOf, rerank, rerankModel, includeInvalidated` |
-| `POST /memory/ingest` | Mem0-style judge that decides ADD/UPDATE/DELETE/NOOP against similar rows | body: `content*, kind*, tags, model, candidateK, linkedIds` |
-| `POST /memory/consolidate` | Sleep-time pass: dedup, evict stale, promote used. `dryRun` to preview | body: `config, dryRun` |
-| `POST /memory/:id/assess` | The quality ruleset's full report (each check); the score is also kept on the row (`scoreResult`) by every write | |
-| `POST /memory/:id/invalidate` | Mark contradicted/superseded (sets `validUntil=now`) | body: `supersededBy` |
-| `POST /memory/:id/access` | Increment `usageCount` + `lastAccessedAt` | |
-| `POST /memory/:id/links` · `DELETE /memory/:id/links/:targetId` · `GET /memory/:id/linked-to` | Add/update, remove, and reverse-lookup graph edges | link body: `targetId*, relation*, weight` |
-| `GET /memory/:id/versions` · `/versions/:n` · `POST /versions/:n/restore` | Version history + restore | |
-| `POST /memory/:id/share` · `/unshare` · `/toggle-public` | Per-user share/revoke, public toggle | share body: `userId*` |
-| `POST /memory/:id/share-to-org` · `DELETE` same path | Promote/demote to org-global so EVERY agent in the org reads it | |
-| `GET /memory/export` · `POST /memory/import` | Bulk JSON dump / re-ingest (returns `imported, unchanged, skipped, errors`) | import body: `memories*` |
+| `GET /primitives/memories` | List | `kind, tags, linkedIds, q, asOf, includeInvalidated, limit, cursor` |
+| `POST /primitives/memories` | Create | body: `kind*, content*, summary, tags, category, importance, confidence, links, linkedIds, source, eventTime, validFrom, validUntil` |
+| `GET /primitives/memories/:id` · `PATCH /primitives/memories/:id` · `DELETE /primitives/memories/:id` | Fetch / update (content change appends a version) / delete | update body adds `changeNote` |
+| `POST /primitives/memories/search` | Hybrid BM25 + dense-vector search with RRF fusion and temporal-decay re-rank; returns `contextBlock` | body: `q*, limit, kind, tags, linkedIds, weights, rrfK, decayHalfLifeDaysOverride, asOf` |
+| `POST /primitives/memories/ingest` | Mem0-style judge that decides ADD/UPDATE/DELETE/NOOP against similar rows | body: `content*, kind*, tags, model, candidateK, linkedIds` |
+| `POST /primitives/memories/consolidate` | Sleep-time pass: dedup, evict stale, promote used. `dryRun` to preview | body: `config, dryRun` |
+| `POST /primitives/memories/:id/assess` | The quality ruleset's full report (each check); the score is also kept on the row (`scoreResult`) by every write | |
+| `POST /primitives/memories/:id/invalidate` | Mark contradicted/superseded (sets `validUntil=now`) | body: `supersededBy` |
+| `POST /primitives/memories/:id/access-events` | Increment `usageCount` + `lastAccessedAt` | |
+| `POST /primitives/memories/:id/links` · `DELETE /primitives/memories/:memoryId/links/:id` · `GET /primitives/memories/:id/backlinks` | Add/update, remove, and reverse-lookup graph edges | link body: `targetId*, relation*, weight` |
+| `GET /primitives/memories/:id/versions` · `GET /primitives/memories/:memoryId/versions/:version` · `POST …/versions/:version/restore` | Version history + restore | |
+| `GET/PATCH /primitives/memories/:id/permissions` · `POST …/permissions/members` · `DELETE /primitives/memories/:memoryId/permissions/members/:userId` | Who can reach it / visibility, share with a user, stop sharing | member body: `userId*, role*` |
+| `POST /primitives/memories/:id/promote` · `POST /primitives/memories/:id/demote` | Promote/demote to org-global so EVERY agent in the org reads it | |
+| `GET /primitives/memories/export` · `POST /primitives/memories/import` | Bulk JSON dump / re-ingest (returns `imported, unchanged, skipped, errors`) | import body: `memories*` |
 
 `kind`: `fact | episodic | semantic | instruction | preference`. Link `relation`:
 `supports | contradicts | refines | related`.
 
 ```bash
 # Store a fact for an agent, then recall it with the ready-to-inject context block.
-curl -s -X POST "${auth[@]}" "$BASE/memory" -H 'Content-Type: application/json' \
+curl -s -X POST "${auth[@]}" "$BASE/primitives/memories" -H 'Content-Type: application/json' \
   -d '{"kind":"fact","content":"ACME renews on 2026-03-01","tags":["acme","renewal"],
        "importance":0.8,"linkedIds":["<agentWorkflowId>"]}'                 # -> data.memoryId
 
-curl -s -X POST "${auth[@]}" "$BASE/memory/search" -H 'Content-Type: application/json' \
-  -d '{"query":"when does ACME renew","k":5,"linkedIds":["<agentWorkflowId>"]}' \
+curl -s -X POST "${auth[@]}" "$BASE/primitives/memories/search" -H 'Content-Type: application/json' \
+  -d '{"q":"when does ACME renew","limit":5,"linkedIds":["<agentWorkflowId>"]}' \
   | jq '.data.contextBlock'
 ```
 
 Checklist:
 - [ ] `kind` + `content` on create; attach agents via `linkedIds`.
-- [ ] Recall with `POST /memory/search` (ANY pool) and inject `data.contextBlock`.
-- [ ] Supersede, do not delete, when a fact changes: `POST /:id/invalidate`.
+- [ ] Recall with `POST /primitives/memories/search` (ANY pool) and inject `data.contextBlock`.
+- [ ] Supersede, do not delete, when a fact changes: `POST /primitives/memories/:id/invalidate`.
 
 ---
 
@@ -102,18 +106,18 @@ ordered (`system > org > user > agent`), enforceable at the tool boundary, versi
 
 | Endpoint | Purpose | Key params / body |
 |---|---|---|
-| `GET /rules` | List | `category, severity, hierarchyScope, enabled, tags, linkedIds, search, limit, offset` |
-| `POST /rules` | Create | body: `description*, content*, category, severity, hierarchyScope, triggers, enabled, enforcementMode, tags, source, linkedIds` |
-| `GET /rules/:id` · `PUT /rules/:id` · `DELETE /rules/:id` | Fetch / update (new version) / delete | |
-| `POST /rules/applicable` | Enabled rules matching turn/tool/scope, hierarchy-sorted; returns `contextBlock` | body: `userTurn, toolName, linkedIds` |
-| `POST /rules/tool-gate` | Deterministic pre-tool-call gate; returns `refused` + blocking rule | body: `toolName*, args, userTurn, linkedIds` |
-| `POST /rules/check` | Pattern pre-call gate; returns `allowed, blockedBy, reason` | body: `toolName, description, args, userTurn` |
-| `POST /rules/:id/assess` | The quality ruleset's full report; the score is also kept on the row (`scoreResult`) by every write | |
-| `POST /rules/:id/violation` · `GET /rules/:id/violations` | Record / list violations (list paginated, newest first; `limit` up to 200) | violation body: `attemptedAction*, detectedBy, agentId, threadId, runId, evidence` |
-| `GET /rules/violations/aggregate` | Cross-rule stats over the last N days | `days, topRules, topTools` |
-| `POST /rules/:id/toggle-enabled` · `/toggle-public` · `/share` · `/unshare` | Enable/disable, public toggle, per-user share/revoke | share body: `userId*` |
-| `GET /rules/:id/versions` · `/versions/:n` · `POST /versions/:n/restore` | Version history + restore | |
-| `GET /rules/export` · `POST /rules/import` · `POST /rules/import-github` | Bulk dump / re-ingest (returns `imported, unchanged, skipped, errors`) / import `RULE.md` from a repo | import body: `rules*`; github body: `githubUrl*` |
+| `GET /primitives/rules` | List | `category, severity, hierarchyScope, enabled, tags, linkedIds, q, limit, cursor` |
+| `POST /primitives/rules` | Create | body: `description*, content*, category, severity, hierarchyScope, triggers, enabled, enforcementMode, tags, source, linkedIds` |
+| `GET /primitives/rules/:id` · `PATCH /primitives/rules/:id` · `DELETE /primitives/rules/:id` | Fetch / update (new version) / delete | |
+| `POST /primitives/rules/search` | Enabled rules matching turn/tool/scope, hierarchy-sorted; returns `contextBlock` | body: `userTurn, toolName, linkedIds` |
+| `POST /primitives/rules/check` | Deterministic pre-tool-call gate; returns `refused` + the blocking rule | body: `toolName*, args, userTurn, linkedIds` |
+| `POST /primitives/rules/:id/assess` | The quality ruleset's full report; the score is also kept on the row (`scoreResult`) by every write | |
+| `POST /primitives/rules/:id/violations` · `GET /primitives/rules/:id/violations` | Record / list violations (list paginated, newest first; `limit` up to 200) | violation body: `attemptedAction*, detectedBy, agentId, threadId, runId, evidence` |
+| `GET /primitives/rules/violation-summary` | Cross-rule stats over the last N days | `days, topRules, topTools` |
+| `PATCH /primitives/rules/:id` `{ enabled }` | Enable/disable | |
+| `GET/PATCH /primitives/rules/:id/permissions` · `POST …/permissions/members` · `DELETE /primitives/rules/:ruleId/permissions/members/:userId` | Who can reach it / visibility, share with a user, stop sharing | member body: `userId*, role*` |
+| `GET /primitives/rules/:id/versions` · `GET /primitives/rules/:ruleId/versions/:version` · `POST …/versions/:version/restore` | Version history + restore | |
+| `GET /primitives/rules/export` · `POST /primitives/rules/import` | Bulk dump / import: export rows (returns `imported, unchanged, skipped, errors`), or `RULE.md` files from a repo | body: `rules` or `githubUrl` |
 
 `category`: `must | must-not | should`. `severity`: `critical | high | medium | low`.
 `hierarchyScope`: `system | org | user | agent`. `enforcementMode`:
@@ -126,18 +130,18 @@ do not apply and are not scored.
 
 ```bash
 # A hard constraint, then the pre-tool-call gate an agent runs before a dangerous tool.
-curl -s -X POST "${auth[@]}" "$BASE/rules" -H 'Content-Type: application/json' \
+curl -s -X POST "${auth[@]}" "$BASE/primitives/rules" -H 'Content-Type: application/json' \
   -d '{"description":"Never email customers without approval","content":"Refuse send_email unless approved.",
        "category":"must-not","enforcementMode":"gate","triggers":{"toolName":"send_email"},
        "linkedIds":["<agentWorkflowId>"]}'                                  # -> data.ruleId
 
-curl -s -X POST "${auth[@]}" "$BASE/rules/tool-gate" -H 'Content-Type: application/json' \
+curl -s -X POST "${auth[@]}" "$BASE/primitives/rules/check" -H 'Content-Type: application/json' \
   -d '{"toolName":"send_email","linkedIds":["<agentWorkflowId>"]}' | jq '.data.refused'
 ```
 
 Checklist:
 - [ ] `must-not` + `enforcementMode:"gate"` (or `both`) for anything you want the gate to block.
-- [ ] Inject matched rules with `POST /rules/applicable` (`contextBlock`) AND gate with `/tool-gate` before dispatch.
+- [ ] Inject matched rules with `POST /primitives/rules/search` (`contextBlock`) AND gate with `/tool-gate` before dispatch.
 - [ ] Editing a rule creates a new version; restore from `/versions/:n/restore`.
 
 ---
@@ -149,31 +153,31 @@ semantic search.
 
 | Endpoint | Purpose | Key params / body |
 |---|---|---|
-| `GET /prompts` | List | `search, type, tags, linkedIds, limit, offset` |
-| `GET /prompts/search` | Search by meaning and words at once (vector + text, fused), best first; each hit has a rank `score` | `q*, type, tags, limit, popularity, mmr, mmr_lambda` |
-| `POST /prompts` | Create | body: `name*, content*, type, description, variables, tags, linkedIds, source` |
-| `GET /prompts/:id` · `PUT /prompts/:id` · `DELETE /prompts/:id` | Fetch / update (new version) / delete | |
-| `GET /prompts/:id/versions` · `POST /prompts/:id/restore` | Versions (each with its full `content`) + restore | restore body: `versionNumber*` |
-| `POST /prompts/:id/duplicate` | Copy to a new prompt | |
-| `POST /prompts/:id/render` | Substitute variables and return the rendered text; a variable with no default is required (400 naming it when missing) | body: `variables` |
-| `POST /prompts/:id/usage` | Record a usage event | |
+| `GET /library/prompts` | List | `q, type, tags, linkedIds, limit, cursor` |
+| `GET /library/prompts/search` | Search by meaning and words at once (vector + text, fused), best first; each hit has a rank `score` | `q*, type, tags, limit, popularity, mmr, mmrLambda` |
+| `POST /library/prompts` | Create | body: `name*, content*, type, description, variables, tags, linkedIds, source` |
+| `GET /library/prompts/:id` · `PATCH /library/prompts/:id` · `DELETE /library/prompts/:id` | Fetch / update (new version) / delete | |
+| `GET /library/prompts/:id/versions` · `POST /library/prompts/:promptId/versions/:version/restore` | Versions (each with its full `content`) + restore | |
+| `POST /library/prompts/:id/duplicate` | Copy to a new prompt | |
+| `POST /library/prompts/:id/render` | Substitute variables and return the rendered text; a variable with no default is required (400 naming it when missing) | body: `variables` |
+| `POST /library/prompts/:id/usage-events` | Record a usage event | |
 
 `type`: `system-prompt | user-prompt | template` (an unrecognised type is coerced
 to `user-prompt`).
 
 ```bash
-curl -s -X POST "${auth[@]}" "$BASE/prompts" -H 'Content-Type: application/json' \
+curl -s -X POST "${auth[@]}" "$BASE/library/prompts" -H 'Content-Type: application/json' \
   -d '{"name":"Weekly summary","type":"template","content":"Summarize {{topic}} for {{audience}}.",
        "variables":[{"name":"audience","defaultValue":"the team"}],"linkedIds":["<agentWorkflowId>"]}'  # -> data.promptId
 
-curl -s -X POST "${auth[@]}" "$BASE/prompts/<id>/render" -H 'Content-Type: application/json' \
+curl -s -X POST "${auth[@]}" "$BASE/library/prompts/<id>/render" -H 'Content-Type: application/json' \
   -d '{"variables":{"topic":"sales","audience":"the board"}}' | jq '.data'
 ```
 
 Checklist:
 - [ ] `name` + `content` on create; pick a `type` or accept the `user-prompt` default.
-- [ ] `{{variables}}` are detected from the content; give one a `defaultValue` to make it optional, and pass every variable without a default to `POST /:id/render`.
-- [ ] Find by meaning with `GET /prompts/search`, not just tag/name filters.
+- [ ] `{{variables}}` are detected from the content; give one a `defaultValue` to make it optional, and pass every variable without a default to `POST /library/prompts/:id/render`.
+- [ ] Find by meaning with `GET /library/prompts/search`, not just tag/name filters.
 
 ---
 
@@ -184,43 +188,42 @@ claim-locked so a task shared by several agents is never worked twice.
 
 | Endpoint | Purpose | Key params / body |
 |---|---|---|
-| `GET /tasks` | List | `kind, status, tags, linkedIds, includeCompleted, searchText, dueOnly, triggerType, limit, offset` |
-| `POST /tasks` | Create | body: `description*, recurrence, due_at, trigger_type, notes, tags, subject_ref, linkedIds, assigned_to_agent, created_by_agent` |
-| `GET /tasks/:id` · `PUT /tasks/:id` · `DELETE /tasks/:id` | Fetch / update (recurrence change recomputes `next_due_at`) / delete | |
-| `GET /tasks/:id/status` | Lightweight status + scheduling fields only | |
-| `POST /tasks/:id/complete` | Mark done; recurring advances to the next occurrence | body: `notes, execution_id` |
-| `POST /tasks/:id/claim` | First-claim-wins execution lock | body: `claimant_id*` |
-| `POST /tasks/:id/cancel` | Cancel | body: `reason` |
-| `POST /tasks/:id/skip-next` · `/end-recurrence` | Skip one fire / stop recurring | |
-| `POST /tasks/:id/share` · `/unshare` · `/toggle-public` | Share/revoke (accepts `userIds` array or a single `userId`), public toggle | |
+| `GET /primitives/tasks` | List | `kind, status, tags, linkedIds, includeCompleted, q, dueOnly, triggerType, limit, cursor` |
+| `POST /primitives/tasks` | Create | body: `description*, recurrence, dueAt, triggerType, notes, tags, subjectRef, linkedIds, assignedToAgent, createdByAgent` |
+| `GET /primitives/tasks/:id` · `PATCH /primitives/tasks/:id` · `DELETE /primitives/tasks/:id` | Fetch (with its status and scheduling fields) / update (a recurrence change recomputes `nextDueAt`) / delete | |
+| `POST /primitives/tasks/:id/complete` | Mark done; recurring advances to the next occurrence | body: `notes, executionId` |
+| `POST /primitives/tasks/:id/claim` | First-claim-wins execution lock | body: `claimantId*` |
+| `POST /primitives/tasks/:id/cancel` | Cancel | body: `reason` |
+| `POST /primitives/tasks/:id/skip-next` · `/end-recurrence` | Skip one fire / stop recurring | |
+| `GET/PATCH /primitives/tasks/:id/permissions` · `POST …/permissions/members` · `DELETE /primitives/tasks/:taskId/permissions/members/:userId` | Who can reach it / visibility, share with a user, stop sharing | member body: `userId*, role*` |
 
-`status`: `open | fired | done | failed | cancelled`. `trigger_type`: `heartbeat`
+`status`: `open | fired | done | failed | cancelled`. `triggerType`: `heartbeat`
 (the agent completes it when it next wakes) or `scheduled` (platform cron fires it
-at an exact time). `recurrence`: `{kind, time_of_day?, day_of_week?, day_of_month?,
-cron?, timezone, until?, max_fires?}` where `kind` is `daily | weekly | monthly |
-cron`. **For any repeating schedule set `recurrence` and leave `due_at` empty; use
-`due_at` only for a single one-off time.** A heartbeat task with neither `due_at`
+at an exact time). `recurrence`: `{kind, timeOfDay?, dayOfWeek?, dayOfMonth?,
+cron?, timezone, until?, maxFires?}` where `kind` is `daily | weekly | monthly |
+cron`. **For any repeating schedule set `recurrence` and leave `dueAt` empty; use
+`dueAt` only for a single one-off time.** A heartbeat task with neither `dueAt`
 nor `recurrence` is intent-only: no heartbeat runs it on its own. `linkedIds` says
-which agents work a task; `assigned_to_agent` is only a label a Task Due workflow
-trigger filters on. `PUT` with `due_at`, `assigned_to_agent` or `subject_ref` set
+which agents work a task; `assignedToAgent` is only a label a Task Due workflow
+trigger filters on. `PATCH` with `dueAt`, `assignedToAgent` or `subjectRef` set
 to `null` removes that field. Completing a claimed task counts the run
-(`fire_count`, `last_fired_at` = claim time).
+(`fireCount`, `lastFiredAt` = claim time).
 
 ```bash
-# Recurring: every weekday 9am ET. NOTE recurrence, not due_at.
-curl -s -X POST "${auth[@]}" "$BASE/tasks" -H 'Content-Type: application/json' \
-  -d '{"description":"Post the standup summary","trigger_type":"scheduled",
+# Recurring: every weekday 9am ET. NOTE recurrence, not dueAt.
+curl -s -X POST "${auth[@]}" "$BASE/primitives/tasks" -H 'Content-Type: application/json' \
+  -d '{"description":"Post the standup summary","triggerType":"scheduled",
        "recurrence":{"kind":"cron","cron":"0 9 * * 1-5","timezone":"America/New_York"},
        "linkedIds":["<agentWorkflowId>"]}'                                   # -> data.taskId
 
 # An agent claims a due task before executing it (skip if it loses the claim).
-curl -s -X POST "${auth[@]}" "$BASE/tasks/<id>/claim" -H 'Content-Type: application/json' \
-  -d '{"claimant_id":"<agentWorkflowId>"}' | jq '.data.claimed'
+curl -s -X POST "${auth[@]}" "$BASE/primitives/tasks/<id>/claim" -H 'Content-Type: application/json' \
+  -d '{"claimantId":"<agentWorkflowId>"}' | jq '.data.claimed'
 ```
 
 Checklist:
-- [ ] Repeating schedule => `recurrence` with an IANA `timezone`, no `due_at`.
-- [ ] Poll `GET /tasks?dueOnly=true` to find work ready to run; `claim` before executing.
+- [ ] Repeating schedule => `recurrence` with an IANA `timezone`, no `dueAt`.
+- [ ] Poll `GET /primitives/tasks?dueOnly=true` to find work ready to run; `claim` before executing.
 - [ ] `complete` a recurring task to advance it; `end-recurrence` to stop it.
 
 ---
@@ -232,35 +235,35 @@ with hybrid relevance retrieval, versions, and a quality assessor.
 
 | Endpoint | Purpose | Key params / body |
 |---|---|---|
-| `GET /skills` | List | `search, tags, linkedIds, category, limit, offset` |
-| `POST /skills` | Create (deduped: response `action` is `created`, `superseded`, or `unchanged`). `name` is kebab-case (`unit-converter`, up to 64 chars); any other name is refused | body: `name*, content*, description, category, tags, linkedIds, mcpTools, variables, source` |
-| `GET /skills/:id` | Read full content | |
-| `GET /skills/:id/files` · `GET /skills/:id/file?path=` | List bundled files (paths + sizes) / read one file | |
-| `PUT /skills/:id` · `DELETE /skills/:id` | Update / delete | |
-| `POST /skills/relevant` | Hybrid (semantic + keyword) relevance; returns `contextBlock` | body: `userTurn, limit, tags, linkedIds` |
-| `POST /skills/:id/render` | Variable substitution | body: `variables` |
-| `POST /skills/:id/assess` | Score against the skill-building guide | |
-| `POST /skills/:id/duplicate` · `/usage` | Copy / record usage | |
-| `GET /skills/:id/versions` · `POST /skills/:id/restore` | Versions + restore | restore body: `versionNumber*` |
-| `POST /skills/import-github` | Import a skill from a GitHub URL | body: `githubUrl*` |
+| `GET /library/skills` | List | `q, tags, linkedIds, category, limit, cursor` |
+| `POST /library/skills` | Create (deduped: response `action` is `created`, `superseded`, or `unchanged`). `name` is kebab-case (`unit-converter`, up to 64 chars); any other name is refused | body: `name*, content*, description, category, tags, linkedIds, mcpTools, variables, source` |
+| `GET /library/skills/:id` | Read full content | |
+| `GET /library/skills/:id/files` · `GET /library/skills/:id/contents?path=` | List bundled files (paths + sizes) / read one file | |
+| `PATCH /library/skills/:id` · `DELETE /library/skills/:id` | Update / delete | |
+| `POST /library/skills/search` | Hybrid (semantic + keyword) relevance; returns `contextBlock` | body: `userTurn, limit, tags` |
+| `POST /library/skills/:id/render` | Variable substitution | body: `variables` |
+| `POST /library/skills/:id/assess` | Score against the skill-building guide | |
+| `POST /library/skills/:id/duplicate` · `POST /library/skills/:id/usage-events` | Copy / record usage | |
+| `GET /library/skills/:id/versions` · `POST /library/skills/:skillId/versions/:version/restore` | Versions + restore | |
+| `POST /library/skills/import` | Import a skill from a GitHub URL | body: `githubUrl*` |
 
 Skill content is markdown instructions; bundled files load on demand, so never bulk-
 read a whole bundle. Report the `action` from create truthfully (say "updated" for
 `superseded`, "you already have that" for `unchanged`).
 
 ```bash
-curl -s -X POST "${auth[@]}" "$BASE/skills" -H 'Content-Type: application/json' \
+curl -s -X POST "${auth[@]}" "$BASE/library/skills" -H 'Content-Type: application/json' \
   -d '{"name":"invoice-parser","description":"Extract totals from PDFs",
        "content":"# Invoice Parser\n...","tags":["finance"],"linkedIds":["<agentWorkflowId>"]}' \
   | jq '.data.action'                                                        # created | superseded | unchanged
 
-curl -s -X POST "${auth[@]}" "$BASE/skills/relevant" -H 'Content-Type: application/json' \
+curl -s -X POST "${auth[@]}" "$BASE/library/skills/search" -H 'Content-Type: application/json' \
   -d '{"userTurn":"parse this invoice","linkedIds":["<agentWorkflowId>"]}' | jq '.data.contextBlock'
 ```
 
 Checklist:
-- [ ] Before creating, call `/skills/relevant` or `GET /skills` to update an existing skill instead of forking a duplicate.
-- [ ] Progressive disclosure: `/files` then `/file?path=`, never a bulk bundle read.
+- [ ] Before creating, call `POST /library/skills/search` or `GET /library/skills?q=` to update an existing skill instead of forking a duplicate.
+- [ ] Progressive disclosure: `/files` then `/contents?path=`, never a bulk bundle read.
 - [ ] Surface the create `action` accurately to the user.
 
 ---
@@ -272,29 +275,29 @@ supersession.
 
 | Endpoint | Purpose | Key params / body |
 |---|---|---|
-| `GET /preferences` | List | `search, category, preferenceSource, tags, linkedIds, includeSuperseded, limit, offset` |
-| `POST /preferences` | Set (idempotent upsert on `(owner, key)`) | body: `key*, value*, category, preferenceSource, confidence, evidence, tags, linkedIds` |
-| `GET /preferences/:id` | Read one by id | |
-| `GET /preferences/by-key/:key` | Look up the active value for a key (null if unset) | `touch` |
-| `PATCH /preferences/:id` | Update only supplied fields; a new `value` supersedes (old value kept as history) and returns the new row, with a new id | body: `value, category, preferenceSource, confidence, evidence, tags, linkedIds` |
-| `DELETE /preferences/:id` · `POST /preferences/forget` | Delete by id / by key (idempotent): the current value goes with its earlier values; a superseded value goes alone | forget body: `key*` |
-| `POST /preferences/relevant` | Turn-aware relevance; returns `contextBlock` | body: `userTurn, category, limit, tags, linkedIds` |
-| `POST /preferences/:id/share` · `/unshare` · `/toggle-public` | Per-user share/revoke, public toggle | share body: `userId*` |
+| `GET /primitives/preferences` | List | `q, category, preferenceSource, tags, linkedIds, includeSuperseded, limit, cursor` |
+| `POST /primitives/preferences` | Set (idempotent upsert on `(owner, key)`) | body: `key*, value*, category, preferenceSource, confidence, evidence, tags, linkedIds` |
+| `GET /primitives/preferences/:id` | Read one by id | |
+| `GET /primitives/preferences/by-key/:key` | Look up the active value for a key (null if unset) | `touch` |
+| `PATCH /primitives/preferences/:id` | Update only supplied fields; a new `value` supersedes (old value kept as history) and returns the new row, with a new id | body: `value, category, preferenceSource, confidence, evidence, tags, linkedIds` |
+| `DELETE /primitives/preferences/:id` · `POST /primitives/preferences/forget` | Delete by id / by key (idempotent): the current value goes with its earlier values; a superseded value goes alone | forget body: `key*` |
+| `POST /primitives/preferences/search` | Turn-aware relevance; returns `contextBlock` | body: `userTurn, category, limit, tags, linkedIds` |
+| `GET/PATCH /primitives/preferences/:id/permissions` · `POST …/permissions/members` · `DELETE /primitives/preferences/:preferenceId/permissions/members/:userId` | Who can reach it / visibility, share with a user, stop sharing | member body: `userId*, role*` |
 
 `preferenceSource` must be one of the platform's allowed sources (an invalid value
 returns a `400` listing the accepted set).
 
 ```bash
-curl -s -X POST "${auth[@]}" "$BASE/preferences" -H 'Content-Type: application/json' \
+curl -s -X POST "${auth[@]}" "$BASE/primitives/preferences" -H 'Content-Type: application/json' \
   -d '{"key":"preferred_language","value":"Python","confidence":0.9,
        "evidence":"User said so on 2026-09-10","linkedIds":["<agentWorkflowId>"]}'  # idempotent by key
 
-curl -s "${auth[@]}" "$BASE/preferences/by-key/preferred_language" | jq '.data.value'
+curl -s "${auth[@]}" "$BASE/primitives/preferences/by-key/preferred_language" | jq '.data.value'
 ```
 
 Checklist:
 - [ ] Setting the same `key` again upserts (no duplicate); do not delete-then-recreate.
-- [ ] Read a single value with `GET /preferences/by-key/:key`; inject a set with `POST /preferences/relevant`.
+- [ ] Read a single value with `GET /primitives/preferences/by-key/:key`; inject a set with `POST /primitives/preferences/search`.
 - [ ] `forget` by key is idempotent (`removedId:null` when nothing was set).
 
 ---
@@ -309,25 +312,25 @@ private bundle), `imprint` (a distributable skills+memory bundle), `org-global`
 
 | Endpoint | Purpose | Notes |
 |---|---|---|
-| `GET /pools` | List pools you can see | `?scope=custom\|imprint\|org-global\|agent`, `?counts=true` for per-primitive usage counts (`memory:read`) |
-| `POST /pools` | Create a named pool; returns its id | body: `name*, description, scope` (`custom` default, or `imprint`) (`memory:write`) |
-| `POST /pools/ensure-org-global` | Get-or-create the org-global pool | promote a memory here so the whole org sees it (`memory:read`) |
-| `GET /pools/:id` | Get one pool with usage counts | (`memory:read`) |
-| `PUT /pools/:id` · `DELETE /pools/:id` | Update / delete a pool | (`memory:write`) |
+| `GET /library/pools` | List pools you can see | `?scope=custom\|imprint\|org-global\|agent`, `?counts=true` for per-primitive usage counts (`memory:read`) |
+| `POST /library/pools` | Create a named pool; returns its id | body: `name*, description, scope` (`custom` default, or `imprint`) (`memory:write`) |
+| `GET /library/pools?scope=org-global` | Get-or-create the org-global pool | promote a memory here so the whole org sees it (`memory:read`) |
+| `GET /library/pools/:id` | Get one pool with usage counts | (`memory:read`) |
+| `PATCH /library/pools/:id` · `DELETE /library/pools/:id` | Update / delete a pool | (`memory:write`) |
 
 Pools ride the `memory:read` / `memory:write` scopes (they are part of the
 memory/skill bundle system). The returned pool id is what you pass in `linkedIds`
 when creating the memory, skills, etc. that should belong to the bundle.
 
 ```bash
-POOL_ID=$(curl -s -X POST "${auth[@]}" "$BASE/pools" -H 'Content-Type: application/json' \
+POOL_ID=$(curl -s -X POST "${auth[@]}" "$BASE/library/pools" -H 'Content-Type: application/json' \
   -d '{"name":"Helicopter Piloting","scope":"imprint"}' | jq -r '.data.poolId')
 # attach primitives to it via linkedIds: ["$POOL_ID"] when you create them
 ```
 
 Checklist:
 - [ ] Create or find the pool first, then put its id in `linkedIds` on the primitives that belong to it.
-- [ ] `scope:"imprint"` for a distributable skills+memory bundle; `ensure-org-global` for the org-wide pool.
+- [ ] `scope:"imprint"` for a distributable skills+memory bundle; `GET /library/pools?scope=org-global` for the org-wide pool.
 
 ---
 

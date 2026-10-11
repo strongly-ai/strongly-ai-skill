@@ -55,21 +55,20 @@ object-storage data source.
 
 | Method + path | Does | Key params |
 |---|---|---|
-| `GET /automl/stats` | Totals (active/completed/failed, accuracy, models); cost is FinOps' alone | none |
-| `GET /automl/datasets` | List dataset volumes you can train on | none |
-| `GET /automl/datasets/:id/files` | Files inside a volume (pick one to train on) | path `id` |
-| `GET /automl/datasets/:id/columns` | Column headers of a file (pick target/features) | path `id`, `file` |
-| `POST /automl/datasets/upload-url` | Presigned URL to upload a CSV | `filename`, `contentType?` |
-| `POST /automl/datasets/import-from-datasource` | Server-side copy a CSV from an s3/minio/gcs/azure-blob data source | `datasourceId`, `objectKey`, `bucket?`, `filename?` |
-| `GET /automl/jobs` | List jobs | `search`, `status`, `limit`, `offset`, `sortBy`, `sortOrder` |
-| `POST /automl/jobs` | Create a training job | see below |
-| `GET /automl/jobs/:id` | Full job (live-synced from trainer) | path `id` |
-| `GET /automl/jobs/:id/status` | Lightweight lifecycle view (live-synced) | path `id` |
-| `GET /automl/jobs/:id/metrics` | Leaderboard, best model, val score | path `id` |
-| `GET /automl/jobs/:id/logs` | Trainer logs | path `id`, `lines?`, `since?` |
-| `POST /automl/jobs/:id/stop` | Stop a running job | path `id` |
-| `DELETE /automl/jobs/:id` | Delete a job | path `id` |
-| `POST /automl/jobs/:id/deploy` | Publish the best model of a tabular or multimodal job to the model registry (a timeseries job's is refused) | path `id`, `registryName?` |
+| `GET /mlops/automl-jobs/stats` | Totals (active/completed/failed, accuracy, models); cost is FinOps' alone | none |
+| `GET /mlops/automl-datasets` | List dataset volumes you can train on | none |
+| `GET /mlops/automl-datasets/:id/files` | Files inside a volume (pick one to train on) | path `id` |
+| `GET /mlops/automl-datasets/:id/columns` | Column headers of a file (pick target/features) | path `id`, `file` |
+| `POST /mlops/automl-datasets/uploads` | Presigned URL to upload a CSV | `filename`, `contentType?` |
+| `GET /mlops/automl-jobs` | List jobs | `q`, `status`, `limit`, `cursor`, `sort` |
+| `POST /mlops/automl-jobs` | Create a training job | see below |
+| `GET /mlops/automl-jobs/:id` | Full job (live-synced from trainer) | path `id` |
+| `GET /mlops/automl-jobs/:id/status` | Lightweight lifecycle view (live-synced) | path `id` |
+| `GET /mlops/automl-jobs/:id/metrics` | Leaderboard, best model, val score | path `id` |
+| `GET /mlops/automl-jobs/:id/logs` | Trainer logs | path `id`, `lines?`, `since?` |
+| `POST /mlops/automl-jobs/:id/stop` | Stop a running job | path `id` |
+| `DELETE /mlops/automl-jobs/:id` | Delete a job | path `id` |
+| `POST /mlops/automl-jobs/:id/deploy` | Publish the best model of a tabular or multimodal job to the model registry (a timeseries job's is refused) | path `id`, `registryName?` |
 
 A job's scores (`metrics.val_score`, `metrics.test_score`, leaderboard `score`) are AutoGluon's in
 `models_info.eval_metric`: higher is better, so an error metric (RMSE, MAE, MASE, log loss) is
@@ -77,7 +76,7 @@ negative. Report it with the sign flipped, in the metric's units, never as a per
 `metrics.feature_importance` is each feature's permutation importance (a share of the total) on
 the rows `metrics.feature_importance_rows` names, which the model was not trained on.
 
-`POST /automl/jobs` required fields: `name`, `dataset`, `targetColumn`,
+`POST /mlops/automl-jobs` required fields: `name`, `dataset`, `targetColumn`,
 `hardware`. `hardware` is an object and has NO default: it must include
 `cpu_count`, `memory_gb`, `disk_gb` (numbers); `gpu_count`, `gpu_type` and `use_spot` (spot capacity)
 optional. Optional:
@@ -97,18 +96,18 @@ tools accept **either** the returned `job_id` or the Mongo `_id`.
 ```bash
 # Create, then POLL to a terminal state before touching results. Active states:
 # pending, preparing, running, training, evaluating. Terminal: completed | failed.
-JOB=$(curl -s "${auth[@]}" -H 'Content-Type: application/json' -X POST "$BASE/automl/jobs" -d '{
+JOB=$(curl -s "${auth[@]}" -H 'Content-Type: application/json' -X POST "$BASE/mlops/automl-jobs" -d '{
   "name":"churn-v1","dataset":"<volumeId-or-s3Path>","targetColumn":"churned",
   "problemType":"tabular","preset":"high_quality","timeLimit":900,
   "hardware":{"cpu_count":4,"memory_gb":16,"disk_gb":50}
 }' | jq -r '.data.job_id')
 
-poll "$BASE/automl/jobs/$JOB/status"
+poll "$BASE/mlops/automl-jobs/$JOB/status"
 # On failure, read logs; do NOT report success:
-curl -s "${auth[@]}" "$BASE/automl/jobs/$JOB/logs?lines=200" | jq -r '.data'
+curl -s "${auth[@]}" "$BASE/mlops/automl-jobs/$JOB/logs?lines=200" | jq -r '.data'
 # On success, inspect the leaderboard then promote the winner:
-curl -s "${auth[@]}" "$BASE/automl/jobs/$JOB/metrics" | jq '.data.leaderboard'
-curl -s "${auth[@]}" -X POST "$BASE/automl/jobs/$JOB/deploy" -d '{"registryName":"churn-model"}'
+curl -s "${auth[@]}" "$BASE/mlops/automl-jobs/$JOB/metrics" | jq '.data.leaderboard'
+curl -s "${auth[@]}" -X POST "$BASE/mlops/automl-jobs/$JOB/deploy" -d '{"registryName":"churn-model"}'
 ```
 
 Checklist: pick the exact file (`/files`) and target (`/columns`) before create;
@@ -129,29 +128,31 @@ trainer writes to these automatically; you also drive them directly.
 
 | Method + path | Does | Key params |
 |---|---|---|
-| `GET /experiments` | List | `search`, `status`, `tag`, `pinned`, `limit`, `offset`, `sortBy`, `sortOrder` |
-| `GET /experiments/stats` | Totals (running/completed/failed/pinned) | none |
-| `GET /experiments/compare` | Compare 2+ runs side by side | `ids` (comma-separated, min 2) |
-| `POST /experiments` | Create a tracking record | `name`, `description?`, `parameters?`, `tags?` |
-| `POST /experiments/register` | Create or find by name (idempotent) | `name`, `description?`, `tags?` |
-| `GET /experiments/:id` | Get one | path `id` |
-| `PUT /experiments/:id` | Update | path `id`; `name`, `description`, `status`, `tags`, `framework` (the trained model's; `log_model` sets it) |
-| `DELETE /experiments/:id` | Delete | path `id` |
-| `POST /experiments/:id/pin` | Pin or unpin | path `id`, `pinned` (boolean, required) |
-| `PUT /experiments/:id/tags` | Replace tags | path `id`, `tags` (array) |
-| `POST /experiments/:id/metrics` | Append metrics to the run | path `id`, `metrics` (`[{key,value,step?}]`) |
-| `POST /experiments/:id/params` | Merge params (upsert by key) | path `id`, `params` (object) |
-| `POST /experiments/:id/artifacts` | Register or upload an artifact | path `id`, `name`, `s3_key?` or `content_base64?`, `path?`, `type?`, `content_type?`, `size?` |
-| `POST /experiments/:id/register-model` | Register the model the run logged (`log_model`) in the model registry | path `id`; `name` (new model) or `model_id` (new version); `description?`, `artifact_path?` (default `model`). The task `log_model` recorded (`problem_type`) becomes the model's `training.problemType`; without one, set it with `PUT /model-registry/models/:id` `problemType` before drift |
+| `GET /mlops/experiments` | List | `q`, `status`, `tag`, `pinned`, `limit`, `cursor`, `sort` |
+| `GET /mlops/experiments/stats` | Totals (running/completed/failed/pinned) | none |
+| `GET /mlops/experiments/compare` | Compare 2+ runs side by side | `ids` (comma-separated, min 2) |
+| `POST /mlops/experiments` | Create a tracking record (a run of another with `parentRunId`) | `name`, `description?`, `params?`, `tags?`, `parentRunId?`, `status?` |
+| `POST /mlops/experiments/register` | Create or find by name (idempotent) | `name`, `description?`, `tags?` |
+| `GET /mlops/experiments/:id` | Get one | path `id` |
+| `PATCH /mlops/experiments/:id` | Update | path `id`; `name`, `description`, `status`, `tags` (replaces them), `pinned` (true pins, false unpins), `framework` (the trained model's; `log_model` sets it) |
+| `DELETE /mlops/experiments/:id` | Delete | path `id` |
+| `POST /mlops/experiments/:id/metrics` | Append metrics to the run | path `id`, `metrics` (`[{key,value,step?}]`) |
+| `POST /mlops/experiments/:id/params` | Merge params (upsert by key) | path `id`, `params` (object) |
+| `POST /mlops/experiments/:id/artifacts/uploads` | Get a link to upload one artifact file (PUT its bytes within an hour) | path `id`; `path`, `contentType?` |
+| `POST /mlops/experiments/:id/artifacts/multipart-uploads` | Start a large (over 5 GB) upload in parts; then `…/multipart-uploads/:id/complete` (`path`, `parts: [{partNumber, etag}]`) or `…/abort` | path `id`; `path`, `size`, `contentType?` |
+| `POST /mlops/experiments/:id/artifacts` | Record an uploaded artifact (its size is read from storage) | path `id`; `path`, `name?`, `type?`, `description?` |
+| `GET /mlops/experiments/:id/artifacts` · `GET …/artifacts/download-url?path=` | List the run's artifacts / a one-hour download link | path `id` |
+| `GET /mlops/experiments/:id/metrics` · `GET /mlops/experiments/:experimentId/metrics/:key` | Latest metrics / one metric's history | |
+| `POST /mlops/experiments/:id/models` | Register the model the run logged (`log_model`) in the model registry | path `id`; `name` (new model) or `modelId` (new version); `description?`, `artifactPath?` (default `model`). The task `log_model` recorded (`problemType`) becomes the model's `training.problemType`; without one, set it with `PATCH /mlops/models/:id` `problemType` before drift |
 
 ```bash
-EXP=$(curl -s "${auth[@]}" -X POST "$BASE/experiments/register" \
-  -d '{"name":"churn-tuning","tags":["q3"]}' | jq -r '.data.experiment_id')
-curl -s "${auth[@]}" -X POST "$BASE/experiments/$EXP/params" \
+EXP=$(curl -s "${auth[@]}" -X POST "$BASE/mlops/experiments/register" \
+  -d '{"name":"churn-tuning","tags":["q3"]}' | jq -r '.data._id')
+curl -s "${auth[@]}" -X POST "$BASE/mlops/experiments/$EXP/params" \
   -d '{"params":{"lr":0.001,"epochs":5}}'
-curl -s "${auth[@]}" -X POST "$BASE/experiments/$EXP/metrics" \
+curl -s "${auth[@]}" -X POST "$BASE/mlops/experiments/$EXP/metrics" \
   -d '{"metrics":[{"key":"val_accuracy","value":0.91,"step":5}]}'
-curl -s "${auth[@]}" "$BASE/experiments/compare?ids=$EXP,<otherId>" | jq '.data'
+curl -s "${auth[@]}" "$BASE/mlops/experiments/compare?ids=$EXP,<otherId>" | jq '.data'
 ```
 
 Checklist: `register` (not `create`) when you may re-run and want one record; log
@@ -184,22 +185,22 @@ with the read endpoints first, then submit and poll.
 
 | Method + path | Does | Key params |
 |---|---|---|
-| `GET /fine-tuning/stats` | Summary stats | none |
-| `GET /fine-tuning/base-models` | Fine-tunable base models | none |
-| `GET /fine-tuning/hardware` | Hardware/GPU options | none |
-| `GET /fine-tuning/model-requirements` | VRAM/hardware needs for a base model | `baseModel`, `method?` |
-| `POST /fine-tuning/recommend` | Recommend a config | `baseModel`, `useCase?`, `datasetSize?` |
-| `POST /fine-tuning/validate-config` | Pre-flight validation | `baseModel`, `method`, `hardware?`, `methodConfig?` |
-| `GET /fine-tuning/jobs` | List jobs | `search`, `status`, `baseModel`, `limit`, `offset`, `sortBy`, `sortOrder` |
-| `POST /fine-tuning/jobs` | Create a job | `name`, `baseModel`, `trainingDataset`, `description?` |
-| `GET /fine-tuning/jobs/:id` | Full job (live-synced) | path `id` |
-| `GET /fine-tuning/jobs/:id/status` | Lifecycle view (live-synced) | path `id` |
-| `GET /fine-tuning/jobs/:id/metrics` | Training metrics | path `id` |
-| `GET /fine-tuning/jobs/:id/logs` | Job logs | path `id`, `lines?`, `since?` |
-| `POST /fine-tuning/jobs/:id/stop` | Stop a running job | path `id` |
-| `POST /fine-tuning/jobs/:id/restart` | Restart a job | path `id` |
-| `DELETE /fine-tuning/jobs/:id` | Delete a job | path `id` |
-| `POST /fine-tuning/jobs/:id/deploy` | Deploy the trained model as a self-hosted endpoint | path `id` |
+| `GET /ai-gateway/fine-tuning-jobs/stats` | Summary stats | none |
+| `GET /ai-gateway/fine-tuning/base-models` | Fine-tunable base models | none |
+| `GET /ai-gateway/fine-tuning/hardware` | Hardware/GPU options | none |
+| `GET /ai-gateway/fine-tuning/model-requirements` | VRAM/hardware needs for a base model | `baseModel`, `method?` |
+| `POST /ai-gateway/fine-tuning/recommend` | Recommend a config | `baseModel`, `useCase?`, `datasetSize?` |
+| `POST /ai-gateway/fine-tuning-jobs/validate` | Pre-flight validation | `baseModel`, `method`, `hardware?`, `methodConfig?` |
+| `GET /ai-gateway/fine-tuning-jobs` | List jobs | `q`, `status`, `baseModel`, `limit`, `cursor`, `sort` |
+| `POST /ai-gateway/fine-tuning-jobs` | Create a job | `name`, `baseModel`, `trainingDataset`, `description?` |
+| `GET /ai-gateway/fine-tuning-jobs/:id` | Full job (live-synced) | path `id` |
+| `GET /ai-gateway/fine-tuning-jobs/:id/status` | Lifecycle view (live-synced) | path `id` |
+| `GET /ai-gateway/fine-tuning-jobs/:id/metrics` | Training metrics | path `id` |
+| `GET /ai-gateway/fine-tuning-jobs/:id/logs` | Job logs | path `id`, `lines?`, `since?` |
+| `POST /ai-gateway/fine-tuning-jobs/:id/stop` | Stop a running job | path `id` |
+| `POST /ai-gateway/fine-tuning-jobs/:id/restart` | Restart a job | path `id` |
+| `DELETE /ai-gateway/fine-tuning-jobs/:id` | Delete a job | path `id` |
+| `POST /ai-gateway/fine-tuning-jobs/:id/deploy` | Deploy the trained model as a self-hosted endpoint | path `id` |
 
 `baseModel` must be an id from `/base-models` (e.g. `meta-llama/Llama-2-7b-hf`);
 `trainingDataset` is a prepared file (JSONL from a Data Forge export, a project
@@ -207,18 +208,18 @@ volume file path, or a URL/dataset id). Recommended flow:
 `recommend` -> `validate-config` -> `create` -> poll -> `deploy`.
 
 ```bash
-curl -s "${auth[@]}" "$BASE/fine-tuning/base-models" | jq '.data'
-curl -s "${auth[@]}" -X POST "$BASE/fine-tuning/validate-config" \
+curl -s "${auth[@]}" "$BASE/ai-gateway/fine-tuning/base-models" | jq '.data'
+curl -s "${auth[@]}" -X POST "$BASE/ai-gateway/fine-tuning-jobs/validate" \
   -d '{"baseModel":"meta-llama/Llama-2-7b-hf","method":"lora","hardware":{"gpu_type":"A100","gpu_count":1}}'
 
-JOB=$(curl -s "${auth[@]}" -X POST "$BASE/fine-tuning/jobs" -d '{
+JOB=$(curl -s "${auth[@]}" -X POST "$BASE/ai-gateway/fine-tuning-jobs" -d '{
   "name":"support-tone","baseModel":"meta-llama/Llama-2-7b-hf",
   "trainingDataset":"volumes/train.jsonl"}' | jq -r '.data.job_id // .data._id')
 
 # Terminal states: completed | failed (active: queued, running).
-poll "$BASE/fine-tuning/jobs/$JOB/status"
-curl -s "${auth[@]}" "$BASE/fine-tuning/jobs/$JOB/logs?lines=200" | jq -r '.data'   # on failure
-curl -s "${auth[@]}" -X POST "$BASE/fine-tuning/jobs/$JOB/deploy"                    # on success
+poll "$BASE/ai-gateway/fine-tuning-jobs/$JOB/status"
+curl -s "${auth[@]}" "$BASE/ai-gateway/fine-tuning-jobs/$JOB/logs?lines=200" | jq -r '.data'   # on failure
+curl -s "${auth[@]}" -X POST "$BASE/ai-gateway/fine-tuning-jobs/$JOB/deploy"                    # on success
 ```
 
 Checklist: HuggingFace base model only; run `model-requirements` +
@@ -239,22 +240,22 @@ Reads need `mlops:read`, changes need `mlops:write` (both in the `ml-ops` and `d
 
 | Method + path | Does | Scope |
 |---|---|---|
-| `GET /feature-store/stores` | List feature stores you can access | `mlops:read` |
-| `GET /feature-store/stores/:id` | One store with its `entities`, every version of its `views` (status `active` or `deprecated`) and its `services`: read these before applying a change | `mlops:read` |
-| `POST /feature-store/apply` | Register/update entities, views, services (dependency order) | `mlops:write` |
-| `POST /feature-store/online-features` | Read low-latency online features for serving | `mlops:read` |
-| `POST /feature-store/historical-features` | Point-in-time-correct features for training | `mlops:read` |
-| `POST /feature-store/materialize` | Materialize features from offline to online store (a batch view with a source table pulls the source first; `ingested` counts those rows) | `mlops:write` |
-| `POST /feature-store/write` | Write feature rows into a view's history | `mlops:write` |
-| `POST /feature-store/push` | Push real-time events to a streaming aggregation view | `mlops:write` |
-| `POST /feature-store/views/deprecate` | Deprecate a view version (`store_id`, `view`, `version`): read-only, hidden, still resolved by services pinned to it | `mlops:write` |
+| `GET /mlops/feature-stores` | List feature stores you can access | `mlops:read` |
+| `GET /mlops/feature-stores/:id` | One store with its `entities`, every version of its `views` (status `active` or `deprecated`) and its `services`: read these before applying a change | `mlops:read` |
+| `POST /mlops/feature-stores/:id/apply` | Register/update entities, views, services (dependency order) | `mlops:write` |
+| `POST /mlops/feature-stores/:id/online-features` | Read low-latency online features for serving (`featureService`, `entityRows`, `featureServiceVersion?`, `maxStalenessSeconds?`) | `mlops:read` |
+| `POST /mlops/feature-stores/:id/historical-features` | Point-in-time-correct features for training (`featureService`, `entityRows` or `entityS3Uri` + `entityFormat?`) | `mlops:read` |
+| `POST /mlops/feature-stores/:storeId/views/:name/materialize` | Materialize a view from offline to online store (a batch view with a source table pulls the source first; `ingested` counts those rows) | `mlops:write` |
+| `POST /mlops/feature-stores/:storeId/views/:name/rows` | Write feature rows into a view's history (`rows`) | `mlops:write` |
+| `POST /mlops/feature-stores/:storeId/views/:name/events` | Push real-time events to a streaming aggregation view (`events`) | `mlops:write` |
+| `POST /mlops/feature-stores/:storeId/views/:name/versions/:version/deprecate` | Deprecate a view version: read-only, hidden, still resolved by services pinned to it | `mlops:write` |
 
 A breaking change creates a new view version whose history starts empty: the
 platform pulls the source and publishes it from the beginning for that version.
 
 A stream view with `aggregations` (`[{column, function, windows}]`, `tileSize`,
 optional `allowedLateness`) serves `<column>_<function>_<window>` features; send events
-with `POST /feature-store/push`. Online windows are as of now (an old event ages out even
+with `POST /mlops/feature-stores/:storeId/views/:name/events`. Online windows are as of now (an old event ages out even
 when an entity sends nothing new), matching training data for the same moment.
 
 An on-demand view (`mode: "on_demand"`) computes features at request time:
@@ -265,18 +266,18 @@ sandboxed transform workflow owned by you; the view's `transformStatus` is
 `provisioning`, `ready` or `failed` (`transformError`; apply again to retry). Callers
 pass the request fields on each entity row (online) or as entity-frame columns (training).
 
-`apply` takes `store_id` (required) plus optional `entities`, `views`, `services`
-arrays; each view's `change` in the result is `created`, `identical`, `additive`
-or `breaking`. The data-plane bodies (feature refs, entity rows, time ranges) are the
-feature-store service's own contract and are forwarded verbatim; discover a
-store's entities, views and services with `GET /feature-store/stores/:id`.
+`apply` takes optional `entities`, `views`, `services` arrays (the store is in the
+path); each view's `change` in the result is `created`, `identical`, `additive`
+or `breaking`. Entity rows, written rows and events are your own data, keyed by your
+join-key and feature names, and pass through unchanged; discover a store's
+entities, views and services with `GET /mlops/feature-stores/:id`.
 
 ```bash
-STORE=$(curl -s "${auth[@]}" "$BASE/feature-store/stores" | jq -r '.data[0]._id')
-curl -s "${auth[@]}" -X POST "$BASE/feature-store/apply" \
-  -d '{"store_id":"'"$STORE"'","entities":[...],"views":[...],"services":[...]}'
-curl -s "${auth[@]}" -X POST "$BASE/feature-store/online-features" \
-  -d '{"store_id":"'"$STORE"'", ... }'   # body per the feature-store service contract
+STORE=$(curl -s "${auth[@]}" "$BASE/mlops/feature-stores" | jq -r '.data[0]._id')
+curl -s "${auth[@]}" -X POST "$BASE/mlops/feature-stores/$STORE/apply" \
+  -d '{"entities":[...],"views":[...],"services":[...]}'
+curl -s "${auth[@]}" -X POST "$BASE/mlops/feature-stores/$STORE/online-features" \
+  -d '{"featureService":"<service>","entityRows":[{"driver_id":1001}]}'
 ```
 
 Checklist: `apply` before you read; use `online-features` for serving and
@@ -294,36 +295,36 @@ gateway model id (list them via `references/ai-gateway.md`). All accept
 
 | Method + path | Does | Key params |
 |---|---|---|
-| `POST /ai/chat/completions` | Chat completion | `model`, `messages`, `stream?`, `temperature?`, `max_tokens?` |
-| `POST /ai/completions` | Text completion | `model`, `prompt`, `stream?`, `temperature?`, `max_tokens?` |
-| `POST /ai/embeddings` | Embeddings | `model`, `input` |
-| `POST /ai/rerank` | Rerank documents by relevance | `model`, `query`, `documents` |
-| `POST /ai/moderations` | Content moderation | `input`, `model?` |
-| `POST /ai/tokenize` | Token count + model max context | `model`, `prompt` |
-| `POST /ai/audio/speech` | Text-to-speech (binary audio out) | `model`, `input`, `voice?` |
-| `GET /ai/audio/speech/voices` | List TTS voices | none |
-| `POST /ai/audio/transcriptions` | Speech-to-text (multipart file upload) | `model`, `file`, `language?` |
-| `POST /ai/audio/translations` | Speech-to-English (multipart file upload) | `model`, `file` |
-| `POST /ai/generations/images` | Image generation | `model`, `prompt`, `n?`, `size?` |
-| `POST /ai/generations/videos` | Video generation (async job) | `model`, `prompt` |
-| `POST /ai/generations/music` | Music generation (async job) | `model`, `prompt` |
-| `POST /ai/generations` | Unified image/video/music generation | `model`, `prompt`, `type?` |
-| `GET /ai/generations/:id` | Generation job status | path `id` |
-| `DELETE /ai/generations/:id` | Cancel a generation job | path `id` |
+| `POST /ai-gateway/chat/completions` | Chat completion | `model`, `messages`, `stream?`, `temperature?`, `max_tokens?` |
+| `POST /ai-gateway/completions` | Text completion | `model`, `prompt`, `stream?`, `temperature?`, `max_tokens?` |
+| `POST /ai-gateway/embeddings` | Embeddings | `model`, `input` |
+| `POST /ai-gateway/rerank` | Rerank documents by relevance | `model`, `query`, `documents` |
+| `POST /ai-gateway/moderations` | Content moderation | `input`, `model?` |
+| `POST /ai-gateway/tokenize` | Token count + model max context | `model`, `prompt` |
+| `POST /ai-gateway/audio/speech` | Text-to-speech (binary audio out) | `model`, `input`, `voice?` |
+| `GET /ai-gateway/audio/speech/voices` | List TTS voices | none |
+| `POST /ai-gateway/audio/transcriptions` | Speech-to-text (multipart file upload) | `model`, `file`, `language?` |
+| `POST /ai-gateway/audio/translations` | Speech-to-English (multipart file upload) | `model`, `file` |
+| `POST /ai-gateway/generations/images` | Image generation | `model`, `prompt`, `n?`, `size?` |
+| `POST /ai-gateway/generations/videos` | Video generation (async job) | `model`, `prompt` |
+| `POST /ai-gateway/generations/music` | Music generation (async job) | `model`, `prompt` |
+| `POST /ai-gateway/generations` | Unified image/video/music generation | `model`, `prompt`, `type?` |
+| `GET /ai-gateway/generations/:id` | Generation job status | path `id` |
+| `DELETE /ai-gateway/generations/:id` | Cancel a generation job | path `id` |
 
 ```bash
-curl -s "${auth[@]}" -X POST "$BASE/ai/chat/completions" \
+curl -s "${auth[@]}" -X POST "$BASE/ai-gateway/chat/completions" \
   -d '{"model":"<modelId>","messages":[{"role":"user","content":"Summarize churn drivers"}]}'
 
 # Video/music are async: create returns a job id, then poll.
-ID=$(curl -s "${auth[@]}" -X POST "$BASE/ai/generations/videos" \
+ID=$(curl -s "${auth[@]}" -X POST "$BASE/ai-gateway/generations/videos" \
   -d '{"model":"<modelId>","prompt":"a rotating product render"}' | jq -r '.data.id')
-poll "$BASE/ai/generations/$ID"
+poll "$BASE/ai-gateway/generations/$ID"
 ```
 
 Checklist: `model` must be a real gateway model id; use `/ai/tokenize` (returns
 `count` and `max_model_len`) to keep prompt + `max_tokens` inside the context
-window; video and music generation are async, poll `GET /ai/generations/:id`.
+window; video and music generation are async, poll `GET /ai-gateway/generations/:id`.
 Model discovery, provider keys, and guardrails: `references/ai-gateway.md`.
 
 ---

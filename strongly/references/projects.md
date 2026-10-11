@@ -24,16 +24,15 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
 # Inside Strongly (a workspace, app or job): BASE="$STRONGLY_API_URL/api/v1"; auth=()   # signed in as you, no key
 ```
 
-Ids are opaque strings (for example `project-vHPyNBcx3RSxs6Nsv`); take them from a list or create response. Success is `{ "success": true, "data": … }`;
-lists add `pagination`. Surface `error.message` on failure.
+Ids are opaque strings (for example `project-vHPyNBcx3RSxs6Nsv`); take them from a list or create response. Responses use the standard envelope (see `SKILL.md`): `data` on success, lists page with `cursor` / `meta.nextCursor`, and a failure is problem details whose `detail` and `code` to surface.
 
 ---
 
 ## 1. Project lifecycle
 
 Create with a `name` and `description`; everything else is optional. Listing
-supports `search` (name/description), plus `status`, `category`, and `tag`
-filters, with `limit`/`offset` paging.
+supports `q` (name/description), plus `status`, `category`, and `tag`
+filters, with `limit`/`cursor` paging.
 
 ```bash
 # Create a Strongly-filesystem project (the default)
@@ -41,7 +40,7 @@ PID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"name":"Churn model","description":"Q3 churn work","tags":["ml"]}' \
   "$BASE/projects" | jq -r '.data._id')
 
-curl -s "${auth[@]}" "$BASE/projects?search=churn&status=active&limit=20" | jq '.data'
+curl -s "${auth[@]}" "$BASE/projects?q=churn&status=active&limit=20" | jq '.data'
 curl -s "${auth[@]}" "$BASE/projects/$PID" | jq '.data'
 
 # Update: send only the fields you are changing
@@ -62,15 +61,15 @@ without deleting, use `archive` then `restore`.
 
 | Method | Path | Tool | Notes |
 |---|---|---|---|
-| GET | `/projects` | `list_projects` | `search`, `status`, `category`, `tag`, `limit`, `offset` |
+| GET | `/projects` | `list_projects` | `q`, `status`, `category`, `tag`, `limit`, `cursor` |
 | POST | `/projects` | `create_project` | `name`*, `description`*, `filesystemType`, `githubConfig`, `tags` |
 | GET | `/projects/:id` | `get_project` | full project document |
-| PUT | `/projects/:id` | `update_project` | `name`, `description`, `status` |
+| PATCH | `/projects/:id` | `update_project` | `name`, `description`, `status` |
 | DELETE | `/projects/:id?volume=delete\|keep` | `delete_project` | `volume`* : delete or keep (as shared) the project volume |
 | POST | `/projects/:id/archive` | `archive_project` | restorable |
 | POST | `/projects/:id/restore` | `restore_project` | back to active |
 | GET | `/projects/:id/stats` | `get_project_stats` | usage, workspace counts, activity |
-| GET | `/projects/:id/activity` | `get_project_activity` | `limit`, `offset` |
+| GET | `/projects/:id/activity` | `get_project_activity` | `limit`, `cursor` |
 
 `*` = required.
 
@@ -93,7 +92,7 @@ at create time:
 
   `repoUrl` is SSH form, `branch` is the branch to check out, and `sshKeyId` is an
   SSH key **the user already registered** in their profile UI (list them with
-  `GET /users/me/github-ssh-keys`; there is no REST route to create one). Omit
+  `GET /me/github-ssh-keys`; there is no REST route to create one). Omit
   `githubConfig` entirely for the default `strongly` filesystem, which needs no
   key and is the right choice unless the user asks for a GitHub-backed project.
 
@@ -143,20 +142,20 @@ The owner is always included in the collaborator list. Add someone by email and
 role; the same list also feeds who can be assigned on the board (section 5).
 
 ```bash
-curl -s "${auth[@]}" "$BASE/projects/$PID/collaborators" | jq '.data'
+curl -s "${auth[@]}" "$BASE/projects/$PID/members" | jq '.data'
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"email":"dana@acme.com","role":"editor"}' "$BASE/projects/$PID/collaborators"
+  -d '{"email":"dana@acme.com","role":"editor"}' "$BASE/projects/$PID/members"
 curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"role":"viewer"}' "$BASE/projects/$PID/collaborators/<userId>"
-curl -s -X DELETE "${auth[@]}" "$BASE/projects/$PID/collaborators/<userId>"
+  -d '{"role":"viewer"}' "$BASE/projects/$PID/members/<userId>"
+curl -s -X DELETE "${auth[@]}" "$BASE/projects/$PID/members/<userId>"
 ```
 
 | Method | Path | Tool | Body |
 |---|---|---|---|
-| GET | `/projects/:id/collaborators` | `list_project_collaborators` | |
-| POST | `/projects/:id/collaborators` | `add_project_collaborator` | `email`*, `role`*, `userId` |
-| PUT | `/projects/:id/collaborators/:subId` | `update_project_collaborator_role` | `role`* |
-| DELETE | `/projects/:id/collaborators/:subId` | `remove_project_collaborator` | |
+| GET | `/projects/:id/members` | `list_project_members` | |
+| POST | `/projects/:id/members` | `add_project_member` | `email`*, `role`*, `userId` |
+| PATCH | `/projects/:projectId/members/:id` | `update_project_member` | `role`* |
+| DELETE | `/projects/:projectId/members/:id` | `remove_project_member` | |
 
 ---
 
@@ -186,14 +185,14 @@ CID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 # Update: PATCH only the fields you are changing (a real patch)
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"labelIds":["<lblId>"],"assigneeIds":["<userId>"],"dueDate":"2026-10-01T00:00:00Z"}' \
-  "$BASE/board-cards/$CID"
+  "$BASE/projects/-/board/cards/$CID"
 
 # Move to the END of a column (omit neighbours for that); archive; restore
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"toColumnId":"<colId>"}' "$BASE/board-cards/$CID/move"
-curl -s -X POST "${auth[@]}" "$BASE/board-cards/$CID/archive"
+  -d '{"toColumnId":"<colId>"}' "$BASE/projects/-/board/cards/$CID/move"
+curl -s -X POST "${auth[@]}" "$BASE/projects/-/board/cards/$CID/archive"
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"toColumnId":"<colId>"}' "$BASE/board-cards/$CID/restore"
+  -d '{"toColumnId":"<colId>"}' "$BASE/projects/-/board/cards/$CID/restore"
 ```
 
 - **Assignees** in `update_board_card` must be user ids with `assignable=true`
@@ -217,30 +216,30 @@ removes it from every card, archived ones included.
 
 ### Archive
 
-Archived cards are the board's full history, paged newest-first (25 per page,
-100 max), returning `{ cards, total, skip, limit, hasMore }`. Filter with
-`search`; page with `skip`/`limit`.
+Archived cards are the board's full history, a page at a time newest-first
+(`limit`, default 50, max 200; the next page is `cursor=<meta.nextCursor>`, and
+`meta.total` counts them all). Filter with `q`.
 
 ```bash
-curl -s "${auth[@]}" "$BASE/projects/$PID/board/archive?search=drift&skip=0&limit=25" | jq '.data'
+curl -s "${auth[@]}" "$BASE/projects/$PID/board/archived-cards?q=drift&limit=25" | jq '.data'
 ```
 
 | Method | Path | Tool | Body / query |
 |---|---|---|---|
 | GET | `/projects/:id/board` | `get_project_board` | |
-| GET | `/projects/:id/board/archive` | `list_board_archive` | `search`, `skip`, `limit` |
+| GET | `/projects/:id/board/archived-cards` | `list_archived_board_cards` | `q`, `limit`, `cursor` |
 | GET | `/projects/:id/board/members` | `list_board_members` | |
 | POST | `/projects/:id/board/columns` | `add_board_column` | `name`* |
 | POST | `/projects/:id/board/columns/reorder` | `reorder_board_columns` | `columnIds`* (all of them) |
-| PATCH | `/projects/:id/board/columns/:subId` | `rename_board_column` | `name`* |
-| DELETE | `/projects/:id/board/columns/:subId` | `remove_board_column` | archives cards inside |
+| PATCH | `/projects/:projectId/board/columns/:id` | `update_board_column` | `name`* |
+| DELETE | `/projects/:projectId/board/columns/:id` | `remove_board_column` | archives cards inside |
 | POST | `/projects/:id/board/labels` | `upsert_board_label` | `name`*, `color`*, `labelId` |
-| DELETE | `/projects/:id/board/labels/:subId` | `remove_board_label` | |
+| DELETE | `/projects/:projectId/board/labels/:id` | `remove_board_label` | |
 | POST | `/projects/:id/board/cards` | `create_board_card` | `columnId`*, `title`*, `description` |
-| PATCH | `/board-cards/:id` | `update_board_card` | `title`, `description`, `labelIds`, `assigneeIds`, `dueDate`, `dueComplete` |
-| POST | `/board-cards/:id/move` | `move_board_card` | `toColumnId`*, `prevCardId`, `nextCardId` |
-| POST | `/board-cards/:id/archive` | `archive_board_card` | |
-| POST | `/board-cards/:id/restore` | `restore_board_card` | `toColumnId`* |
+| PATCH | `/projects/-/board/cards/:id` | `update_board_card` | `title`, `description`, `labelIds`, `assigneeIds`, `dueDate`, `dueComplete` |
+| POST | `/projects/-/board/cards/:id/move` | `move_board_card` | `toColumnId`*, `prevCardId`, `nextCardId` |
+| POST | `/projects/-/board/cards/:id/archive` | `archive_board_card` | |
+| POST | `/projects/-/board/cards/:id/restore` | `restore_board_card` | `toColumnId`* |
 
 `*` = required.
 
@@ -259,5 +258,5 @@ curl -s "${auth[@]}" "$BASE/projects/$PID/board/archive?search=drift&skip=0&limi
 - [ ] `upsert_board_label` before putting a label on a card; colour from the fixed
       palette only.
 - [ ] Cards are archived, never deleted; tell the user "archived" and restore from
-      `list_board_archive`.
+      `list_archived_board_cards`.
 - [ ] `reorder_board_columns` needs the full column set; a partial list is rejected.

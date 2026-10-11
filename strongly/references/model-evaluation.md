@@ -18,7 +18,7 @@ reading what the model card shows.
 
 **Auth** follows `SKILL.md`; `$BASE` and `auth` as there. **Scopes:** routes
 under `/model-registry` need `model-registry:read` / `model-registry:write`;
-`/drift/predictions` needs `mlops:read` / `mlops:write`.
+`/mlops/models/:id/predictions` needs `mlops:read` / `mlops:write`.
 
 ---
 
@@ -59,7 +59,7 @@ attach the actual later:
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"input_data":{"tenure":12,"plan":"pro"},"entityId":"cust-4821"}' \
-  "$BASE/model-registry/models/$MODEL_ID/predict" | jq '.data | {prediction, predictionId, entityId}'
+  "$BASE/mlops/models/$MODEL_ID/predict" | jq '.data | {prediction, predictionId, entityId}'
 ```
 
 Send `"source": "test"` on a trial call to keep it out of production results
@@ -68,13 +68,13 @@ Send `"source": "test"` on a trial call to keep it out of production results
 **Read them**, a page at a time, each with its actual when one is recorded:
 
 ```bash
-curl -s "${auth[@]}" "$BASE/drift/predictions?modelId=$MODEL_ID&source=production&limit=50" | jq '.data'
+curl -s "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/predictions?source=production&limit=50" | jq '.data'
 ```
 
-Query: `source`, `startDate` / `endDate` (ISO 8601), `search` (prediction id,
+Query: `source`, `startDate` / `endDate` (ISO 8601), `q` (prediction id,
 entity id, error, or the prediction exactly), `sort` (`-timestamp` default,
 `latencyMs`, `modelVersion`, `success`, `confidence`), `limit` (max 200),
-`offset`.
+`cursor`.
 
 **Predictions made outside Strongly** (a copy of the model served elsewhere) can
 be logged so drift and performance include them. Classifiers must send
@@ -82,8 +82,8 @@ be logged so drift and performance include them. Classifiers must send
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' -d '{
-  "modelId":"'"$MODEL_ID"'","modelVersion":2,"entityId":"cust-42","prediction":"churn",
-  "probabilities":[0.18,0.82],"features":{"tenure":8,"plan":"pro"}}' "$BASE/drift/predictions"
+  "modelVersion":2,"entityId":"cust-42","prediction":"churn",
+  "probabilities":[0.18,0.82],"features":{"tenure":8,"plan":"pro"}}' "$BASE/mlops/models/$MODEL_ID/predictions"
 ```
 
 ---
@@ -101,7 +101,7 @@ Two monitoring settings per model, applied from its next prediction:
 
 ```bash
 curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"recordInputs":false}' "$BASE/model-registry/models/$MODEL_ID/monitoring"
+  -d '{"recordInputs":false}' "$BASE/mlops/models/$MODEL_ID/monitoring"
 ```
 
 Before switching Record inputs on for a model, ask the user whether its inputs
@@ -120,7 +120,7 @@ first. A second actual for the same key replaces the first.
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' -d '{"actuals":[
   {"predictionId":"<predictionId>","actual":"churn"},
   {"entityId":"cust-42","actual":"stayed","actualAt":"2026-09-20T00:00:00Z"}
-]}' "$BASE/model-registry/models/$MODEL_ID/actuals" | jq '.data'
+]}' "$BASE/mlops/models/$MODEL_ID/actuals" | jq '.data'
 # { recorded, replaced, rejected: [{ row, reason }], batchId }
 ```
 
@@ -133,12 +133,12 @@ is not a number. Report them; do not drop them silently.
 
 ```bash
 LINK=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"filename":"actuals.csv"}' "$BASE/model-registry/models/$MODEL_ID/actuals/upload-url")
+  -d '{"filename":"actuals.csv"}' "$BASE/mlops/models/$MODEL_ID/actuals/uploads")
 curl -s -X PUT -H "Content-Type: $(echo "$LINK" | jq -r .data.contentType)" \
   --data-binary @actuals.csv "$(echo "$LINK" | jq -r .data.uploadUrl)"
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"source":{"type":"upload","uploadId":"'"$(echo "$LINK" | jq -r .data.uploadId)"'","filename":"actuals.csv"}}' \
-  "$BASE/model-registry/models/$MODEL_ID/actuals/imports"
+  "$BASE/mlops/models/$MODEL_ID/actuals/imports"
 # or: -d '{"source":{"type":"volume","volumeId":"<volumeId>","path":"actuals.csv"}}'
 ```
 
@@ -147,8 +147,8 @@ rows read, recorded, replaced and refused), then read the refused rows with
 their line and reason:
 
 ```bash
-curl -s "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID/actuals/imports?limit=5" | jq '.data'
-curl -s "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID/actuals/imports/$IMPORT_ID/rejections" | jq '.data'
+curl -s "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/actuals/imports?limit=5" | jq '.data'
+curl -s "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/actuals/imports/$IMPORT_ID/rejections" | jq '.data'
 ```
 
 Actuals are what drift's prediction drift measures accuracy on, and what an A/B
@@ -156,14 +156,14 @@ test's predictions show as their outcome.
 
 | Method / path | Does | Scope |
 |---|---|---|
-| `POST /model-registry/models/:id/actuals` | Record actuals (`actuals: [{ predictionId or entityId, actual, actualAt? }]`) | `model-registry:write` |
-| `POST /model-registry/models/:id/actuals/upload-url` | Presigned link for a CSV of actuals (`filename`) | `model-registry:write` |
-| `POST /model-registry/models/:id/actuals/imports` | Import a CSV (`source`: upload or volume) | `model-registry:write` |
-| `GET /model-registry/models/:id/actuals/imports` | Imports, a page at a time | `model-registry:read` |
-| `GET /model-registry/models/:id/actuals/imports/:importId/rejections` | Refused rows with line and reason | `model-registry:read` |
-| `PUT /model-registry/models/:id/monitoring` | `recordInputs`, `labelWindowDays` | `model-registry:write` |
-| `GET /drift/predictions?modelId=` | Prediction records with their actuals, a page at a time | `mlops:read` |
-| `POST /drift/predictions` | Log a prediction made outside Strongly | `mlops:write` |
+| `POST /mlops/models/:id/actuals` | Record actuals (`actuals: [{ predictionId or entityId, actual, actualAt? }]`) | `model-registry:write` |
+| `POST /mlops/models/:id/actuals/uploads` | Presigned link for a CSV of actuals (`filename`) | `model-registry:write` |
+| `POST /mlops/models/:id/actuals/imports` | Import a CSV (`source`: upload or volume) | `model-registry:write` |
+| `GET /mlops/models/:id/actuals/imports` | Imports, a page at a time | `model-registry:read` |
+| `GET /mlops/models/:modelId/actuals/imports/:id/rejections` | Refused rows with line and reason | `model-registry:read` |
+| `PATCH /mlops/models/:id/monitoring` | `recordInputs`, `labelWindowDays` | `model-registry:write` |
+| `GET /mlops/models/:id/predictions` | Prediction records with their actuals, a page at a time | `mlops:read` |
+| `POST /mlops/models/:id/predictions` | Log a prediction made outside Strongly | `mlops:write` |
 
 ---
 
@@ -171,7 +171,7 @@ test's predictions show as their outcome.
 
 The model card is the model's page in the model registry: its Overview,
 Metrics, Versions, Monitoring (predictions, actuals, baselines and drift) and
-Features. Through the API, `GET /model-registry/models/:id` returns the same
+Features. Through the API, `GET /mlops/models/:id` returns the same
 card:
 
 - name, framework, algorithm, `training.problemType`, `schema` and `features`,
@@ -181,7 +181,7 @@ card:
   `sampleSize`, `calculatedAt`) and `latestAnalysis` (the latest drift run and
   why it failed, when it did).
 
-Change the card's descriptive fields with `PUT /model-registry/models/:id`
+Change the card's descriptive fields with `PATCH /mlops/models/:id`
 (`name`, `description`, `algorithm`, `tags`, `schema`, `features`, `dataset`,
 `metrics`, `training`); monitoring settings are section 3.
 

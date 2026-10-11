@@ -28,21 +28,20 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # outside Strong
 
 Every read needs the **`memory:read`** scope; every write needs **`memory:write`**
 (imprints ride the same scopes as the memory/skill bundle system). A missing scope
-returns `403`. Envelope is the standard `{ "success": true, "data": … }`; read
-`data`, surface `error.message` on failure.
+returns `403`. Responses use the standard envelope (see `SKILL.md`): `data` on success, lists page with `cursor` / `meta.nextCursor`, and a failure is problem details whose `detail` and `code` to surface.
 
 ## Endpoints
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
-| GET | `/imprints` | List imprints you can see, with per-primitive content counts | `memory:read` |
-| POST | `/imprints` | Create an imprint; returns its id | `memory:write` |
-| GET | `/imprints/:id` | Get one imprint with its contents (rows grouped by primitive) + counts | `memory:read` |
-| DELETE | `/imprints/:id` | Delete an imprint | `memory:write` |
-| POST | `/imprints/:id/items` | Add an existing library row to the imprint | `memory:write` |
-| DELETE | `/imprints/:id/items/:resourceType/:resourceId` | Remove a row from the imprint | `memory:write` |
-| POST | `/imprints/:id/install` | Install the imprint on an agent | `memory:write` |
-| DELETE | `/imprints/:id/install/:agentId` | Uninstall the imprint from an agent | `memory:write` |
+| GET | `/library/imprints` | List imprints you can see, with per-primitive content counts | `memory:read` |
+| POST | `/library/imprints` | Create an imprint; returns its id | `memory:write` |
+| GET | `/library/imprints/:id` | Get one imprint with its contents (rows grouped by primitive) + counts | `memory:read` |
+| DELETE | `/library/imprints/:id` | Delete an imprint | `memory:write` |
+| POST | `/library/imprints/:id/items` | Add an existing library row to the imprint | `memory:write` |
+| DELETE | `/library/imprints/:imprintId/items/:resourceType/:resourceId` | Remove a row from the imprint | `memory:write` |
+| POST | `/agents/:id/imprints` | Install the imprint on an agent | `memory:write` |
+| DELETE | `/agents/:agentId/imprints/:id` | Uninstall the imprint from an agent | `memory:write` |
 
 ---
 
@@ -52,7 +51,7 @@ Find an imprint to install, or check what already exists before building a new o
 Each row carries content counts so you can see how much a bundle holds.
 
 ```bash
-curl -s "${auth[@]}" "$BASE/imprints" | jq '.data'
+curl -s "${auth[@]}" "$BASE/library/imprints" | jq '.data'
 ```
 
 ---
@@ -63,7 +62,7 @@ Give it a name and a one-line description of what an agent learns from it. The
 response returns the new id as both `_id` and `imprintId`.
 
 ```bash
-IMPRINT_ID=$(curl -s -X POST "${auth[@]}" "$BASE/imprints" -H 'Content-Type: application/json' \
+IMPRINT_ID=$(curl -s -X POST "${auth[@]}" "$BASE/library/imprints" -H 'Content-Type: application/json' \
   -d '{"name":"Helicopter Piloting","description":"What an agent needs to fly a helicopter"}' \
   | jq -r '.data.imprintId')
 ```
@@ -77,7 +76,7 @@ field; a create without it returns `400`.
 
 There are two ways to put a primitive into an imprint:
 
-1. **Attach an existing row** with `POST /imprints/:id/items`. This adds a row you
+1. **Attach an existing row** with `POST /library/imprints/:id/items`. This adds a row you
    already created (skill, memory, rule, prompt, task, preference) to the imprint
    **without disturbing its other memberships**, and it is **idempotent** (adding
    the same row twice is a no-op).
@@ -88,10 +87,10 @@ There are two ways to put a primitive into an imprint:
 Attach an existing skill and an existing memory to the imprint:
 
 ```bash
-curl -s -X POST "${auth[@]}" "$BASE/imprints/$IMPRINT_ID/items" -H 'Content-Type: application/json' \
+curl -s -X POST "${auth[@]}" "$BASE/library/imprints/$IMPRINT_ID/items" -H 'Content-Type: application/json' \
   -d '{"resourceType":"skills","resourceId":"<skillId>"}' | jq '.data'
 
-curl -s -X POST "${auth[@]}" "$BASE/imprints/$IMPRINT_ID/items" -H 'Content-Type: application/json' \
+curl -s -X POST "${auth[@]}" "$BASE/library/imprints/$IMPRINT_ID/items" -H 'Content-Type: application/json' \
   -d '{"resourceType":"memory","resourceId":"<memoryId>"}' | jq '.data'
 ```
 
@@ -100,7 +99,7 @@ preferences`; `resourceId` is the id of the row to add. Both are required. Remov
 row from the bundle (it stays in your Library, only its membership is dropped):
 
 ```bash
-curl -s -X DELETE "${auth[@]}" "$BASE/imprints/$IMPRINT_ID/items/skills/<skillId>"
+curl -s -X DELETE "${auth[@]}" "$BASE/library/imprints/$IMPRINT_ID/items/skills/<skillId>"
 ```
 
 ---
@@ -111,7 +110,7 @@ Get the imprint plus everything it bundles, grouped by primitive type, with usag
 counts. Use this to confirm a bundle is complete before installing it.
 
 ```bash
-curl -s "${auth[@]}" "$BASE/imprints/$IMPRINT_ID" | jq '.data.contents'
+curl -s "${auth[@]}" "$BASE/library/imprints/$IMPRINT_ID" | jq '.data.contents'
 ```
 
 Each item is `{ _id, label }`: a memory's content, a rule's description, a task's description, an artifact's title, a skill's or prompt's name, a preference's key.
@@ -123,27 +122,28 @@ An unknown id returns `404 not-found`.
 ## 5. Install an imprint on an agent
 
 Installing subscribes an agent to the imprint's recall: from then on the agent
-recalls the bundle's skills and memories as its own. Pass the agent's id (its
-workflow id, see `references/agents.md`). **Restart the agent to apply.**
+recalls the bundle's skills and memories as its own. The agent's id (its
+workflow id, see `references/agents.md`) is in the path, the imprint's in the
+body. **Restart the agent to apply.**
 
 ```bash
-curl -s -X POST "${auth[@]}" "$BASE/imprints/$IMPRINT_ID/install" -H 'Content-Type: application/json' \
-  -d '{"agentId":"<agentId>"}' | jq '.data'
+curl -s -X POST "${auth[@]}" "$BASE/agents/$AGENT_ID/imprints" -H 'Content-Type: application/json' \
+  -d '{"imprintId":"'"$IMPRINT_ID"'"}' | jq '.data'
 ```
 
-`agentId` is required; an unknown agent returns `404 not-found`. Uninstall to
+`imprintId` is required; an unknown agent or imprint returns `404 not-found`. Uninstall to
 detach the bundle from that agent again:
 
 ```bash
-curl -s -X DELETE "${auth[@]}" "$BASE/imprints/$IMPRINT_ID/install/<agentId>"
+curl -s -X DELETE "${auth[@]}" "$BASE/agents/$AGENT_ID/imprints/$IMPRINT_ID"
 ```
 
 ---
 
 ## Checklist
 - [ ] Right scope on the key: `memory:read` to list/get, `memory:write` to create/fill/install.
-- [ ] Reuse before you build: `GET /imprints` to see if a bundle already covers the capability.
-- [ ] Fill by attaching existing rows (`POST /:id/items`, idempotent) or by setting the imprint id in a primitive's `linkedIds` at creation time.
-- [ ] `GET /imprints/:id` and check `data.contents` before installing, so you install a complete bundle.
+- [ ] Reuse before you build: `GET /library/imprints` to see if a bundle already covers the capability.
+- [ ] Fill by attaching existing rows (`POST /library/imprints/:id/items`, idempotent) or by setting the imprint id in a primitive's `linkedIds` at creation time.
+- [ ] `GET /library/imprints/:id` and check `data.contents` before installing, so you install a complete bundle.
 - [ ] After `install`, restart the agent so it picks up the imprint's recall.
 - [ ] The primitives inside an imprint (memory, rules, skills, …) and pool mechanics live in `references/library.md`; the agent side lives in `references/agents.md`.

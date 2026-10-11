@@ -30,31 +30,32 @@ admin or org-owner role; those are called out below and never assumed.
 
 ## 1. Your account (current user)
 
-The self-serve endpoints act only on the authenticated caller. `GET /users`,
-`GET /users/me` and `GET /users/:id` answer each user as exactly `username`,
-`email` and `role` (`admin`, `developer`, `app`, or `null`), with no id or
-organization. Read your organization context (`organization.id`, `role`,
-`isMultiTenant`, `isSolo`) from `GET /auth/whoami`: that is the org id used in
-sections 2 and 3. A member's user id is in `GET /organizations/:id/members`.
+The self-serve endpoints act only on the authenticated caller. `GET /users`
+and `GET /users/:id` answer each user as exactly `username`, `email` and `role`
+(`admin`, `developer`, `app`, or `null`). `GET /me` answers you: your `_id`,
+`username`, `email` and `role`, your `organization` (`_id`, `role`,
+`isMultiTenant`, `isSolo`: that is the org id used in sections 2 and 3) and the
+`apiKey` the call used (its `_id`, `name`, `keyPrefix`, `scopes`, `expiresAt`).
+A member's user id is in `GET /organizations/:id/members`.
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
-| GET | `/users/me` | You: `username`, `email`, `role` | `users:read` |
-| PUT | `/users/me` | Update your own profile (`name`) | `users:write` |
-| DELETE | `/users/me` | Delete your own account: revokes your API keys and login tokens, schedules data erasure | `users:write` |
-| GET | `/users` | List users visible within your organization, each `username`, `email`, `role` (`search`, `active`, `archived`, `limit`, `offset`, `sortBy`, `sortOrder`) | `users:read` |
+| GET | `/me` | You: `_id`, `username`, `email`, `role`, `organization`, `apiKey` | (any key) |
+| PATCH | `/me` | Update your own profile (`name`) | `users:write` |
+| DELETE | `/me` | Delete your own account: revokes your API keys and login tokens, schedules data erasure | `users:write` |
+| GET | `/users` | List users visible within your organization, each `username`, `email`, `role` (`q`, `active`, `archived`, `limit`, `cursor`, `sort`) | `users:read` |
 | GET | `/users/:id` | Another user in your organization: `username`, `email`, `role` (visibility-filtered) | `users:read` |
 
 ```bash
 # Capture your org id for later sections
-ORG_ID=$(curl -s "${auth[@]}" "$BASE/auth/whoami" | jq -r '.data.organization.id')
+ORG_ID=$(curl -s "${auth[@]}" "$BASE/me" | jq -r '.data.organization._id')
 
 # Update your display name
-curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"name":"Ada Lovelace"}' "$BASE/users/me" | jq '.data'
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"name":"Ada Lovelace"}' "$BASE/me" | jq '.data'
 ```
 
-`DELETE /users/me` is irreversible and locks you out immediately; it only ever
+`DELETE /me` is irreversible and locks you out immediately; it only ever
 targets the caller (there is no id or body), so it can never delete anyone else.
 
 **Admin-only user management** (needs the `users:admin` scope and an admin role;
@@ -63,7 +64,7 @@ these act on *other* users, not yourself):
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
 | POST | `/users` | Create a user (`email`, `name`, `role`) | `users:admin` |
-| PUT | `/users/:id` | Update another user | `users:admin` |
+| PATCH | `/users/:id` | Update another user | `users:admin` |
 | GET | `/users/:id/assets` | Summarize resources a user owns (impact check before archiving) | `users:admin` |
 | POST | `/users/:id/archive` | Archive a user, with `assetAction` (`transfer`, `transfer-to-admin`, `delete`, `leave-as-is`) and `transferToUserId` | `users:admin` |
 | POST | `/users/:id/unarchive` | Reactivate an archived user | `users:admin` |
@@ -80,16 +81,16 @@ changing a member's role, and inviting or cancelling invitations all require
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
-| GET | `/organizations` | List organizations you belong to (`status`, `limit`, `offset`); platform admins receive all | `organizations:read` |
+| GET | `/organizations` | List organizations you belong to (`status`, `limit`, `cursor`); platform admins receive all | `organizations:read` |
 | GET | `/organizations/:id` | Get one organization | `organizations:read` |
-| PUT | `/organizations/:id` | Update the organization (owner/admin) | `organizations:write` |
+| PATCH | `/organizations/:id` | Update the organization (owner/admin) | `organizations:write` |
 | GET | `/organizations/:id/members` | List members, enriched with names and emails | `organizations:read` |
 | POST | `/organizations/:id/members` | Add an existing user (`userId`, optional `role`, default `member`) (owner/admin) | `organizations:write` |
-| PUT | `/organizations/:id/members/:subId` | Change a member's `role` (owner/admin) | `organizations:write` |
-| DELETE | `/organizations/:id/members/:subId` | Remove a member (owner/admin) | `organizations:write` |
-| POST | `/organizations/:id/invite` | Invite by `email` + `role` (owner/admin) | `organizations:write` |
+| PATCH | `/organizations/:organizationId/members/:id` | Change a member's `role` (owner/admin) | `organizations:write` |
+| DELETE | `/organizations/:organizationId/members/:id` | Remove a member (owner/admin) | `organizations:write` |
+| POST | `/organizations/:id/invitations` | Invite by `email` + `role` (owner/admin) | `organizations:write` |
 | GET | `/organizations/:id/invitations` | List pending invitations | `organizations:read` |
-| DELETE | `/organizations/:id/invitations/:subId` | Cancel a pending invitation (owner/admin) | `organizations:write` |
+| DELETE | `/organizations/:organizationId/invitations/:id` | Cancel a pending invitation (owner/admin) | `organizations:write` |
 
 ```bash
 # Who is in my org
@@ -98,7 +99,7 @@ curl -s "${auth[@]}" "$BASE/organizations/$ORG_ID/members" | jq '.data'
 # Invite a teammate (owner/admin)
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"email":"teammate@example.com","role":"member"}' \
-  "$BASE/organizations/$ORG_ID/invite" | jq '.data'
+  "$BASE/organizations/$ORG_ID/invitations" | jq '.data'
 ```
 
 Member ids and invitation ids come from the `members` and `invitations` list
@@ -131,26 +132,26 @@ push device mutates your user record, so it needs a write scope.
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
-| GET | `/notifications` | List your notifications (`unreadOnly`, `limit`, `offset`) | `notifications:read` |
-| GET | `/notifications/unread-count` | Count of your unread notifications | `notifications:read` |
-| POST | `/notifications/read-all` | Mark all your notifications read | `notifications:read` |
-| POST | `/notifications/:id/read` | Mark one notification read (yours only) | `notifications:read` |
-| DELETE | `/notifications/:id` | Delete one notification (yours only) | `notifications:read` |
-| POST | `/notifications/devices` | Register an APNs/device push token (`token`, optional `platform`, default `ios`) | `notifications:write` |
+| GET | `/me/notifications` | List your notifications (`unreadOnly`, `limit`, `cursor`) | `notifications:read` |
+| GET | `/me/notifications/unread-count` | Count of your unread notifications | `notifications:read` |
+| POST | `/me/notifications/mark-all-read` | Mark all your notifications read | `notifications:read` |
+| POST | `/me/notifications/:id/read` | Mark one notification read (yours only) | `notifications:read` |
+| DELETE | `/me/notifications/:id` | Delete one notification (yours only) | `notifications:read` |
+| POST | `/me/push-devices` | Register an APNs/device push token (`token`, optional `platform`, default `ios`) | `notifications:write` |
 
 ```bash
 # Unread inbox and count
-curl -s "${auth[@]}" "$BASE/notifications?unreadOnly=true" | jq '.data'
-curl -s "${auth[@]}" "$BASE/notifications/unread-count" | jq '.data.count'
+curl -s "${auth[@]}" "$BASE/me/notifications?unreadOnly=true" | jq '.data'
+curl -s "${auth[@]}" "$BASE/me/notifications/unread-count" | jq '.data.count'
 
 # Mark all read, then clear one
-curl -s -X POST "${auth[@]}" "$BASE/notifications/read-all" | jq '.data'
-curl -s -X DELETE "${auth[@]}" "$BASE/notifications/$NOTIF_ID" | jq '.data'
+curl -s -X POST "${auth[@]}" "$BASE/me/notifications/mark-all-read" | jq '.data'
+curl -s -X DELETE "${auth[@]}" "$BASE/me/notifications/$NOTIF_ID" | jq '.data'
 
 # Register a mobile push token (from the mobile app after the user grants push)
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"token":"<apns-hex-token>","platform":"ios"}' \
-  "$BASE/notifications/devices" | jq '.data'
+  "$BASE/me/push-devices" | jq '.data'
 ```
 
 The push token is deduped by value on your user record, so re-registering the
@@ -160,8 +161,8 @@ same token is safe and just refreshes its timestamp.
 
 ## Checklist
 - [ ] Auth set per `SKILL.md` (outside Strongly: `X-API-Key`; inside: injected bearer), `$BASE` chosen to match.
-- [ ] Read your org with `GET /auth/whoami` first; take `organization.id` from it for the org, credit, and transaction calls.
-- [ ] Self-serve on your own record: `GET`/`PUT` `/users/me`, and `DELETE /users/me` (irreversible, caller-only).
+- [ ] Read yourself with `GET /me` first; take `organization._id` from it for the org, credit, and transaction calls.
+- [ ] Self-serve on your own record: `GET`/`PATCH` `/me`, and `DELETE /me` (irreversible, caller-only).
 - [ ] Treat user create/update/archive/unarchive/reset-password as `users:admin`, acting on other users only.
 - [ ] Treat org update, member add/remove/role, and invite/cancel as `organizations:write` and org owner/admin.
 - [ ] Credits and transactions are read-only at the organization level and shared across members.

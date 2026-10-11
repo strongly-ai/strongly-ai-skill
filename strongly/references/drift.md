@@ -19,7 +19,7 @@ classification and multiclass, mean absolute error (`mae`, lower is better)
 for regression, and the reviewers' mean verdict (`review_score`; an actual is
 `true`/`false` or a 0 to 1 score on the prediction) for multilabel, timeseries
 and other. Set it
-with `PUT /model-registry/models/:id` `{"problemType":"classification"}` (only
+with `PATCH /mlops/models/:id` `{"problemType":"classification"}` (only
 the task changes; the rest of the training record stays), or in the UI under
 **Task** in the model's Monitoring settings.
 
@@ -58,7 +58,7 @@ volume the caller can read.
 ```bash
 # a) Upload: get a link, PUT the file, then build from the uploadId
 LINK=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"filename":"reference.csv"}' "$BASE/model-registry/models/$MODEL_ID/baselines/upload-url")
+  -d '{"filename":"reference.csv"}' "$BASE/mlops/models/$MODEL_ID/baselines/uploads")
 curl -s -X PUT -H "Content-Type: $(echo "$LINK" | jq -r .data.contentType)" \
   --data-binary @reference.csv "$(echo "$LINK" | jq -r .data.uploadUrl)"
 SOURCE='{"type":"upload","uploadId":"'"$(echo "$LINK" | jq -r .data.uploadId)"'","filename":"reference.csv"}'
@@ -69,7 +69,7 @@ SOURCE='{"type":"volume","volumeId":"<volumeId>","path":"train.csv"}'
 # Build (version defaults to the active version; analyzeDaily defaults to false)
 JOB=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"source":'"$SOURCE"',"version":2,"analyzeDaily":true}' \
-  "$BASE/model-registry/models/$MODEL_ID/baselines" | jq -r '.data._id')
+  "$BASE/mlops/models/$MODEL_ID/baselines" | jq -r '.data._id')
 ```
 
 What happens when the job completes:
@@ -87,7 +87,7 @@ What happens when the job completes:
 Poll the job (a page of the model's baseline jobs, newest first):
 
 ```bash
-curl -s "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID/baselines/jobs?limit=5" \
+curl -s "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/baselines/jobs?limit=5" \
   | jq '.data[] | {_id, status, modelVersion, sampleSize, baselineId, driftJobId,
                    driftWaiting, driftError, driftScheduleError, errorMessage}'
 ```
@@ -107,12 +107,12 @@ trainer's reference rows.
 
 | Method / path | Does | Scope |
 |---|---|---|
-| `POST /model-registry/models/:id/baselines/upload-url` | Presigned link for the reference CSV (`filename`) -> `{ uploadId, uploadUrl, contentType }` | `model-registry:write` |
-| `POST /model-registry/models/:id/baselines` | Build a baseline (`source`, `version?`, `analyzeDaily?`) -> the job | `model-registry:write` |
-| `GET /model-registry/models/:id/baselines/jobs` | The model's baseline jobs, a page at a time | `model-registry:read` |
-| `PUT /model-registry/models/:id/baselines/:baselineId/activate` | Make an earlier baseline its version's active one again | `model-registry:write` |
-| `GET /drift/baselines?modelId=` | The model's baselines, a page at a time (version, rows, evaluationKind and baselinePerformance, file, active) | `mlops:read` |
-| `GET /drift/baselines/active?modelId=` | The active version's active baseline | `mlops:read` |
+| `POST /mlops/models/:id/baselines/uploads` | Presigned link for the reference CSV (`filename`) -> `{ uploadId, uploadUrl, contentType }` | `model-registry:write` |
+| `POST /mlops/models/:id/baselines` | Build a baseline (`source`, `version?`, `analyzeDaily?`) -> the job | `model-registry:write` |
+| `GET /mlops/models/:id/baselines/jobs` | The model's baseline jobs, a page at a time | `model-registry:read` |
+| `POST /mlops/models/:modelId/baselines/:id/activate` | Make an earlier baseline its version's active one again | `model-registry:write` |
+| `GET /mlops/models/:id/baselines` | The model's baselines, a page at a time (version, rows, evaluationKind and baselinePerformance, file, active) | `mlops:read` |
+| `GET /mlops/models/:id/baselines/active` | The active version's active baseline | `mlops:read` |
 
 ---
 
@@ -124,23 +124,23 @@ version's active baseline. It runs as a job: the call returns at once.
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"modelId":"'"$MODEL_ID"'","windowDays":7}' "$BASE/drift/analyze" | jq '.data'
+  -d '{"windowDays":7}' "$BASE/mlops/models/$MODEL_ID/drift-analyses" | jq '.data'
 # { jobId, status }
 ```
 
 A version without a baseline is refused (`400`, "has no baseline. Build one ...").
 
 **Progress lives on the model.** `latestAnalysis` on `GET
-/model-registry/models/:id` (and on each row of `GET /drift/models`) is the
+/mlops/models/:id` (and on each row of `GET /mlops/drift`) is the
 latest run, whoever started it:
 
 ```bash
-curl -s "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID" | jq '.data.latestAnalysis'
+curl -s "${auth[@]}" "$BASE/mlops/models/$MODEL_ID" | jq '.data.latestAnalysis'
 # { jobId, status: pending|deploying|running|completed|failed,
 #   triggeredBy: manual|scheduler|baseline, statusMessage, error, startedAt, finishedAt }
 ```
 
-`GET /drift/analyze/:jobId/status?modelId=` returns one run by its `jobId`.
+`GET /mlops/models/:modelId/drift-analyses/:id` returns one run by its `jobId` (the `:id`).
 Poll until `completed` or `failed`. A **failed** run produced no result, and
 `error` says why. Relay it to the user instead of reporting "no drift". The
 common reasons:
@@ -157,7 +157,7 @@ common reasons:
 ## 3. Read the result
 
 ```bash
-curl -s "${auth[@]}" "$BASE/drift/results/latest?modelId=$MODEL_ID" | jq '.data'
+curl -s "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/drift-results/latest" | jq '.data'
 ```
 
 The result (kept 15 days; its summary stays on the model as `latestDrift`):
@@ -190,13 +190,13 @@ The result (kept 15 days; its summary stays on the model as `latestDrift`):
 page at a time from the result, most drifted first by default:
 
 ```bash
-RID=$(curl -s "${auth[@]}" "$BASE/drift/results/latest?modelId=$MODEL_ID" | jq -r '.data._id')
-curl -s "${auth[@]}" "$BASE/drift/results/$RID/features?modelId=$MODEL_ID&rows=features&limit=25" | jq '.data'
+RID=$(curl -s "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/drift-results/latest" | jq -r '.data._id')
+curl -s "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/drift-results/$RID/features?rows=features&limit=25" | jq '.data'
 ```
 
 Query: `rows` (`features`, or `dataset` for the dataset-level rows; omit for
-both), `search` (feature name), `sort` (`severity`, `score`, `featureName`,
-`order`), `limit`, `offset`. Each row:
+both), `q` (feature name), `sort` (`severity`, `score`, `featureName`,
+`order`), `limit`, `cursor`. Each row:
 
 - **`featureName`**: a feature, or `[multivariate] <algorithm>` /
   `[performance] cbpe` for a row about the whole dataset. **`category`** is
@@ -212,12 +212,12 @@ both), `search` (feature name), `sort` (`severity`, `score`, `featureName`,
 
 | Method / path | Does | Scope |
 |---|---|---|
-| `POST /drift/analyze` | Start an analysis (`modelId`, `windowDays?` or `windowStart` + `windowEnd`) -> `{ jobId, status }` | `mlops:write` |
-| `GET /drift/analyze/:jobId/status?modelId=` | One run's status and error | `mlops:read` |
-| `GET /drift/results/latest?modelId=` | The latest result | `mlops:read` |
-| `GET /drift/results/:resultId/features?modelId=` | A result's rows, a page at a time (`rows`, `search`, `sort`, `limit`, `offset`) | `mlops:read` |
-| `GET /drift/results?modelId=` | Result history, a page at a time (`status`, `sort`) | `mlops:read` |
-| `GET /drift/models` | Every model you can see with `latestDrift` and `latestAnalysis` (`status`: `ok`, `warning`, `alert`, `error`, or `no-data` for never analyzed) | `mlops:read` |
+| `POST /mlops/models/:id/drift-analyses` | Start an analysis (`windowDays?` or `windowStart` + `windowEnd`) -> `{ jobId, status }` | `mlops:write` |
+| `GET /mlops/models/:modelId/drift-analyses/:id` | One run's status and error | `mlops:read` |
+| `GET /mlops/models/:id/drift-results/latest` | The latest result | `mlops:read` |
+| `GET /mlops/models/:modelId/drift-results/:id/features` | A result's rows, a page at a time (`rows`, `q`, `sort`, `limit`, `cursor`) | `mlops:read` |
+| `GET /mlops/models/:id/drift-results` | Result history, a page at a time (`status`, `sort`) | `mlops:read` |
+| `GET /mlops/drift` | Every model you can see with `latestDrift` and `latestAnalysis` (`status`: `ok`, `warning`, `alert`, `error`, or `no-data` for never analyzed) | `mlops:read` |
 
 ---
 
@@ -226,13 +226,13 @@ both), `search` (feature name), `sort` (`severity`, `score`, `featureName`,
 One settings document per model, read and written in one place:
 
 ```bash
-curl -s "${auth[@]}" "$BASE/drift/alerts?modelId=$MODEL_ID" | jq '.data'
+curl -s "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/drift-settings" | jq '.data'
 
 # Analyze daily over the last 7 days; score windows with at least 50 predictions
-curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' -d '{
-  "modelId":"'"$MODEL_ID"'", "enabled": true, "minWindowSampleSize": 50,
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{
+  "enabled": true, "minWindowSampleSize": 50,
   "schedule": {"enabled": true, "frequency": "daily", "timeWindowDays": 7}
-}' "$BASE/drift/alerts"
+}' "$BASE/mlops/models/$MODEL_ID/drift-settings"
 ```
 
 Only the fields you send change. The fields:
@@ -268,17 +268,17 @@ schedule on for you.
 
 | Method / path | Does | Scope |
 |---|---|---|
-| `GET /drift/alerts?modelId=` | The model's drift settings | `mlops:read` |
-| `PUT /drift/alerts` | Change them (`modelId` plus the fields to change) | `mlops:write` |
+| `GET /mlops/models/:id/drift-settings` | The model's drift settings | `mlops:read` |
+| `PATCH /mlops/models/:id/drift-settings` | Change them (only the fields sent) | `mlops:write` |
 
 ---
 
 ## Checklist
 - [ ] Drift is for model registry models only; AI Gateway models have none.
 - [ ] Build a baseline per version (`POST .../baselines`) before analyzing; poll the baseline job and read `driftWaiting` / `driftError` / `driftScheduleError`.
-- [ ] Analyses are jobs: poll `latestAnalysis` (or `/drift/analyze/:jobId/status`) to `completed` or `failed`; a failed run's `error` is the answer, never "no drift".
+- [ ] Analyses are jobs: poll `latestAnalysis` (or `/mlops/models/:modelId/drift-analyses/:id`) to `completed` or `failed`; a failed run's `error` is the answer, never "no drift".
 - [ ] Only production predictions with recorded inputs count, and a window needs at least `minWindowSampleSize` of them.
 - [ ] `driftScore` is the mean PSI (a number, not a percentage), `null` without PSI; read `overallStatus` for the verdict.
-- [ ] Read feature detail from `/drift/results/:resultId/features` a page at a time; rows with `error` or metrics with `status: "error"` were not scored.
+- [ ] Read feature detail from `/mlops/models/:modelId/drift-results/:id/features` a page at a time; rows with `error` or metrics with `status: "error"` were not scored.
 - [ ] To alert someone on drift, set `notifications` (email recipients, Slack webhook); check a result's `notification` for what was actually sent.
 - [ ] The scheduler needs `enabled` and `schedule.enabled`; `analyzeDaily` on a baseline build turns the daily schedule on.

@@ -21,8 +21,7 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # outside Strong
 `$BASE` is whichever applies. Scopes used below: `workflows:read`,
 `workflows:write`, `workflows:execute`; streaming adds `streaming-workflows:read`,
 `streaming-workflows:deploy`, `streaming-sessions:read`, `streaming-sessions:write`.
-Responses use the standard envelope (`data` on success, `error.message` on
-failure). Ids are opaque strings: take them from a list or create response.
+Responses use the standard envelope (see `SKILL.md`): `data` on success, lists page with `cursor` / `meta.nextCursor`, and a failure is problem details whose `detail` and `code` to surface. Ids are opaque strings: take them from a list or create response.
 
 The happy path: **discover nodes -> build -> validate -> execute + poll to a real
 passing run -> deploy -> relay the invocation URL.** Never report a workflow ready
@@ -38,7 +37,7 @@ real `type` + `category`.
 ```bash
 # Search the catalog (natural-language search works: "http request" -> api,
 # "language model" -> llm, "loop over items" -> loop).
-curl -s "${auth[@]}" "$BASE/workflow-nodes?search=loop&limit=10" | jq '.data'
+curl -s "${auth[@]}" "$BASE/workflow-nodes?q=loop&limit=10" | jq '.data'
 
 # Filter by category or execution mode.
 curl -s "${auth[@]}" "$BASE/workflow-nodes?category=triggers" | jq '.data'
@@ -50,7 +49,7 @@ curl -s "${auth[@]}" "$BASE/workflow-nodes/postgresql/schema?category=destinatio
 ```
 
 **Search the catalog before writing code.** For every step you would otherwise
-put in a `code` node, search `/workflow-nodes?search=` for what the step DOES
+put in a `code` node, search `/workflow-nodes?q=` for what the step DOES
 (not "code"), in at least two phrasings ("parse JSON string" / "convert JSON
 text to object"; "group and sum" / "aggregate by key"; "look up a value" /
 "join two datasets"; "compare records"; "split text into chunks"; "parse CSV /
@@ -69,14 +68,14 @@ Wire real connections, not invented ones. List what the user actually has:
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/workflow-nodes` | List/search node types (`search`, `category`, `type`, `workflowType`, `active`, `isSystem`, `limit`, `offset`) |
-| GET | `/workflow-nodes/:type/schema` | Full config schema + I/O for a type (`?category` to disambiguate) |
+| GET | `/workflow-nodes` | List/search node types (`q`, `category`, `type`, `workflowType`, `active`, `isSystem`, `limit`, `cursor`) |
+| GET | `/workflow-nodes/:id/schema` | Full config schema + I/O for a type (`?category` to disambiguate) |
 | GET | `/workflow-nodes/:id` | One node type by id |
 | GET | `/workflow-nodes/suggest-mappings` | Compare two types: source output fields, target input fields, suggested mappings (`sourceType`, `targetType`, optional categories) |
-| GET | `/workflow-nodes/services/datasources` | Connected data sources usable as nodes |
+| GET | `/workflow-nodes/services/data-sources` | Connected data sources usable as nodes |
 | GET | `/workflow-nodes/services/addons` | Connected addons usable as nodes |
 | GET | `/workflow-nodes/services/models` | AI models the gateway will serve (ranked) |
-| GET | `/workflow-nodes/services/datasource-fields/:type` | Credential fields a datasource type needs |
+| GET | `/workflow-nodes/services/data-source-fields/:id` | Credential fields a datasource type needs |
 | POST · PUT · DELETE | `/workflow-nodes` · `/workflow-nodes/:id` | Register/update/delete a REUSABLE custom node type. For one-off logic inside a single workflow that no catalog node does, use the built-in `code` node instead. |
 | POST | `/workflow-nodes/:id/duplicate` | Copy an existing node type into a new editable custom node ("copy & edit"), then edit it with `PUT` |
 
@@ -112,7 +111,7 @@ a bad argument fails the node. In `runOnceForEachItem` each item's calls count.
 empty workflow and adding nodes one at a time.
 
 Every save, draft run and deploy pins each node to the latest published
-version of its catalog node. `PUT /workflows/:id` returns
+version of its catalog node. `PATCH /workflows/:id` returns
 `inputsNoLongerDeclared`: mappings to inputs a node's newer version dropped,
 which now feed nothing; remap them.
 
@@ -223,30 +222,32 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/workflows` | Create (only `name` required; `description`, `status`, `workflowType`, `nodes`, `connections`, `tags`, `settings`) |
-| GET | `/workflows` | List (`search`, `status`, `tag`, `limit`, `offset`); summaries only, no graph; templates are not listed |
+| GET | `/workflows` | List (`q`, `status`, `tag`, `limit`, `cursor`); summaries only, no graph; templates are not listed |
 | GET | `/workflows/stats` | Workflow counts by status (total / active / paused / draft / archived), templates not counted |
 | GET | `/workflows/:id` | Full detail including all nodes and connections |
-| PUT | `/workflows/:id` | Partial update (`name`, `description`, `status`, `tags`, `settings`, `deploymentEnvironmentId`) |
+| PATCH | `/workflows/:id` | Partial update (`name`, `description`, `status`, `tags`, `settings`, `deploymentEnvironmentId`) |
 | DELETE | `/workflows/:id` | Delete (409 if deployed or running: undeploy and stop first) |
 | POST | `/workflows/:id/duplicate` | Copy the workflow |
 | POST | `/workflows/:id/nodes` | Add one node (`nodeType` required; `label`, `config`, `position`) |
 | GET | `/workflows/:id/nodes` | List nodes with inbound/outbound connection counts |
-| PUT | `/workflows/:id/nodes/:nodeId` | Set a node's `config` / `label` |
-| DELETE | `/workflows/:id/nodes/:nodeId` | Remove a node and its connections |
-| PUT | `/workflows/:id/nodes/:nodeId/input-mappings` | Set `inputMappings` (`{ targetField: "data.sourceField" }`) |
-| PUT | `/workflows/:id/nodes/:nodeId/passthrough-values` | Set `passThroughValues` (`values`: `{outputKey: "inputName"}`, saved to `node.config`): copies the node's input `inputName` (one of its `inputMappings` keys, so map it first) into its output as `data.<outputKey>` |
+| PATCH | `/workflows/:workflowId/nodes/:id` | Set a node's `config` / `label` |
+| DELETE | `/workflows/:workflowId/nodes/:id` | Remove a node and its connections |
+| PUT | `/workflows/:workflowId/nodes/:id/input-mappings` | Set `inputMappings` (`{ targetField: "data.sourceField" }`) |
+| PUT | `/workflows/:workflowId/nodes/:id/passthrough-values` | Set `passThroughValues` (`values`: `{outputKey: "inputName"}`, saved to `node.config`): copies the node's input `inputName` (one of its `inputMappings` keys, so map it first) into its output as `data.<outputKey>` |
 | POST | `/workflows/:id/connections` | Connect nodes (`sourceNodeId`, `targetNodeId`, `sourcePort`, `targetPort`; agent nodes use `targetPort` `"ai"` or `"tools"`; streaming feedback edges pair `feedback` with `maxIterations`) |
-| DELETE | `/workflows/:id/connections/:connectionId` | Remove a connection (use a REAL id from `GET /workflows/:id`; never invent one) |
-| POST | `/workflows/:id/layout` | Auto-arrange nodes left-to-right |
+| DELETE | `/workflows/:workflowId/connections/:id` | Remove a connection (use a REAL id from `GET /workflows/:id`; never invent one) |
+| POST | `/workflows/:id/arrange` | Auto-arrange nodes left-to-right |
 
 Templates (including the platform's public `scaffold` starters) are listed only by
 `GET /workflows/templates`; `POST /workflows/from-template`
 (`templateId`), `POST /workflows/:id/save-as-template`. Sharing:
-`GET·POST /workflows/:id/share`, `DELETE /workflows/:id/share/:userId`.
+`GET·PATCH /workflows/:id/permissions` (owner, members, `visibility`),
+`POST /workflows/:id/permissions/members` `{ userId, role }`,
+`DELETE /workflows/:workflowId/permissions/members/:userId`.
 Versions: `GET·POST /workflows/:id/versions` (a commit takes a `message`; the
-platform assigns the integer `versionNumber`), `GET /workflows/:id/versions/:versionId`
+platform assigns the integer `versionNumber`), `GET /workflows/:workflowId/versions/:id`
 (one version plus its full `.strongly.json` definition), and
-`POST /workflows/:id/deploy-version` (`versionId`) to roll back or promote a saved
+`POST /workflows/:workflowId/versions/:id/deploy` to roll back or promote a saved
 version as the live deployment (202; poll status).
 
 ---
@@ -258,13 +259,13 @@ deploy would fail.
 
 ```bash
 curl -s -X POST "${auth[@]}" "$BASE/workflows/$WID/validate"          | jq '.data'  # control-flow / loop wiring
-curl -s -X POST "${auth[@]}" "$BASE/workflows/$WID/validate-structure" | jq '.data'  # broken/disconnected/missing-trigger
+curl -s -X POST "${auth[@]}" "$BASE/workflows/$WID/structure-check" | jq '.data'  # broken/disconnected/missing-trigger
 ```
 
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/workflows/:id/validate` | Control-flow and loop wiring; returns errors with messages, suggestions, machine-readable fixes |
-| POST | `/workflows/:id/validate-structure` | Structural checks: broken connections, disconnected nodes, missing trigger, unconfigured service nodes |
+| GET | `/workflows/:id/structure-check` | Structural checks: broken connections, disconnected nodes, missing trigger, unconfigured service nodes |
 
 ---
 
@@ -283,7 +284,7 @@ EID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 
 # Poll to terminal. get_execution_status SETTLES: it waits up to ~9s and on
 # completion returns the per-node outputs preview + a nextAction hint.
-curl -s "${auth[@]}" "$BASE/executions/$EID/progress" | jq '.data'
+curl -s "${auth[@]}" "$BASE/workflows/-/executions/$EID/progress" | jq '.data'
 # -> repeat while .status is "pending" or "running"; it ends completed |
 #    completed_with_gaps | partial_success | failed | stopped | cancelled.
 #    A node that failed under continueOnError, or a loop/map whose items partly
@@ -291,22 +292,22 @@ curl -s "${auth[@]}" "$BASE/executions/$EID/progress" | jq '.data'
 #    error_message names each: "Score failed: ValueError ...; loop: 6 of 12 items failed".
 
 # On completion, read the full per-node outputs and VERIFY they are non-empty.
-curl -s "${auth[@]}" "$BASE/executions/$EID" | jq '.data.outputs'
+curl -s "${auth[@]}" "$BASE/workflows/-/executions/$EID" | jq '.data.outputs'
 
 # On failure, read the per-node error (error_message is on the failed span).
-curl -s "${auth[@]}" "$BASE/executions/$EID/spans?status=failed" | jq '.data'
+curl -s "${auth[@]}" "$BASE/workflows/-/executions/$EID/spans?status=failed" | jq '.data'
 ```
 
 A workflow is capped at **3 in-flight executions**; a 4th returns `429
 concurrency-limit`. These are your disposable test runs, so cancel one
-(`POST /executions/:id/cancel`) and re-run the same input rather than waiting.
+(`POST /workflows/-/executions/:id/cancel`) and re-run the same input rather than waiting.
 
 ### A run waiting for a person
 
 Wait for Input, Human Feedback and Human Checkpoint keep a run `running` until
-someone answers. `GET /executions/:id/pending-inputs` lists each pending request
+someone answers. `GET /workflows/-/executions/:id/human-requests` lists each pending request
 with `type`, `requestId`, `nodeId` and what it asks. Answer with
-`POST /executions/:id/input` `{request_id, data}`: `input` takes any JSON
+`POST /workflows/-/executions/:executionId/human-requests/:id/respond` `{data}`: `input` takes any JSON
 (matching the node's input schema when set); `feedback` takes text, a rating
 from 1 to `ratingScale`, one of `choices`, or a form object; `checkpoint` takes
 `{"decision": "approved" | "rejected", "message", "input"}` and only from an
@@ -318,14 +319,14 @@ In the builder the same requests show in the **Waiting for you** panel.
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/workflows/:id/execute` | Test-run with `triggerInputs`; returns `{executionId, status, outputs, invocation?}` |
-| GET | `/executions` | List runs (`workflow_id`, `status`, `trigger_type`, `since`, `until`, `limit`, `offset`) |
-| GET | `/executions/:id` | Full execution: definition + per-node `outputs` |
-| GET | `/executions/:id/progress` | Status + progress; **settles** the run and returns the outputs preview on completion |
-| GET | `/executions/:id/spans` | Per-node spans; read `error_message` here on failure (`node_id`, `name`, `status`, `slim`, `limit`) |
-| GET | `/executions/:id/logs` | Execution logs (`level`, `limit`) |
-| POST | `/executions/:id/stop` | Graceful stop (only when `running`) |
-| POST | `/executions/:id/cancel` | Hard-cancel any non-terminal run; idempotent |
-| POST | `/executions/:id/resume` | Resume a failed/paused run (`trigger_data`) |
+| GET | `/workflows/-/executions` | List runs (`workflow_id`, `status`, `trigger_type`, `since`, `until`, `limit`, `cursor`) |
+| GET | `/workflows/-/executions/:id` | Full execution: definition + per-node `outputs` |
+| GET | `/workflows/-/executions/:id/progress` | Status + progress; **settles** the run and returns the outputs preview on completion |
+| GET | `/workflows/-/executions/:id/spans` | Per-node spans; read `error_message` here on failure (`node_id`, `name`, `status`, `slim`, `limit`) |
+| GET | `/workflows/-/executions/:id/logs` | Execution logs (`level`, `limit`) |
+| POST | `/workflows/-/executions/:id/stop` | Graceful stop (only when `running`) |
+| POST | `/workflows/-/executions/:id/cancel` | Hard-cancel any non-terminal run; idempotent |
+| POST | `/workflows/-/executions/:id/resume` | Resume a failed/paused run (`trigger_data`) |
 | GET · POST | `/executions/:id/pending-inputs` · `/executions/:id/input` | Discover, then answer, what a running run waits on from a person (Wait for Input, Human Feedback, Human Checkpoint); `request_id` plus `data` shaped by the request type (see above) |
 
 ---
@@ -356,7 +357,7 @@ triggers poll: the deployed workflow checks the mailbox / feed / S3 location eve
 what is new; their block gives `pollIntervalMinutes` and no URL. A **Queue** trigger
 consumes its SQS / RabbitMQ / Kafka queue (`config.connectionType` `datasource` +
 `dataSourceId`, or `addon` + `addonId` for a RabbitMQ or Kafka add-on; `config.queue` for RabbitMQ/Kafka) and runs once
-per message, up to `maxConcurrentExecutions` (1-10, default 1, set with `PUT
+per message, up to `maxConcurrentExecutions` (1-10, default 1, set with `PATCH
 /workflows/:id`); its lifecycle must be `always-on` or `scheduled-window`. Put messages on
 the queue itself (an sqs-dest / rabbitmq-dest / kafka-dest node), not through the API.
 
@@ -367,7 +368,7 @@ the queue itself (an sqs-dest / rabbitmq-dest / kafka-dest node), not through th
 | POST | `/workflows/:id/stop` | Scale to zero, $0 cost, deployment preserved (202) |
 | POST | `/workflows/:id/start` | Scale a stopped workflow back up (202; `replicas`) |
 | POST | `/workflows/:id/undeploy` | Tear down the pod |
-| PUT | `/workflows/:id/status` | Set the workflow status (`draft`, `active`, `paused`, `archived`) |
+| PATCH | `/workflows/:id` | Set the workflow `status` (`draft`, `active`, `paused`, `archived`), with any other field |
 | GET · PUT | `/workflows/:id/lifecycle` | Get / set the lifecycle policy (`always-on`, `idle-shutdown`, `on-demand`, `scheduled-window`; PUT takes `type`, `idleTimeoutMinutes`, `schedule`) |
 | GET | `/workflows/:id/logs` | Recent worker pod logs (`lines`, `container`) |
 | GET | `/workflows/:id/metrics` | Aggregated run metrics (`window` = `1h`/`24h`/`7d`/`30d`) |
@@ -389,9 +390,9 @@ auto-run, and a workflow's own run never restarts it. Custom events:
 To be told yourself, create an alert rule (in-app needs no credentials):
 
 ```bash
-curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/workflow-alerts/rules" \
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/workflows/alert-rules" \
   -d '{"name":"A failed","workflowId":"'$WID'","condition":"execution_failed","channels":[{"type":"in_app","config":{}}]}'
-curl -s "${auth[@]}" "$BASE/workflow-alerts/history?workflowId=$WID" | jq '.data'   # each alert + channel outcomes
+curl -s "${auth[@]}" "$BASE/workflows/alerts?workflowId=$WID" | jq '.data'   # each alert + channel outcomes
 ```
 
 | Method | Path | Purpose |
@@ -399,7 +400,7 @@ curl -s "${auth[@]}" "$BASE/workflow-alerts/history?workflowId=$WID" | jq '.data
 | POST | `/workflows/events` | Emit an event; starts the deployed workflows you may use whose Event trigger listens for it |
 | GET · POST | `/workflow-alerts/rules` | List (`workflowId`) / create alert rules: `condition` = execution_failed, execution_timeout, execution_completed, duration_exceeded (`conditionConfig.durationThresholdMs`), node_failed (`nodeTypes`), consecutive_failures (`failureCount`), dlq_threshold (`dlqCountThreshold`); `channels` = in_app, email (`emailAddresses`), slack (`slackWebhookUrl`), webhook (`webhookUrl`); `throttle` `{enabled, intervalMinutes}` |
 | PUT · DELETE | `/workflow-alerts/rules/:id` | Update (`isEnabled: false` pauses) / delete a rule |
-| GET | `/workflow-alerts/history` | Alerts sent (`workflowId`, `ruleId`, `limit` <= 200) with each channel's outcome |
+| GET | `/workflows/alerts` | Alerts sent (`workflowId`, `ruleId`, `limit` <= 200) with each channel's outcome |
 
 ---
 
@@ -474,7 +475,7 @@ curl -s -X DELETE "${auth[@]}" "$BASE/streaming-sessions/$SID"
 A workflow is portable as a single `.strongly.json` document: every node with its
 full config, the connections, settings, scopes, workflow type, mode, environment
 pin, and metadata. It is the same artefact a version commit holds (the definition
-returned by `GET /workflows/:id/versions/:versionId`, section 2).
+returned by `GET /workflows/:workflowId/versions/:id`, section 2).
 
 ```bash
 # Export -> the .strongly.json body (the response also sets Content-Disposition

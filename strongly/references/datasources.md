@@ -23,10 +23,10 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
 ```
 
 Every endpoint below is a real `/api/v1` route. Only the four mutations, create
-(`POST /datasources`), update (`PUT /datasources/:id`), delete
-(`DELETE /datasources/:id`), and share (`PUT /datasources/:id/permissions`), need
+(`POST /data-sources`), update (`PATCH /data-sources/:id`), delete
+(`DELETE /data-sources/:id`), and sharing (`/data-sources/:id/permissions`), need
 the `datasources:write` scope; every other call, including the active
-`POST /datasources/:id/test` probe, needs `datasources:read`.
+`POST /data-sources/:id/test` probe, needs `datasources:read`.
 
 ---
 
@@ -73,7 +73,7 @@ chosen type before creating rather than assuming a shape.
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  "$BASE/datasources" -d '{
+  "$BASE/data-sources" -d '{
     "name": "warehouse-prod",
     "label": "Production Warehouse",
     "type": "postgres",
@@ -84,18 +84,18 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   }'                                         # -> data.dataSourceId
 ```
 
-**List / get / update / delete.** List supports `search`, `type`, `category`,
-`status`, plus `limit`/`offset`/`sort`. List and get responses **never include
+**List / get / update / delete.** List supports `q`, `type`, `category`,
+`status`, plus `limit`/`cursor`/`sort`. List and get responses **never include
 credentials** (they are stripped server-side). Each carries `usageCount` and
 `lastUsed`: the times a workload was given the data source (an app, workspace
 or job deploy or start, or a workflow run) and when it last was.
 
 ```bash
-curl -s "${auth[@]}" "$BASE/datasources?type=postgres&search=warehouse"   # list
-curl -s "${auth[@]}" "$BASE/datasources/$DS_ID"                           # get one (no creds)
+curl -s "${auth[@]}" "$BASE/data-sources?type=postgres&q=warehouse"   # list
+curl -s "${auth[@]}" "$BASE/data-sources/$DS_ID"                           # get one (no creds)
 curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
-  "$BASE/datasources/$DS_ID" -d '{"label":"Warehouse (RO)"}'             # partial update
-curl -s -X DELETE "${auth[@]}" "$BASE/datasources/$DS_ID"                # delete
+  "$BASE/data-sources/$DS_ID" -d '{"label":"Warehouse (RO)"}'             # partial update
+curl -s -X DELETE "${auth[@]}" "$BASE/data-sources/$DS_ID"                # delete
 ```
 
 Delete is refused while an app, workspace, job or workflow uses the data source.
@@ -109,16 +109,16 @@ Update accepts the same fields as create (`name`, `label`, `type`, `credentials`
 
 Two distinct calls, do not mix them up:
 
-- **Active probe** `POST /datasources/:id/test` opens a live connection now and
+- **Active probe** `POST /data-sources/:id/test` opens a live connection now and
   returns the result. Run this after create or after changing credentials. It
   takes `datasources:read` (it probes, it does not mutate the row), not `write`.
-- **Health snapshot** `GET /datasources/:id/status` is read-only. It returns
+- **Health snapshot** `GET /data-sources/:id/status` is read-only. It returns
   whatever the most recent test recorded on the row (`status`, `lastTestedAt`,
   `lastError`, `type`, `updatedAt`) without opening a new connection.
 
 ```bash
-curl -s -X POST "${auth[@]}" "$BASE/datasources/$DS_ID/test"    # live probe -> result
-curl -s "${auth[@]}" "$BASE/datasources/$DS_ID/status"          # last-known health
+curl -s -X POST "${auth[@]}" "$BASE/data-sources/$DS_ID/test"    # live probe -> result
+curl -s "${auth[@]}" "$BASE/data-sources/$DS_ID/status"          # last-known health
 ```
 
 Report the real result. If `test` fails, surface the error and stop; do not claim
@@ -131,15 +131,15 @@ the source is connected.
 Before a workflow database node or an input mapping reads from a source, learn its
 shape:
 
-- `GET /datasources/:id/metadata` lists what the source holds: databases,
+- `GET /data-sources/:id/metadata` lists what the source holds: databases,
   schemas, tables or collections, buckets, indexes or topics, with counts and
   sizes where the system reports them. Start here when you do not know the table
   names. An `api` key and an `mqtt` broker hold no catalogue and have none.
-- `GET /datasources/:id/table-columns?table=<name>&schema=<optional>` returns one
+- `GET /data-sources/:id/table-columns?table=<name>&schema=<optional>` returns one
   table's columns (name, type, nullable, key). Every type with tables or
   collections supports it; where the store declares no schema, fields come from
   a sample of its documents.
-- `GET /datasources/:id/objects?bucket=<opt>&prefix=<opt>` lists objects and
+- `GET /data-sources/:id/objects?bucket=<opt>&prefix=<opt>` lists objects and
   folder prefixes inside an object-storage source (`s3`, `minio`, `gcs`,
   `azure-blob`). Omit `bucket` to use the source's configured bucket; pass
   `prefix` to descend into a folder. This is the discovery step before pointing a
@@ -147,25 +147,28 @@ shape:
   types (use `metadata` for those).
 
 ```bash
-curl -s "${auth[@]}" "$BASE/datasources/$DS_ID/metadata"                       # tables/collections
-curl -s "${auth[@]}" "$BASE/datasources/$DS_ID/table-columns?table=orders&schema=public"
-curl -s "${auth[@]}" "$BASE/datasources/$DS_ID/objects?prefix=exports/"        # object store
+curl -s "${auth[@]}" "$BASE/data-sources/$DS_ID/metadata"                       # tables/collections
+curl -s "${auth[@]}" "$BASE/data-sources/$DS_ID/table-columns?table=orders&schema=public"
+curl -s "${auth[@]}" "$BASE/data-sources/$DS_ID/objects?prefix=exports/"        # object store
 ```
 
 ---
 
 ## 6. Credentials and sharing
 
-- `GET /datasources/:id/credentials` returns the **decrypted** credentials
+- `GET /data-sources/:id/credentials` returns the **decrypted** credentials
   (`datasources:read`). List and get never expose them; this is the only endpoint
   that does. Treat the response as sensitive, never log it.
-- `PUT /datasources/:id/permissions` sets sharing. Required body: `allowAllUsers`
-  (boolean, whether every user may use it) and `allowedUsers` (array of user ids).
+- Sharing is the platform's one shape: `GET /data-sources/:id/permissions` (owner,
+  members, visibility), `POST /data-sources/:id/permissions/members`
+  `{ "userId", "role": "editor" | "user" }` ("editor" may change it, "user" only
+  use it), `DELETE /data-sources/:dataSourceId/permissions/members/:userId`, and
+  `PATCH /data-sources/:id/permissions` `{ "visibility": "public" | "private" }`.
 
 ```bash
-curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
-  "$BASE/datasources/$DS_ID/permissions" \
-  -d '{"allowAllUsers": false, "allowedUsers": ["<userId1>","<userId2>"]}'
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  "$BASE/data-sources/$DS_ID/permissions/members" \
+  -d '{"userId": "<userId>", "role": "user"}'
 ```
 
 ---
@@ -184,7 +187,7 @@ You connect a data source by its **id**, not by copying its credentials.
   5) to learn the schema before building the node's query or mappings. See
   `references/workflows.md`.
 
-Get the id from `GET /datasources` (or the `dataSourceId` returned by create).
+Get the id from `GET /data-sources` (or the `dataSourceId` returned by create).
 Never paste credentials into an app config or a node; wire the id and let the
 platform inject the connection.
 
@@ -201,18 +204,18 @@ dataset. Reads need `data-forge:read`, writes need `data-forge:write`.
 **Projects.**
 
 ```bash
-curl -s "${auth[@]}" "$BASE/data-forge/embedding-models"                     # models semantic chunking may use
+curl -s "${auth[@]}" "$BASE/ai-gateway/data-forge/embedding-models"                     # models semantic chunking may use
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  "$BASE/data-forge/projects" \
+  "$BASE/ai-gateway/data-forge/projects" \
   -d '{"name":"Handbook QA","chunk_strategy":"semantic","embedding_model_id":"<id>"}'   # -> project
-curl -s "${auth[@]}" "$BASE/data-forge/projects"                              # list
-curl -s "${auth[@]}" "$BASE/data-forge/projects/$P_ID"                        # get (counts, config, exports)
+curl -s "${auth[@]}" "$BASE/ai-gateway/data-forge/projects"                              # list
+curl -s "${auth[@]}" "$BASE/ai-gateway/data-forge/projects/$P_ID"                        # get (counts, config, exports)
 ```
 
 `chunk_strategy` is how documents are split: `semantic` (where the meaning
 shifts, by `embedding_model_id`, required with it), `heading` (one chunk per
 section), `paragraph` (the default) or `sliding_window` (fixed-size windows).
-Change it with `PUT /data-forge/projects/$P_ID` `{"config":{...}}` (only the
+Change it with `PATCH /ai-gateway/data-forge/projects/$P_ID` `{"config":{...}}` (only the
 fields given change); it applies to documents parsed afterwards.
 
 **Documents (two-step upload).** Get a presigned URL, PUT the bytes to it, then
@@ -220,30 +223,30 @@ register the document with the returned `s3_key`.
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  "$BASE/data-forge/projects/$P_ID/upload-url" \
+  "$BASE/ai-gateway/data-forge/projects/$P_ID/uploads" \
   -d '{"fileName":"handbook.pdf","mimeType":"application/pdf"}'      # -> upload URL + s3_key
 # PUT the file bytes to the returned URL, then:
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  "$BASE/data-forge/projects/$P_ID/documents" \
+  "$BASE/ai-gateway/data-forge/projects/$P_ID/documents" \
   -d '{"name":"handbook.pdf","mime_type":"application/pdf","file_size":12345,"s3_key":"…"}'
 ```
 
 **Parse, generate, review, export.** Parse documents into chunks, then start a
 generation with a teacher model (`teacher_model_id` from
-`GET /data-forge/available-models`, `output_format` `chatml` or `alpaca`). Generation is
+`GET /ai-gateway/data-forge/models`, `output_format` `chatml` or `alpaca`). Generation is
 async; poll the generation by id.
 
 ```bash
-curl -s -X POST "${auth[@]}" "$BASE/data-forge/projects/$P_ID/parse"          # -> chunks (project's chunking)
-curl -s "${auth[@]}" "$BASE/data-forge/available-models"                      # teacher models
+curl -s -X POST "${auth[@]}" "$BASE/ai-gateway/data-forge/projects/$P_ID/parse"          # -> chunks (project's chunking)
+curl -s "${auth[@]}" "$BASE/ai-gateway/data-forge/models"                      # teacher models
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  "$BASE/data-forge/projects/$P_ID/generate" \
+  "$BASE/ai-gateway/data-forge/projects/$P_ID/generations" \
   -d '{"teacher_model_id":"<id>","output_format":"chatml","pairs_per_chunk":3}'   # -> generation
-curl -s "${auth[@]}" "$BASE/data-forge/generations/$G_ID"                     # poll until complete
+curl -s "${auth[@]}" "$BASE/ai-gateway/data-forge/projects/-/generations/$G_ID"                     # poll until complete
 ```
 
 Review the pairs (`GET .../pairs`, filter by `status`/`quality_min`/`difficulty`),
-edit or accept/reject them (`PUT /data-forge/pairs/:id`, or
+edit or accept/reject them (`PATCH /ai-gateway/data-forge/projects/-/pairs/:id`, or
 `POST .../pairs/bulk-action` with `action` + `pair_ids`), then export the accepted
 set (`POST .../export` with a `format` such as `jsonl`) and fetch the versioned
 result (`GET .../export/:version`). `GET .../analytics` gives status/quality/
@@ -257,18 +260,20 @@ Data sources:
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/datasources` | List (filter by `search`, `type`, `category`, `status`; paginated) |
-| POST | `/datasources` | Create (`name`, `label`, `type`, `credentials` required) |
-| GET | `/datasources/:id` | Get one (credentials stripped) |
-| PUT | `/datasources/:id` | Update (partial) |
-| DELETE | `/datasources/:id` | Delete |
-| POST | `/datasources/:id/test` | Active connection probe |
-| GET | `/datasources/:id/status` | Read-only health snapshot |
-| GET | `/datasources/:id/metadata` | List tables/schemas/collections |
-| GET | `/datasources/:id/table-columns` | Introspect one table's columns (`table` required) |
-| GET | `/datasources/:id/objects` | Browse an object-storage bucket (`bucket`, `prefix`) |
-| GET | `/datasources/:id/credentials` | Decrypted credentials (sensitive) |
-| PUT | `/datasources/:id/permissions` | Set sharing (`allowAllUsers`, `allowedUsers`) |
+| GET | `/data-sources` | List (filter by `q`, `type`, `category`, `status`; paginated) |
+| POST | `/data-sources` | Create (`name`, `label`, `type`, `credentials` required) |
+| GET | `/data-sources/:id` | Get one (credentials stripped) |
+| PATCH | `/data-sources/:id` | Update (partial) |
+| DELETE | `/data-sources/:id` | Delete |
+| POST | `/data-sources/:id/test` | Active connection probe |
+| GET | `/data-sources/:id/status` | Read-only health snapshot |
+| GET | `/data-sources/:id/metadata` | List tables/schemas/collections |
+| GET | `/data-sources/:id/table-columns` | Introspect one table's columns (`table` required) |
+| GET | `/data-sources/:id/objects` | Browse an object-storage bucket (`bucket`, `prefix`) |
+| GET | `/data-sources/:id/credentials` | Decrypted credentials (sensitive) |
+| GET/PATCH | `/data-sources/:id/permissions` | Who can reach it / set `visibility` |
+| POST | `/data-sources/:id/permissions/members` | Share with a user (`userId`, `role`) |
+| DELETE | `/data-sources/:dataSourceId/permissions/members/:userId` | Stop sharing with a user |
 
 Data Forge:
 
@@ -276,32 +281,32 @@ Data Forge:
 |---|---|---|
 | GET / POST | `/data-forge/projects` | List / create projects |
 | GET / PUT / DELETE | `/data-forge/projects/:id` | Get / update / delete a project |
-| POST | `/data-forge/projects/:id/upload-url` | Presigned upload URL for a document |
+| POST | `/ai-gateway/data-forge/projects/:id/uploads` | Presigned upload URL for a document |
 | GET / POST | `/data-forge/projects/:id/documents` | List / register documents |
-| DELETE | `/data-forge/projects/:id/documents/:docId` | Delete a document |
-| GET | `/data-forge/projects/:id/chunks` | List parsed chunks (paginated) |
-| PUT | `/data-forge/projects/:id/chunks/:chunkId` | Edit a chunk |
-| POST | `/data-forge/projects/:id/parse` | Parse documents into chunks |
-| POST | `/data-forge/projects/:id/generate` | Start a Q/A generation run |
-| GET | `/data-forge/projects/:id/generations` | List generation runs |
-| GET | `/data-forge/generations/:id` | Poll a generation run |
-| GET | `/data-forge/generations/:id/logs` | Generation run logs |
-| POST | `/data-forge/generations/:id/cancel` | Cancel a run |
-| GET | `/data-forge/projects/:id/pairs` | List Q/A pairs for review (filterable) |
-| PUT | `/data-forge/pairs/:id` | Edit / set status on a pair |
-| POST | `/data-forge/projects/:id/pairs/bulk-action` | Accept/reject many pairs |
-| POST | `/data-forge/projects/:id/export` | Export accepted pairs as a dataset |
-| GET | `/data-forge/projects/:id/export/:version` | Get a versioned export |
-| GET | `/data-forge/projects/:id/analytics` | Project analytics |
-| GET | `/data-forge/available-models` | Teacher models for generation |
+| DELETE | `/ai-gateway/data-forge/projects/:projectId/documents/:id` | Delete a document |
+| GET | `/ai-gateway/data-forge/projects/:id/chunks` | List parsed chunks (paginated) |
+| PATCH | `/ai-gateway/data-forge/projects/:projectId/chunks/:id` | Edit a chunk |
+| POST | `/ai-gateway/data-forge/projects/:id/parse` | Parse documents into chunks |
+| POST | `/ai-gateway/data-forge/projects/:id/generations` | Start a Q/A generation run |
+| GET | `/ai-gateway/data-forge/projects/:id/generations` | List generation runs |
+| GET | `/ai-gateway/data-forge/projects/-/generations/:id` | Poll a generation run |
+| GET | `/ai-gateway/data-forge/projects/-/generations/:id/logs` | Generation run logs |
+| POST | `/ai-gateway/data-forge/projects/-/generations/:id/cancel` | Cancel a run |
+| GET | `/ai-gateway/data-forge/projects/:id/pairs` | List Q/A pairs for review (filterable) |
+| PATCH | `/ai-gateway/data-forge/projects/-/pairs/:id` | Edit / set status on a pair |
+| POST | `/ai-gateway/data-forge/projects/:id/pairs/bulk` | Accept/reject many pairs |
+| POST | `/ai-gateway/data-forge/projects/:id/exports` | Export accepted pairs as a dataset |
+| GET | `/ai-gateway/data-forge/projects/:projectId/exports/:version` | Get a versioned export |
+| GET | `/ai-gateway/data-forge/projects/:id/analytics` | Project analytics |
+| GET | `/ai-gateway/data-forge/models` | Teacher models for generation |
 
 ---
 
 ## Checklist
 - [ ] Data source (external, you bring credentials) vs addon (platform-provisioned) chosen correctly; addons live in `references/addons.md`.
 - [ ] `type` is the vendor key from Section 2 (`postgres`, not `postgresql`); `credentials` shape matches the type.
-- [ ] After create or a credential change, run `POST /datasources/:id/test` and report the real result; do not claim connected on a failed probe.
+- [ ] After create or a credential change, run `POST /data-sources/:id/test` and report the real result; do not claim connected on a failed probe.
 - [ ] Introspect with `metadata` then `table-columns` (databases) or `objects` (object stores) before a workflow reads from the source.
 - [ ] Credentials never pasted into app configs or nodes; wire the data source **id** (via `dataSources` -> `STRONGLY_SERVICES`, see `references/apps.md`).
-- [ ] `GET /datasources/:id/credentials` output treated as sensitive, never logged.
+- [ ] `GET /data-sources/:id/credentials` output treated as sensitive, never logged.
 - [ ] Data Forge is training-data prep, not a store connection; generation is async, poll the generation by id before exporting.

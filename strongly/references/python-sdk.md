@@ -179,8 +179,9 @@ for span in client.executions.spans(exec_id):
     print(f"  {span.node_id}: {span.status} ({span.duration_ms}ms)")
 ```
 
-`client.workflows.execute(...)` starts a dev run; `client.workflows.trigger(id,
-inputs=..., sync=True)` invokes a **deployed** workflow and can wait for output.
+`client.workflows.execute(...)` starts a dev run. A **deployed** workflow is invoked
+at its trigger (the `invocation.url` in `client.workflows.status(id)`), or by a
+platform event with `client.workflows.emit_event(...)`.
 Traces live under `client.executions` (`retrieve`, `spans`, `logs`, `progress`).
 
 **Streaming** (voice and real-time conversation workflows; see also the
@@ -332,8 +333,18 @@ for event in client.agents.chat("wf_abc123", "thread_123", "Find last week's mee
         print("\n--- done ---")
 ```
 
-Upload documents to an agent's knowledge base with
-`client.agents.upload_knowledge(agent_id, file, description=..., tags=...)`.
+Agents answer from knowledge bases (`references/agents.md` section 8):
+
+```python
+kb = client.knowledge.create(name="Meeting notes", index_model_id=chat_model_id)
+client.knowledge.add_document(kb.id, filename="rooms.md", content="# Rooms\n\n...")  # or file=...
+client.knowledge.import_artifacts(kb.id, artifact_ids=[artifact_id])
+print([(d.name, d.status) for d in client.knowledge.retrieve(kb.id).documents])  # wait for "ready"
+client.knowledge.update_agent_knowledge_bases(agent_id, knowledge_base_ids=[kb.id])  # then restart
+client.knowledge.add_member(kb.id, user_id=user_id, role="editor")  # share
+client.knowledge.set_visibility(kb.id, "public")  # or "private"
+client.knowledge.agent_search(agent_id, "room")  # what the agent finds
+```
 
 ---
 

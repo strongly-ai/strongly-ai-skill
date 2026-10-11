@@ -22,7 +22,7 @@ echo "==> Creating app '$NAME' and uploading $BUNDLE"
 APP_ID=$(api -F "name=$NAME" \
              -F 'resources={"memory":"1Gi","cpu":"500m"}' \
              -F "file=@${BUNDLE};type=application/zip" \
-             "$HOST/api/v1/apps/upload" | jq -r '.data._id')
+             "$HOST/api/v1/apps/import" | jq -r '.data._id')
 echo "    app id: $APP_ID"
 
 echo "==> Waiting for the image build to finish (the upload started it)"

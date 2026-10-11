@@ -35,8 +35,9 @@ is one deploy; discovering it was needed later is a rebuild. At minimum:
   managed addon and wire it (see `references/addons.md` + §4). Never silently ship
   a stateless app the user expected to persist data.
 - **Who can reach it?** Only them, everyone in their org, or the public? (maps to
-  the app's permissions: `PUT /apps/:id/permissions` with `isPublic` and
-  `allowedUsers`; the manifest has no permissions field).
+  the app's permissions: `POST /apps/:id/permissions/members` `{ userId, role }`
+  per person, `PATCH /apps/:id/permissions` `{ "visibility": "public" }` for
+  everyone; the manifest has no permissions field).
 - **Does it call AI models?** Chat, embeddings, speech, image, ...? If so, which
   models to wire through the AI Gateway (see §4 + `references/ai-gateway.md`).
 - **Does it read data the user already has** (an existing database, warehouse, or
@@ -197,7 +198,7 @@ An app builds from one of three **sources**, then deploys the built image:
 | Source | When | How |
 |---|---|---|
 | **Volume** | The code is on a Strongly volume kept on the **Strongly filesystem** (anything under `/volumes/` in a workspace, by default) | `bundleSourceType: "volume"`, `bundleSource: {volumeId, folderPath?}` |
-| **Upload** | The code is anywhere else you can zip it (a workspace folder outside `/volumes/`, your laptop) | multipart `POST /apps/upload` (below) |
+| **Upload** | The code is anywhere else you can zip it (a workspace folder outside `/volumes/`, your laptop) | multipart `POST /apps/import` (below) |
 | **GitHub** | The code is on a **GitHub-backed** volume, or the user asks to build from a GitHub repo | `bundleSourceType: "github"`, `bundleSource: {repoUrl, branch, sshKeyId, subdirectory?}` |
 
 **Choose the source from where the code is, before anything else:**
@@ -216,7 +217,7 @@ An app builds from one of three **sources**, then deploys the built image:
 2. **Not on a volume: upload a zip.** Zip the app folder and upload it. (Or, to
    keep rebuilding from the workspace, move the code into a volume and use 1.)
 3. **A GitHub repo that is not on a volume: only when the user asks.** It needs
-   an SSH key the user ALREADY registered (`GET /users/me/github-ssh-keys`); if
+   an SSH key the user ALREADY registered (`GET /me/github-ssh-keys`); if
    they have none, offer 1 or 2 rather than walking them through SSH setup.
 
 ### From a workspace's volume (recommended when you built it in a workspace)
@@ -231,7 +232,7 @@ build). That directory is a git clone of the volume's code. The build takes the 
 #    project volume's code; also the Sync button on the workspace page) ...
 #    Inside the workspace its own id is $STRONGLY_WORKSPACE_ID (the hostname is a
 #    lowercased deployment name, not the id); from outside, find it by name with
-#    GET /workspaces?search=<name>.
+#    GET /workspaces?q=<name>.
 WORKSPACE_ID="${STRONGLY_WORKSPACE_ID}"
 curl -s -X POST "${auth[@]}" "$BASE/workspaces/$WORKSPACE_ID/sync"
 #    ... or from a terminal in the workspace:
@@ -263,7 +264,7 @@ APP_ID=$(curl -s "${auth[@]}" -H 'Content-Type: application/json' -X POST "$BASE
 # their profile settings; listed here). repoUrl must be the SSH form. For a
 # GitHub-backed volume use the volume's own code.repoUrl, code.branch and
 # code.sshKeyId. A repo with no key listed: deploy from a volume or a zip instead.
-SSH_KEY_ID=$(curl -s "${auth[@]}" "$BASE/users/me/github-ssh-keys" | jq -r '.data[0]._id')
+SSH_KEY_ID=$(curl -s "${auth[@]}" "$BASE/me/github-ssh-keys" | jq -r '.data[0]._id')
 APP_ID=$(curl -s "${auth[@]}" -H 'Content-Type: application/json' -X POST "$BASE/apps" -d "{
   \"name\": \"my-app\", \"cpu\": \"0.5\", \"memory\": \"1GB\",
   \"bundleSourceType\": \"github\",
@@ -280,7 +281,7 @@ A bundle is a `.zip` of your source (a `strongly.manifest.yaml` and/or a
 APP_ID=$(curl -s "${auth[@]}" \
   -F name=my-app -F 'resources={"memory":"1Gi","cpu":"500m"}' \
   -F "file=@bundle.zip;type=application/zip" \
-  "$BASE/apps/upload" | jq -r '.data._id')
+  "$BASE/apps/import" | jq -r '.data._id')
 ```
 
 ### Then, for every source: build → deploy → running
@@ -304,13 +305,13 @@ curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/rebuild"
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/rebuild" \
   -d "{\"bundleSourceType\": \"volume\", \"bundleSource\": {\"volumeId\": \"$VOLUME_ID\"}}"
 # Zip app: upload the new bundle.
-curl -s "${auth[@]}" -F "file=@bundle.zip;type=application/zip" "$BASE/apps/$APP_ID/upload"
+curl -s -X PUT "${auth[@]}" -F "file=@bundle.zip;type=application/zip" "$BASE/apps/$APP_ID/source"
 # All three return 202 and build asynchronously: poll build-status to completed,
 # then deploy again. The running version keeps serving until that deploy.
 ```
 
-Lifecycle: `GET /apps` · `GET/PUT /apps/:id` · `PUT /apps/:id/env` ·
-`PUT /apps/:id/permissions` · `POST /apps/:id/start|stop|restart` ·
+Lifecycle: `GET /apps` · `GET/PATCH /apps/:id` · `PUT /apps/:id/env` ·
+`GET/PATCH /apps/:id/permissions` + `…/permissions/members` · `POST /apps/:id/start|stop|restart` ·
 `GET /apps/:id/logs` · `GET /apps/:id/metrics` · `DELETE /apps/:id`.
 
 ### Branded sign-in, the app's own users, and usage
@@ -332,11 +333,13 @@ curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP
 # GET /apps/:id returns the same under data.auth (logo omitted; hasLogo).
 
 # The app's users: status active | pending (waiting for approval) | archived
-curl -s "${auth[@]}" "$BASE/apps/$APP_ID/auth/users?status=pending&search=&sort=-createdAt&limit=50"
-curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/auth/users/$USER_ID/activate"       # approve / re-enable
-curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/auth/users/$USER_ID/deactivate"     # signed out, cannot sign in
-curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/auth/users/$USER_ID/password-reset" # emails the branded reset link
-curl -s -X DELETE "${auth[@]}" "$BASE/apps/$APP_ID/auth/users/$USER_ID"              # off the app; account kept
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/users?status=pending&q=&sort=-createdAt&limit=50"
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"active":true}' \
+  "$BASE/apps/$APP_ID/users/$USER_ID"                                         # approve / re-enable
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"active":false}' \
+  "$BASE/apps/$APP_ID/users/$USER_ID"                                         # signed out, cannot sign in
+curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/users/$USER_ID/reset-password" # emails the branded reset link
+curl -s -X DELETE "${auth[@]}" "$BASE/apps/$APP_ID/users/$USER_ID"                   # off the app; account kept
 
 # Usage (the platform's own count of proxied requests; range 7d | 30d | 90d)
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/analytics?range=30d"          # summary, per day, session lengths, starts by weekday/hour
@@ -428,7 +431,7 @@ Convenience headers also exist (`X-Strongly-User-Id/Email/Name/Roles`,
 ## 4. Wiring: `STRONGLY_SERVICES`
 
 **Volumes are not services:** an app reads a volume's files directly. Pass
-`volumes: ["<volume id>", ...]` on create (`POST /apps`) or update (`PUT /apps/:id`,
+`volumes: ["<volume id>", ...]` on create (`POST /apps`) or update (`PATCH /apps/:id`,
 applied at the next deploy/start/restart); each must be one the app's owner may
 use (their own, or shared with them). The owner's own project volume that is not
 shared mounts at `/volumes/local/<name>`; every shared volume, the owner's own
@@ -485,9 +488,9 @@ const wf = s.workflows?.available_workflows?.[0];   // POST its input to wf.endp
 You choose what's wired at create time by declaring ids in the `addons`,
 `dataSources`, `aiModels`, `workflows` arrays (discover via `GET $BASE/addons`,
 `/datasources`, `/ai-models`, `/workflows`). How you pass them depends on the route:
-- JSON `POST $BASE/apps` and `PUT $BASE/apps/:id`: send them as top-level body
+- JSON `POST $BASE/apps` and `PATCH $BASE/apps/:id`: send them as top-level body
   fields, e.g. `{"addons":["<id>"]}`. On `PUT` each array REPLACES the connected set.
-- Multipart `POST $BASE/apps/upload` (zip bundle): they are NOT standalone form
+- Multipart `POST $BASE/apps/import` (zip bundle): they are NOT standalone form
   fields; put them in the `metadata` JSON string, e.g. `metadata={"addons":["<id>"]}`.
 
 Changing the connected set updates the app DEFINITION; `STRONGLY_SERVICES` is
@@ -510,12 +513,12 @@ auto-injected** (see `SKILL.md`), the app doesn't manage a key; it calls
 `X-API-Key` is used.)
 
 ```bash
-# Save: POST $BASE/artifacts  (artifacts:write)
-curl -s -X POST "$STRONGLY_API_URL/api/v1/artifacts" -H 'Content-Type: application/json' \
+# Save: POST $BASE/library/artifacts  (artifacts:write)
+curl -s -X POST "$STRONGLY_API_URL/api/v1/library/artifacts" -H 'Content-Type: application/json' \
   -d '{"title":"Q3 report","artifact_type":"report","contentType":"application/pdf",
        "encoding":"base64","content":"'"$(base64 -i report.pdf)"'"}'   # -> data._id
 
-# Serve: GET $BASE/artifacts/:id/download-url?ttlSeconds=600  (max 900) -> pre-signed URL
+# Serve: GET $BASE/library/artifacts/:id/download-url?ttlSeconds=600  (max 900) -> pre-signed URL
 ```
 
 Serving pattern behind the proxy: the app's own endpoint (which knows the user
@@ -525,12 +528,12 @@ bytes go browser → S3 directly, only a small redirect passes through the app.
 ```js
 app.get('/download/:id', async (req, res) => {
   if (!req.user) return res.status(401).end();
-  const r = await fetch(`${process.env.STRONGLY_API_URL}/api/v1/artifacts/${req.params.id}/download-url`);
+  const r = await fetch(`${process.env.STRONGLY_API_URL}/api/v1/library/artifacts/${req.params.id}/download-url`);
   res.redirect(302, (await r.json()).data.url);   // bearer auto-injected in-cluster
 });
 ```
 
-Also: `GET /artifacts` (gallery), `/artifacts/:id/versions` + `/restore`,
+Also: `GET /library/artifacts` (gallery), `/artifacts/:id/versions` + `/restore`,
 `PATCH`/`DELETE`, and `/share` · `/unshare` · `/toggle-public` · `/toggle-org-share`.
 
 ---

@@ -52,10 +52,10 @@ take their share out of it).
 
 | Method + path | Scope | Purpose |
 |---|---|---|
-| `GET /workspaces` | `workspaces:read` | List. Filters: `search`, `status`, `projectId`, `limit`, `offset`, `sort`. |
+| `GET /workspaces` | `workspaces:read` | List. Filters: `q`, `status`, `projectId`, `limit`, `cursor`, `sort`. |
 | `POST /workspaces` | `workspaces:write` | Create. Required: `name`, `description`, `environmentType`. |
 | `GET /workspaces/:id` | `workspaces:read` | Get one. |
-| `PUT /workspaces/:id` | `workspaces:write` | Update `name`, `description`, its services (`addons`, `dataSources`, `aiGateways`, `mlModels`, `workflows`, `featureStores`, `agents`; each add-on's and data source's Python client is installed at start), `codingAssistants` (at most one) and `skillIds` (from the next start or restart), or `environmentVariables` (before its first start). Size, IDE and image are fixed at create. |
+| `PATCH /workspaces/:id` | `workspaces:write` | Update `name`, `description`, its services (`addons`, `dataSources`, `aiGateways`, `mlModels`, `workflows`, `featureStores`, `agents`; each add-on's and data source's Python client is installed at start), `codingAssistants` (at most one) and `skillIds` (from the next start or restart), or `environmentVariables` (before its first start). Size, IDE and image are fixed at create. |
 | `DELETE /workspaces/:id` | `workspaces:write` | Delete. |
 | `POST /workspaces/:id/start` | `workspaces:write` | Start a stopped workspace. |
 | `POST /workspaces/:id/stop` | `workspaces:write` | Stop a running workspace. |
@@ -100,7 +100,7 @@ and/or `dockerfile` triggers an image build: poll `GET /environments/:id` for
 | `GET /environments/:id` | `workspaces:read` | Get one, including `build_status` and `image_name`. |
 | `PATCH /environments/:id` | `workspaces:write` | Update; a `base_image` / `dockerfile` change triggers a rebuild. |
 | `DELETE /environments/:id` | `workspaces:write` | Delete (fails if still referenced by any app, job, workspace, workflow, or model). |
-| `POST /environments/:id/rebuild-latest` | `workspaces:write` | Rebuild as a new immutable version against the current base-image digest. |
+| `POST /environments/:id/rebuild` | `workspaces:write` | Rebuild as a new immutable version against the current base-image digest. |
 
 ```bash
 # Pick a saved tier for a workspace, or fall back to customResources if none fits.
@@ -160,9 +160,9 @@ instance family and size. `workloadType` is one of: `general`, `ai`, `mcp`,
 
 | Method + path | Scope | Purpose |
 |---|---|---|
-| `GET /compute/pre-warmed` | `compute:read` | Get pre-warmed configs for all workload pools. |
-| `PUT /compute/pre-warmed/:workloadType` | `compute:write` | Set a pool config. Required body: `enabled`, `count` (1-5), `instanceCategory`, `instanceSize`. |
-| `DELETE /compute/pre-warmed/:workloadType` | `compute:write` | Remove the size override, restoring the pool's normal allowlist. |
+| `GET /compute/warm-pools` | `compute:read` | Get pre-warmed configs for all workload pools. |
+| `PUT /compute/warm-pools/:workloadType` | `compute:write` | Set a pool config. Required body: `enabled`, `count` (1-5), `instanceCategory`, `instanceSize`. |
+| `DELETE /compute/warm-pools/:workloadType` | `compute:write` | Remove the size override, restoring the pool's normal allowlist. |
 
 `instanceCategory` is a family letter (`m`, `c`, `g`, ...); `instanceSize` is one
 of `small`, `medium`, `large`, `xlarge`, `2xlarge`, `4xlarge`.
@@ -171,7 +171,7 @@ of `small`, `medium`, `large`, `xlarge`, `2xlarge`, `4xlarge`.
 # Keep 2 medium m-family nodes warm for user workspaces.
 curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"enabled":true,"count":2,"instanceCategory":"m","instanceSize":"medium"}' \
-  "$BASE/compute/pre-warmed/user-workspaces" | jq '.data'
+  "$BASE/compute/warm-pools/user-workspaces" | jq '.data'
 ```
 
 ---
@@ -266,7 +266,7 @@ specific version's bytes, write or upload a file as a new version, and delete
 
 | Method + path | Scope | Purpose |
 |---|---|---|
-| `GET /volumes` | `volumes:read` | List. Filters: `scope`, `projectId`, `limit`, `offset`. |
+| `GET /volumes` | `volumes:read` | List. Filters: `scope`, `projectId`, `limit`, `cursor`. |
 | `POST /volumes` | `volumes:write` | Create. A shared volume (the usual one): `name`, `scope: "shared"`, `description?`, no `code`. A project's volume is created with its project; a `local` create needs `projectId` and `code` (`{ filesystemType, repoUrl?, branch?, sshKeyId? }`). |
 | `GET /volumes/:id` | `volumes:read` | Get one. |
 | `GET /volumes/:id/data/files` | `volumes:read` | List data-half files. Each entry: `{ path, name, size, version, updatedAt, updatedBy }` (`version` is that file's head). |
@@ -299,7 +299,7 @@ over a workspace terminal. It runs in a fresh standalone workspace, in a new
 workspace inside an existing project (`projectId`), or attached to an existing
 code-session-enabled workspace (`workspaceId`). The terminal runs the assistant
 TUI, not a bash shell: send natural-language tasks with
-`POST /code-sessions/:id/input`, read output with `GET /code-sessions/:id/output`.
+`POST /code-sessions/:id/inputs`, read output with `GET /code-sessions/:id/output`.
 
 | Method + path | Scope | Purpose |
 |---|---|---|
@@ -307,9 +307,9 @@ TUI, not a bash shell: send natural-language tasks with
 | `GET /code-sessions` | `code-sessions:read` | List. `live=true` returns only resumable sessions. |
 | `GET /code-sessions/:id` | `code-sessions:read` | Get one, including `provisioningStep`; polling drives the provisioning transition. |
 | `GET /code-sessions/:id/status` | `code-sessions:read` | Focused lifecycle status. |
-| `POST /code-sessions/:id/input` | `code-sessions:write` | Send `text` (a task or prompt-answer) to the assistant terminal. |
+| `POST /code-sessions/:id/inputs` | `code-sessions:write` | Send `text` (a task or prompt-answer) to the assistant terminal. |
 | `POST /code-sessions/:id/login` | `code-sessions:write` | Start Claude Code login. Returns `{ authUrl }` (relay verbatim), or `{ alreadyAuthenticated }` / `{ pending }` / `{ ready:false }` / `{ useTerminal }` for Codex. |
-| `POST /code-sessions/:id/login-code` | `code-sessions:write` | Submit the `code` the user pasted from the auth page. |
+| `POST /code-sessions/:id/login-codes` | `code-sessions:write` | Submit the `code` the user pasted from the auth page. |
 | `GET /code-sessions/:id/output` | `code-sessions:read` | Terminal output. Use `afterSeq` to poll for new chunks. |
 | `POST /code-sessions/:id/deploy` | `code-sessions:deploy` | Deploy the session's workspace as an app (zip, build, deploy). See `references/apps.md`. |
 | `DELETE /code-sessions/:id` | `code-sessions:write` | End the session and stop the workspace. |
@@ -324,13 +324,13 @@ SID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 curl -s "${auth[@]}" "$BASE/code-sessions/$SID/status" | jq '.data.status'   # until ready
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"text":"add a GET /health endpoint returning 200"}' \
-  "$BASE/code-sessions/$SID/input"
+  "$BASE/code-sessions/$SID/inputs"
 ```
 
 Login is the user's own Claude account: Strongly supplies no credential. Relay the
 `authUrl` as a clickable link, take the code the user pastes back, and submit it
 with `login-code`. For Codex (`useTerminal:true`), drive `codex login` through the
-terminal endpoints (`POST /code-sessions/:id/input`, `GET /code-sessions/:id/output`).
+terminal endpoints (`POST /code-sessions/:id/inputs`, `GET /code-sessions/:id/output`).
 
 **The `react-starter` scaffold is deploy-ready.** It seeds a verified Strongly
 starter app that already solves serving behind the proxy: a proxy-safe relative
@@ -354,8 +354,8 @@ order:
 3. Deploy the session, capture `appId` from the response, and poll the app build
    and pod to healthy (`references/apps.md` section 2).
 4. Attach the store to the app, then REDEPLOY so it takes effect. Add the addon id
-   to the app definition with either `POST $BASE/addons/:id/connect/:appId` or
-   `PUT $BASE/apps/:appId` `{"addons":["<id>"]}` (`references/addons.md` section 7).
+   to the app definition with either `POST $BASE/addons/:id/connections` `{"appId"}` or
+   `PATCH $BASE/apps/:appId` `{"addons":["<id>"]}` (`references/addons.md` section 7).
    Both update the app DEFINITION only. `STRONGLY_SERVICES` is generated from the
    declared addons at build/deploy, so redeploy the app afterwards
    (`POST $BASE/apps/:appId/deploy`, then poll to healthy) for the running pod to
@@ -364,7 +364,7 @@ order:
 
 The cleanest path is to declare the addon id when you build, so the first deploy
 already has it and there is no second round trip: for a bundle you build yourself,
-`POST $BASE/apps/upload` with `metadata={"addons":["<id>"]}` (`references/apps.md`
+`POST $BASE/apps/import` with `metadata={"addons":["<id>"]}` (`references/apps.md`
 section 4); for a marketplace-style app whose users pick the database in the deploy
 wizard, declare it in `deploy.json` `addons[]` (`references/marketplace.md` section 8). The
 code-session `deploy` builds from code alone and takes no addon list, which is why a
@@ -381,4 +381,4 @@ DB attached to a session-deployed app needs the connect-then-redeploy step above
 - [ ] Pre-warm a pool with a valid `workloadType` and `count` in 1-5.
 - [ ] Volumes: a project's volume has a git code half and a per-file versioned data half and is created with its project; a shared volume holds data only (create with `name` and `scope: "shared"`, no `code`). Code is written only in the project's own volume; shared code is read-only. Every workspace mounts its project's volume at `/volumes/local/<name>/{code,data}` and each shared volume at `/volumes/shared/<name>/data` (plus a read-only `code/` only for a shared project volume) on its next start, with nothing to attach.
 - [ ] Code sessions: send natural-language tasks (not raw shell) to the assistant terminal; login uses the user's own Claude account; deploy an app via `/code-sessions/:id/deploy` and see `references/apps.md`.
-- [ ] A code-session deploy wires NO services: to add a database afterwards, add the addon id to the app (`connect/:appId` or `PUT /apps/:id {addons}`) AND redeploy so `STRONGLY_SERVICES` regenerates; or declare it up front (`/apps/upload` `metadata={"addons":[...]}`, or `deploy.json` for a wizard deploy). The app reads the connection from `STRONGLY_SERVICES`.
+- [ ] A code-session deploy wires NO services: to add a database afterwards, add the addon id to the app (`connect/:appId` or `PATCH /apps/:id {addons}`) AND redeploy so `STRONGLY_SERVICES` regenerates; or declare it up front (`/apps/upload` `metadata={"addons":[...]}`, or `deploy.json` for a wizard deploy). The app reads the connection from `STRONGLY_SERVICES`.

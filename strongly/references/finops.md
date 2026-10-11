@@ -28,8 +28,8 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")
 ```
 
 **Scopes.** Reads need `finops:read`; creating or changing resource groups and
-schedules needs `finops:write`. Every response is the standard envelope
-(`{ success, data }`, lists add `pagination`); read `data`, surface `error.message`.
+schedules needs `finops:write`. Every response is
+the standard envelope (see `SKILL.md`): `data` on success, lists page with `cursor` / `meta.nextCursor`, and a failure is problem details whose `detail` and `code` to surface.
 
 ---
 
@@ -116,7 +116,7 @@ curl -s "${auth[@]}" "$BASE/finops/budgets/<budgetId>" | jq '.data'
 
 | Endpoint | Params | Notes |
 |---|---|---|
-| `GET /finops/budgets` | `scopeLevel`, `status`, `search`, `limit`, `offset` | `scopeLevel` one of `platform`, `organization`, `user`, `resourceGroup`, `resource`, `resourceType`, `tag`; `status` one of `active`, `paused`, `exhausted` |
+| `GET /finops/budgets` | `scopeLevel`, `status`, `q`, `limit`, `cursor` | `scopeLevel` one of `platform`, `organization`, `user`, `resourceGroup`, `resource`, `resourceType`, `tag`; `status` one of `active`, `paused`, `exhausted` |
 | `GET /finops/budgets/:id` | path `id` | 404 if not in the caller's tenant |
 
 There is no create, update, or delete for budgets on this API. Do not attempt one.
@@ -147,7 +147,7 @@ curl -s -X DELETE "${auth[@]}" \
 
 | Endpoint | Method | Scope | Required fields |
 |---|---|---|---|
-| `/finops/resource-groups` | GET | `finops:read` | query: `search`, `status`, `limit`, `offset` |
+| `/finops/resource-groups` | GET | `finops:read` | query: `q`, `status`, `limit`, `cursor` |
 | `/finops/resource-groups` | POST | `finops:write` | body: `name` (+ optional `description`) |
 | `/finops/resource-groups/:id` | GET | `finops:read` | path `id` |
 | `/finops/resource-groups/:id` | PUT | `finops:write` | path `id`; body `name`, `description` |
@@ -199,7 +199,7 @@ at `stopTime`.
 
 | Endpoint | Method | Scope | Notes |
 |---|---|---|---|
-| `/finops/schedules` | GET | `finops:read` | query: `search`, `status`, `scopeLevel`, `enabled` (`"true"`\|`"false"`), `limit`, `offset` |
+| `/finops/schedules` | GET | `finops:read` | query: `q`, `status`, `scopeLevel`, `enabled` (`"true"`\|`"false"`), `limit`, `cursor` |
 | `/finops/schedules` | POST | `finops:write` | body: `name`, `scope`, `schedule` (+ optional `description`) |
 | `/finops/schedules/:id` | GET | `finops:read` | path `id` |
 | `/finops/schedules/:id` | PUT | `finops:write` | path `id`; body `name`, `scope`, `schedule`, `description` |

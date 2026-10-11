@@ -34,8 +34,8 @@ immutable snapshots of the actual artifact. You never overwrite a version, you
 add a new one and point the model at it. Deploy stands a version up as a serving
 pod; predict calls that pod.
 
-- **Upload** the artifact bytes to S3 (`POST /model-registry/upload`), get an `s3Key`.
-- **Register** a model that references that `s3Key` (`POST /model-registry/models`).
+- **Upload** the artifact bytes to S3 (`POST /mlops/models/uploads/validate`), get an `s3Key`.
+- **Register** a model that references that `s3Key` (`POST /mlops/models`).
   Version 1 is created at registration.
 - **Version** it as you retrain: upload new bytes, add a version, then activate or
   deploy that version.
@@ -60,8 +60,8 @@ Push the trained bytes first. Accepts a single file (`.pkl`, `.joblib`, `.pt`,
 one level nested.
 
 ```bash
-# POST /model-registry/upload  (multipart field: file) -> { s3Key, sizeMb, bucket, manifest?, manifestRaw? }
-UP=$(curl -s "${auth[@]}" -F "file=@model.zip;type=application/zip" "$BASE/model-registry/upload")
+# POST /mlops/models/uploads/validate  (multipart field: file) -> { s3Key, sizeMb, bucket, manifest?, manifestRaw? }
+UP=$(curl -s "${auth[@]}" -F "file=@model.zip;type=application/zip" "$BASE/mlops/models/uploads/validate")
 S3KEY=$(echo "$UP" | jq -r '.data.s3Key')
 ```
 
@@ -75,7 +75,7 @@ with a valid `strongly.manifest.yaml`. Keep the whole `data` object, you pass it
 entry servable. Omit `artifact` only for an external metadata-only entry.
 
 ```bash
-# POST /model-registry/models -> data._id (the model id)
+# POST /mlops/models -> data._id (the model id)
 MODEL_ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{
     "name": "churn-classifier",
@@ -87,7 +87,7 @@ MODEL_ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
     "features": { "featureNames": ["tenure","monthly_charges","contract_type"] },
     "metrics": { "accuracy": 0.91, "f1": 0.88 },
     "tags": ["churn","tabular"]
-  }' "$BASE/model-registry/models" | jq -r '.data._id')
+  }' "$BASE/mlops/models" | jq -r '.data._id')
 ```
 
 Field notes, grounded in the route:
@@ -135,8 +135,8 @@ artifact/metrics) and which version is **deployed** (running in the pod).
 ### List versions
 
 ```bash
-# GET /model-registry/models/:id/versions -> { versions: [...], activeVersion }
-curl -s "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID/versions" | jq '.data'
+# GET /mlops/models/:id/versions -> { versions: [...], activeVersion }
+curl -s "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/versions" | jq '.data'
 ```
 
 ### Add a new version
@@ -147,10 +147,10 @@ also carries `frameworkVersion`, `pythonVersion` and `requirements` (as in
 register); pass `schema` only when its inputs differ from the model's.
 
 ```bash
-# POST /model-registry/models/:id/versions -> { version, modelId }
+# POST /mlops/models/:id/versions -> { version, modelId }
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{ "artifact": { "s3Key": "'"$S3KEY"'" }, "description": "retrained on Q3 data" }' \
-  "$BASE/model-registry/models/$MODEL_ID/versions"
+  "$BASE/mlops/models/$MODEL_ID/versions"
 ```
 
 ### Promote a version
@@ -159,10 +159,10 @@ Two levels of promotion, both take the version number as the path segment:
 
 ```bash
 # Activate: point the model's served artifact/metrics at a version, no pod change.
-curl -s -X POST "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID/versions/2/activate"
+curl -s -X POST "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/versions/2/activate"
 
 # Deploy a version: set it active AND (re)deploy the serving pod with that artifact.
-curl -s -X POST "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID/versions/2/deploy"
+curl -s -X POST "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/versions/2/deploy"
 ```
 
 Use **activate** to move the pointer without touching a running pod. Use **deploy
@@ -178,15 +178,15 @@ Deploy stands the model's active version up as a serving pod. All body fields ar
 optional; the model manifest fills in the rest.
 
 ```bash
-# POST /model-registry/models/:id/deploy
+# POST /mlops/models/:id/deploy
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{ "autoShutdownMinutes": 15, "resources": { "cpu": "1", "memory": "2Gi" } }' \
-  "$BASE/model-registry/models/$MODEL_ID/deploy"
+  "$BASE/mlops/models/$MODEL_ID/deploy"
 
 # Stop (tears down the pod, moves to stopped) / Start (bring a stopped model back: it is
 # `starting` until its pod is ready, then `running`, or `failed` with the reason; poll it)
-curl -s -X POST "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID/stop"
-curl -s -X POST "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID/start"
+curl -s -X POST "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/stop"
+curl -s -X POST "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/start"
 ```
 
 Deploy body fields, from the route:
@@ -206,7 +206,7 @@ Deploy body fields, from the route:
 - **`environmentVariables`**: non-secret env vars injected into the serving pod.
 
 **Poll before claiming success.** Deploy returns immediately. The registry-side
-lifecycle is on `GET /model-registry/models/:id/status`; once deployed, the live
+lifecycle is on `GET /mlops/models/:id/status`; once deployed, the live
 **pod** state moves to the ai-models row, so track the running pod with
 `/ai/models/:id/status` (see `references/ai-gateway.md`). Do not report the model
 as serving until the pod is running.
@@ -219,11 +219,11 @@ The model must be deployed with `deployment.status === 'running'`. The request i
 proxied to the model pod through the AI Gateway (model pods are cluster-internal).
 
 ```bash
-# POST /model-registry/models/:id/predict
+# POST /mlops/models/:id/predict
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{ "input_data": { "tenure": 12, "monthly_charges": 79.9, "contract_type": "month" },
         "entityId": "cust-4821" }' \
-  "$BASE/model-registry/models/$MODEL_ID/predict"
+  "$BASE/mlops/models/$MODEL_ID/predict"
 ```
 
 - **`input_data`** (required): the feature payload (object or array). `inputData`
@@ -246,14 +246,14 @@ models on live traffic is `references/ab-testing.md`.
 ## 6. Read, update, delete
 
 ```bash
-curl -s "${auth[@]}" "$BASE/model-registry/models"                       # list (filters below)
-curl -s "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID"            # full detail
-curl -s "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID/status"     # lifecycle snapshot
+curl -s "${auth[@]}" "$BASE/mlops/models"                       # list (filters below)
+curl -s "${auth[@]}" "$BASE/mlops/models/$MODEL_ID"            # full detail
+curl -s "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/status"     # lifecycle snapshot
 curl -s -X PUT    "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{ "description": "updated card" }' "$BASE/model-registry/models/$MODEL_ID"
+  -d '{ "description": "updated card" }' "$BASE/mlops/models/$MODEL_ID"
 curl -s -X PUT    "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{ "problemType": "classification" }' "$BASE/model-registry/models/$MODEL_ID"  # set its task only
-curl -s -X DELETE "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID"  # delete
+  -d '{ "problemType": "classification" }' "$BASE/mlops/models/$MODEL_ID"  # set its task only
+curl -s -X DELETE "${auth[@]}" "$BASE/mlops/models/$MODEL_ID"  # delete
 ```
 
 - **Update** changes only the fields sent. `problemType` sets `training.problemType`
@@ -261,13 +261,14 @@ curl -s -X DELETE "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID"  # delete
   record; `training` replaces the whole record. A model registered without a
   task (e.g. from a run whose `log_model` could not tell it) needs this before
   drift can monitor it.
-- **List** accepts `search`, `framework`, `source`, `status` (deployment status),
-  `tag`, `workspaceId`, plus `limit`, `offset`, `sortBy`, `sortOrder`. It returns
+- **List** accepts `q`, `framework`, `source`, `status` (deployment status),
+  `tag`, `workspaceId`, plus `limit`, `cursor`, `sort`. It returns
   lean summaries (the heavy `buildInfo`, `versions`, and `artifact` blobs are
   omitted, fetch a single model or the versions endpoint for those).
-- **Status** returns the registry-side lifecycle only: `status`,
-  `validation_status`, `deployed`, `deployment`, `version`, `archived`,
-  `updatedAt`. For the live serving pod use `/ai/models/:id/status`.
+- **Status** (`GET /mlops/models/:id/status`) returns `status` (its deployment's:
+  `registered` = never deployed, `building`, `deploying`, `starting`, `running`,
+  `idle`, `waking`, `stopped`, `failed`), `canServe` (predictions can be made now),
+  `activeVersion`, `versionCount` and `updatedAt`.
 - **Delete** returns clear conflicts, not opaque 500s: `409 model-in-use` (the
   model is connected to apps, disconnect it first) and `409 deployment-busy` (the
   pod is still provisioning, retry the delete shortly).
@@ -278,21 +279,21 @@ curl -s -X DELETE "${auth[@]}" "$BASE/model-registry/models/$MODEL_ID"  # delete
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/model-registry/upload` | Upload artifact bytes to S3, parse manifest, get `s3Key` |
-| POST | `/model-registry/models` | Register a model (servable or external metadata-only) |
-| GET | `/model-registry/models` | List registered models (filters + pagination) |
-| GET | `/model-registry/models/:id` | Get one model, full detail |
-| GET | `/model-registry/models/:id/status` | Registry-side lifecycle snapshot |
-| PUT | `/model-registry/models/:id` | Update a registered model |
-| DELETE | `/model-registry/models/:id` | Delete a registered model |
-| GET | `/model-registry/models/:id/versions` | List versions + which is active |
-| POST | `/model-registry/models/:id/versions` | Add a version from an uploaded artifact |
-| POST | `/model-registry/models/:id/versions/:v/activate` | Set the active version (no deploy) |
-| POST | `/model-registry/models/:id/versions/:v/deploy` | Set active + deploy that version |
-| POST | `/model-registry/models/:id/deploy` | Deploy the model for inference |
-| POST | `/model-registry/models/:id/stop` | Stop the serving pod |
-| POST | `/model-registry/models/:id/start` | Start a stopped model |
-| POST | `/model-registry/models/:id/predict` | Run inference on a deployed model |
+| POST | `/mlops/models/uploads/validate` | Upload artifact bytes to S3, parse manifest, get `s3Key` |
+| POST | `/mlops/models` | Register a model (servable or external metadata-only) |
+| GET | `/mlops/models` | List registered models (filters + pagination) |
+| GET | `/mlops/models/:id` | Get one model, full detail |
+| GET | `/mlops/models/:id/status` | Registry-side lifecycle snapshot |
+| PATCH | `/mlops/models/:id` | Update a registered model |
+| DELETE | `/mlops/models/:id` | Delete a registered model |
+| GET | `/mlops/models/:id/versions` | List versions + which is active |
+| POST | `/mlops/models/:id/versions` | Add a version from an uploaded artifact |
+| POST | `/mlops/models/:modelId/versions/:id/activate` | Set the active version (no deploy) |
+| POST | `/mlops/models/:modelId/versions/:id/deploy` | Set active + deploy that version |
+| POST | `/mlops/models/:id/deploy` | Deploy the model for inference |
+| POST | `/mlops/models/:id/stop` | Stop the serving pod |
+| POST | `/mlops/models/:id/start` | Start a stopped model |
+| POST | `/mlops/models/:id/predict` | Run inference on a deployed model |
 
 Monitoring settings, actuals and baselines also live under
 `/model-registry/models/:id` (`/monitoring`, `/actuals...`, `/baselines...`);

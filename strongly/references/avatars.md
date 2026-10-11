@@ -21,8 +21,7 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # key needs avat
 # Inside Strongly (a workspace, app or job): BASE="$STRONGLY_API_URL/api/v1"; auth=()   # signed in as you, no key
 ```
 
-Every response is the standard envelope: `{ "success": true, "data": … }` on
-success, `{ "success": false, "error": { code, message } }` on failure.
+Every response is the standard envelope (see `SKILL.md`): `data` on success, lists page with `cursor` / `meta.nextCursor`, and a failure is problem details whose `detail` and `code` to surface.
 
 ---
 
@@ -122,7 +121,7 @@ The response `data` is the created avatar, including its `_id` and initial
 
 Every avatar except an orb needs a source asset before it can render. Send it as
 **`multipart/form-data`** with the file in the field named **`file`**:
-`POST /avatars/:id/source` (`avatars:write`).
+`PUT /avatars/:id/source` (`avatars:write`).
 
 - `stylized_3d` (`vrm`): upload a `.vrm` / glTF **model**. On success the avatar
   goes to **`ready`**.
@@ -203,9 +202,9 @@ only update an avatar you own. Delete is final and enforces ownership.
 | GET | `/avatars` | List accessible avatars; optional `?name=<exact>` | `avatars:read` |
 | GET | `/avatars/:id` | Get one avatar | `avatars:read` |
 | POST | `/avatars` | Create an avatar (`name`, `tier` required) | `avatars:write` |
-| PUT | `/avatars/:id` | Update mutable fields (owner only) | `avatars:write` |
+| PATCH | `/avatars/:id` | Update mutable fields (owner only) | `avatars:write` |
 | DELETE | `/avatars/:id` | Delete the avatar and release its resources (owner only) | `avatars:write` |
-| POST | `/avatars/:id/source` | Upload the source asset (`multipart/form-data`, field `file`) | `avatars:write` |
+| PUT | `/avatars/:id/source` | Upload the source asset (`multipart/form-data`, field `file`) | `avatars:write` |
 | POST | `/avatars/:id/preview` | Preview: render handle (Tier 1) or a short clip (Tier 2/3) | `avatars:write` |
 
 ---

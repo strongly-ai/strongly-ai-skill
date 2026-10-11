@@ -91,13 +91,26 @@ Strongly or `$HOST/api/v1` outside.
 the key lacks one. Tell the user which scope to add rather than working around
 it. (In-cluster callers inherit the caller's own permissions.)
 
-**Response envelope.** Success is `{ "success": true, "data": … }` (lists add
-`pagination`). Errors are `{ "success": false, "error": { "code", "message" } }`
-with a matching HTTP status. Read `data` on success; surface `error.message` on
-failure.
+**Response envelope.** Success is `{ "data": …, "meta": { "requestId" } }`. A list
+is `{ "data": [...], "meta": { "total", "limit", "nextCursor" } }`: pass
+`nextCursor` back as `cursor` for the next page (`null` on the last page); fixed
+catalogs (templates, base models, hardware tiers) are plain arrays. Errors
+are RFC 9457 problem details (`application/problem+json`):
+`{ "type", "title", "status", "detail", "code", "requestId", "errors"? }`. Read
+`data` on success; surface `detail` (and `code`) on failure. JSON fields are
+camelCase.
+
+**Design.** Paths are grouped by product area (`/apps`, `/workflows`, `/agents`,
+`/library/…`, `/primitives/…`, `/mlops/…`, `/ai-gateway/…`, `/finops/…`,
+`/governance/…`). Updates are `PATCH` with only the fields to change; actions are
+`POST …/:id/{verb}` (`start`, `stop`, `deploy`, …). Sharing is the same on every
+resource: `GET …/:id/permissions`, `POST …/:id/permissions/members`
+`{ userId, role }`, `DELETE …/:{name}Id/permissions/members/:userId` (`:appId`, `:workflowId`, …),
+`PATCH …/:id/permissions { visibility }`. The full contract is served at
+`GET /api/v1/openapi.json`.
 
 **Discovery.** List endpoints (`GET /api/v1/<resource>`) accept `limit`,
-`offset`, `sort`, and usually `search`. Resource ids are opaque strings
+`cursor`, `sort` (`-createdAt,name`), and usually `q` (free-text search). Resource ids are opaque strings
 (for example `app-dk8s1o8gwr03`, `project-vHPyNBcx3RSxs6Nsv`, `yeqemejxnqn7it66n`):
 take them from a list or create response, never build or guess one, and pass them
 in the path (`/api/v1/apps/<id>`).
@@ -193,7 +206,7 @@ carries `platformUpdatePending: true` on its record until it is restarted:
 |---|---|---|
 | Workspace (running) | A restart ends open notebooks and terminals | `POST /workspaces/:id/restart` |
 | Add-on (running) | Its probes or server settings changed; a restart restarts the database | `POST /addons/:id/restart` |
-| App, agent, deployed workflow | The platform's restart was refused for its user (access, budget, governance) | `POST /apps/:id/restart`, `POST /agents/:id/redeploy`, `POST /workflows/:id/deploy-version` with its `deployedVersionId` |
+| App, agent, deployed workflow | The platform's restart was refused for its user (access, budget, governance) | `POST /apps/:id/restart`, `POST /agents/:id/redeploy`, `POST /workflows/:workflowId/versions/:id/deploy` with its `deployedVersionId` |
 
 Tell the user which of their resources need a restart and what it interrupts;
 restart one only when they agree.

@@ -20,8 +20,7 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # Settings -> AP
 # Inside Strongly instead: BASE="$STRONGLY_API_URL/api/v1"; auth=()   (no header, see SKILL.md)
 ```
 
-All responses use the standard envelope: read `.data` on success, surface
-`.error.message` on failure.
+All responses use the standard envelope (see `SKILL.md`): `data` on success, lists page with `cursor` / `meta.nextCursor`, and a failure is problem details whose `detail` and `code` to surface.
 
 ---
 
@@ -46,8 +45,8 @@ need, not from a memorized list. Type keys are vendor keys, e.g. `postgres`
 elsewhere): streaming workflow nodes and marketplace installs take either,
 so offer an add-on only when the user has no broker of their own.
 
-`GET /addons` lists existing addons and supports `search`, `type`, `status`,
-`limit`, `offset`. Before provisioning a new store, list first and reuse when a
+`GET /addons` lists existing addons and supports `q`, `type`, `status`,
+`limit`, `cursor`. Before provisioning a new store, list first and reuse when a
 suitable one already exists.
 
 ---
@@ -153,8 +152,9 @@ connection from `STRONGLY_SERVICES` (never hardcode a host or key):
 
 ```bash
 # Attach / detach an existing addon to a running app (ids from the add-on and app lists).
-curl -s -X POST   "${auth[@]}" "$BASE/addons/$ADDON_ID/connect/$APP_ID" | jq '.data'
-curl -s -X DELETE "${auth[@]}" "$BASE/addons/$ADDON_ID/connect/$APP_ID" | jq '.data'
+curl -s -X POST   "${auth[@]}" -H 'Content-Type: application/json' -d "{\"appId\":\"$APP_ID\"}" \
+  "$BASE/addons/$ADDON_ID/connections" | jq '.data'
+curl -s -X DELETE "${auth[@]}" "$BASE/addons/$ADDON_ID/connections/$APP_ID"
 ```
 
 `connect` adds the addon to the app's `addons` set; `disconnect` removes it. Both
@@ -196,7 +196,7 @@ time (a second request gets `422 action-in-progress`).
 
 ```bash
 # Back up now. Returns the backupId; the backup runs in the background.
-curl -s -X POST "${auth[@]}" "$BASE/addons/$ADDON_ID/backup" | jq '.data'
+curl -s -X POST "${auth[@]}" "$BASE/addons/$ADDON_ID/backups" | jq '.data'
 
 # Automatic backups. All three fields are required.
 curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
@@ -210,9 +210,7 @@ curl -s "${auth[@]}" "$BASE/addons/$ADDON_ID/backups" \
                  restoreEffect}'
 
 # Restore a succeeded backup into the same addon (ask the user first).
-curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d "{\"backupId\":\"$BACKUP_ID\"}" \
-  "$BASE/addons/$ADDON_ID/restore" | jq '.data'
+curl -s -X POST "${auth[@]}" "$BASE/addons/$ADDON_ID/backups/$BACKUP_ID/restore" | jq '.data'
 ```
 
 `schedule` is `hourly`, `daily`, `weekly` or `monthly` (the first automatic
@@ -258,14 +256,19 @@ downtime.
 ## 11. Sharing / permissions
 
 ```bash
-# Both fields required: isPublic (org-wide) and the allowedUsers list.
-curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"isPublic":false,"allowedUsers":["<userId>","<userId2>"]}' \
-  "$BASE/addons/$ADDON_ID/permissions" | jq '.data'
+# Who can reach it: owner, members (role editor | user), visibility
+curl -s "${auth[@]}" "$BASE/addons/$ADDON_ID/permissions" | jq '.data'
+# Share with one user ("editor" may change it, "user" may only use it)
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"userId":"<userId>","role":"user"}' "$BASE/addons/$ADDON_ID/permissions/members"
+# Stop sharing with them
+curl -s -X DELETE "${auth[@]}" "$BASE/addons/$ADDON_ID/permissions/members/<userId>"
+# Everyone (in a multi-tenant deployment, everyone in its organization) may use it
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"visibility":"public"}' "$BASE/addons/$ADDON_ID/permissions"
 ```
 
-`isPublic: true` makes the addon reachable by all org members; otherwise access
-is limited to `allowedUsers`.
+Changing the addon stays with its owner and editors whatever its visibility.
 
 ---
 
@@ -286,10 +289,10 @@ longer exists.
 | Method | Path | What it does | Scope |
 |---|---|---|---|
 | GET | `/addon-types` | List the managed types you can create, with what each is best for | `addons:read` |
-| GET | `/addons` | List existing addons (`search`, `type`, `status`, `limit`, `offset`) | `addons:read` |
+| GET | `/addons` | List existing addons (`q`, `type`, `status`, `limit`, `cursor`) | `addons:read` |
 | POST | `/addons` | Create an addon (`label`, `type`, `cpu`, `memory`, `disk`, `description?`) | `addons:write` |
 | GET | `/addons/:id` | Get one addon's stored config | `addons:read` |
-| PUT | `/addons/:id` | Update label / description / resources | `addons:write` |
+| PATCH | `/addons/:id` | Update label / description / resources | `addons:write` |
 | DELETE | `/addons/:id` | Delete the addon and its K8s resources | `addons:write` |
 | POST | `/addons/:id/start` | Start a stopped addon | `addons:deploy` |
 | POST | `/addons/:id/stop` | Stop a running addon (keeps data) | `addons:deploy` |
@@ -299,13 +302,15 @@ longer exists.
 | GET | `/addons/:id/credentials` | Decrypted host/port/user/password/connection string | `addons:read` |
 | GET | `/addons/:id/metrics` | Current CPU / memory / disk usage | `addons:read` |
 | GET | `/addons/:id/logs` | Container logs (`lines`, `since`, `container`) | `addons:read` |
-| POST | `/addons/:id/backup` | Trigger an immediate backup | `addons:write` |
+| POST | `/addons/:id/backups` | Trigger an immediate backup | `addons:write` |
 | PUT | `/addons/:id/backup-config` | Configure automated backups (`enabled`, `schedule`, `retention`) | `addons:write` |
 | GET | `/addons/:id/backups` | Backups and restores (status, size, error) and `restoreEffect` | `addons:read` |
-| POST | `/addons/:id/restore` | Restore a succeeded backup into the addon (`backupId`) | `addons:write` |
-| POST | `/addons/:id/connect/:appId` | Attach the addon to an app | `addons:write` |
-| DELETE | `/addons/:id/connect/:appId` | Detach the addon from an app | `addons:write` |
-| PUT | `/addons/:id/permissions` | Sharing (`isPublic`, `allowedUsers`) | `addons:write` |
+| POST | `/addons/:addonId/backups/:id/restore` | Restore a succeeded backup into the addon | `addons:write` |
+| POST | `/addons/:id/connections` | Attach the addon to an app (`appId`) | `addons:write` |
+| DELETE | `/addons/:addonId/connections/:id` | Detach the addon from an app | `addons:write` |
+| GET/PATCH | `/addons/:id/permissions` | Who can reach it / set `visibility` | `addons:read` / `addons:write` |
+| POST | `/addons/:id/permissions/members` | Share with a user (`userId`, `role`) | `addons:write` |
+| DELETE | `/addons/:addonId/permissions/members/:userId` | Stop sharing with a user | `addons:write` |
 | GET | `/addons/:id/schedule` | Get the scheduled start/stop window | `addons:read` |
 | PUT | `/addons/:id/schedule` | Set a scheduled start/stop window | `addons:write` |
 
