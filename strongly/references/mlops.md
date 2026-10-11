@@ -322,7 +322,7 @@ ID=$(curl -s "${auth[@]}" -X POST "$BASE/ai-gateway/generations/videos" \
 poll "$BASE/ai-gateway/generations/$ID"
 ```
 
-Checklist: `model` must be a real gateway model id; use `/ai/tokenize` (returns
+Checklist: `model` must be a real gateway model id; use `POST /ai-gateway/tokenize` (returns
 `count` and `max_model_len`) to keep prompt + `max_tokens` inside the context
 window; video and music generation are async, poll `GET /ai-gateway/generations/:id`.
 Model discovery, provider keys, and guardrails: `references/ai-gateway.md`.

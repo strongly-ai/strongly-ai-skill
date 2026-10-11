@@ -16,7 +16,7 @@ running offering, or installing/managing a **plugin**.
 > The catalog calls each listing a "marketplace item"; the usage API calls the
 > same thing an "offering" (its `offeringId` is the app's `appName`). They are
 > the same object. Item routes are `/marketplace/items/*`; the usage route is
-> `/offering-usage/events`.
+> `/marketplace/usage-events`.
 
 **Auth** follows `SKILL.md`: outside Strongly send `-H "X-API-Key: $STRONGLY_API_KEY"`
 to `$HOST/api/v1`; inside Strongly the bearer is auto-injected at
@@ -368,4 +368,4 @@ Field reference:
 - [ ] Poll `/marketplace/deployments/:id/status` (by the marketplace item id) until `status` is `complete`; never claim success before that; read `error` on `failed`.
 - [ ] Once complete, treat `result.appId` as a normal app and use `references/apps.md` (`/apps` routes, proxy, identity, manifest).
 - [ ] Usage events: one per use, unique `idempotencyKey`, positive `quantity`; a 200 `deduplicated:true` is success, not an error.
-- [ ] Plugins: browse `GET /plugins`, install by id with `values` matching the plugin's `configSchema` (`marketplace:deploy`); enable/disable/uninstall the same way; managing them needs admin (or developer in multitenant).
+- [ ] Plugins: browse `GET /plugins`, install with `POST /plugins/instances` (`pluginId`, `values` matching the plugin's `configSchema`; `marketplace:deploy`); `PATCH /plugins/instances/:id` `{enabled}` turns one on or off and `DELETE` uninstalls it; managing them needs admin (or developer in multitenant).

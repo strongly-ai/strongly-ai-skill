@@ -17,7 +17,7 @@ or importing a file of them, logging predictions made outside Strongly, or
 reading what the model card shows.
 
 **Auth** follows `SKILL.md`; `$BASE` and `auth` as there. **Scopes:** routes
-under `/model-registry` need `model-registry:read` / `model-registry:write`;
+under `/mlops/models` need `model-registry:read` / `model-registry:write`;
 `/mlops/models/:id/predictions` needs `mlops:read` / `mlops:write`.
 
 ---

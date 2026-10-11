@@ -28,7 +28,7 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # see SKILL.md
 ```
 
 Scopes: `governance:read` / `governance:write` on `/governance/*`;
-`guardrails:read` / `guardrails:write` on `/guardrails/*`. Every JSON response is
+`guardrails:read` / `guardrails:write` on `/ai-gateway/guardrails` and `/ai-gateway/models/:id/guardrails`. Every JSON response is
 the standard envelope (see `SKILL.md`: `data` on success, problem details `detail`/`code` on failure); the sole
 exception is the evidence download (section 3), which streams raw file bytes.
 
@@ -238,4 +238,4 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/guardrails/statistics" | jq '.data'
 - [ ] `decision` is one of `approved`, `denied`, `conditional`; `waive` needs a `reason` and is admin-only.
 - [ ] Deploy gating read from `GET /governance/enforcement/check` (both `resourceType` and `resourceId`), not assumed.
 - [ ] Evidence streamed to a file; caller has read access to the owning solution.
-- [ ] Guardrail `PUT` sends the full desired state (`enabled`, `rules`); rule templates come from `GET /ai-gateway/guardrails/templates`; dry-run with `…/guardrails/test` before turning them on. See `references/ai-gateway.md` for enforcement at inference.
+- [ ] Guardrail `PUT` sends the full desired state (`enabled`, `rules`); rule templates come from `GET /ai-gateway/guardrails/templates`; dry-run with `POST /ai-gateway/models/:id/guardrails/test` before turning them on. See `references/ai-gateway.md` for enforcement at inference.

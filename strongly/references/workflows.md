@@ -213,7 +213,7 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
   A run's cache is deleted 24 h after it ends, except the newest finished run of
   each workflow (kept for resume).
 - Built-in nodes log **metrics** (judge scores, LLM tokens, `rows_affected`, item
-  counts): each span's `metrics` in `/executions/:id/spans`; when a run ends every
+  counts): each span's `metrics` in `/workflows/-/executions/:id/spans`; when a run ends every
   metric name also gets trace-level `avg_`/`min_`/`max_` aggregates, shown on the
   trace's Execution Metrics card.
 
@@ -327,7 +327,8 @@ In the builder the same requests show in the **Waiting for you** panel.
 | POST | `/workflows/-/executions/:id/stop` | Graceful stop (only when `running`) |
 | POST | `/workflows/-/executions/:id/cancel` | Hard-cancel any non-terminal run; idempotent |
 | POST | `/workflows/-/executions/:id/resume` | Resume a failed/paused run (`trigger_data`) |
-| GET · POST | `/executions/:id/pending-inputs` · `/executions/:id/input` | Discover, then answer, what a running run waits on from a person (Wait for Input, Human Feedback, Human Checkpoint); `request_id` plus `data` shaped by the request type (see above) |
+| GET · POST | `/workflows/-/executions/:id/human-requests` · `/workflows/-/executions/:executionId/human-requests/:id/respond` | Discover, then answer, what a running run waits on from a person (Wait for Input, Human Feedback, Human Checkpoint); the answer's `data` is shaped by the request type (see above) |
+| POST | `/workflows/-/executions/:executionId/human-requests/:id/notify` | Send a waiting request's notification again |
 | GET | `/workflows/:workflowId/dead-letters` | Runs that could not be submitted (dead letters) of a workflow, or of every workflow with `-`; `status` filters (`pending`, `retrying`, `resolved`, `exhausted`, `discarded`) |
 | GET · POST | `/workflows/-/dead-letters/:id` · `…/:id/retry` · `…/:id/discard` | One dead letter; retry it now as you, or give up on it (`notes`) |
 
@@ -400,8 +401,8 @@ curl -s "${auth[@]}" "$BASE/workflows/alerts?workflowId=$WID" | jq '.data'   # e
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/workflows/events` | Emit an event; starts the deployed workflows you may use whose Event trigger listens for it |
-| GET · POST | `/workflow-alerts/rules` | List (`workflowId`) / create alert rules: `condition` = execution_failed, execution_timeout, execution_completed, duration_exceeded (`conditionConfig.durationThresholdMs`), node_failed (`nodeTypes`), consecutive_failures (`failureCount`), dlq_threshold (`dlqCountThreshold`); `channels` = in_app, email (`emailAddresses`), slack (`slackWebhookUrl`), webhook (`webhookUrl`); `throttle` `{enabled, intervalMinutes}` |
-| PUT · DELETE | `/workflow-alerts/rules/:id` | Update (`isEnabled: false` pauses) / delete a rule |
+| GET · POST | `/workflows/alert-rules` | List (`workflowId`) / create alert rules: `condition` = execution_failed, execution_timeout, execution_completed, duration_exceeded (`conditionConfig.durationThresholdMs`), node_failed (`nodeTypes`), consecutive_failures (`failureCount`), dlq_threshold (`dlqCountThreshold`); `channels` = in_app, email (`emailAddresses`), slack (`slackWebhookUrl`), webhook (`webhookUrl`); `throttle` `{enabled, intervalMinutes}` |
+| GET · PATCH · DELETE | `/workflows/alert-rules/:id` | Read / update (`isEnabled: false` pauses) / delete a rule |
 | GET | `/workflows/alerts` | Alerts sent (`workflowId`, `ruleId`, `limit` <= 200) with each channel's outcome |
 
 ---
@@ -508,7 +509,7 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 - [ ] Graph built with `/workflows/build` (nodes + connections in one call); `inputMappings` paths match the arriving data.
 - [ ] `llm` nodes: real model id under `config.model`; downstream reads `data.response`.
 - [ ] Both `validate` and `validate-structure` pass before deploy.
-- [ ] Executed with real `triggerInputs` and **polled to a terminal state**; outputs verified non-empty; failures read from `/executions/:id/spans`.
+- [ ] Executed with real `triggerInputs` and **polled to a terminal state**; outputs verified non-empty; failures read from `/workflows/-/executions/:id/spans`.
 - [ ] Deploy is 202 + poll `/workflows/:id/status` to `deploymentStatus: active` and `health.replicas.ready >= 1` before claiming success.
 - [ ] Invocation URL, auth mode, and signing header relayed to the user; webhook `config.secret` set if a signed caller needs it.
 - [ ] Streaming: deployed, session readiness gated on live pod health, session ended after testing.

@@ -173,7 +173,7 @@ curl -s "${auth[@]}" "$BASE/projects/$PID/board" | jq '.data'   # columns, cards
 ### Cards
 
 Card **create** is nested under the project; card **update/move/archive/restore**
-use the top-level `/board-cards/:id` path. There is **no delete** for cards: they
+use `/projects/-/board/cards/:id` (`PATCH`, and `POST …/move`, `…/archive`, `…/restore`). There is **no delete** for cards: they
 are archived, keep their content, and can be restored.
 
 ```bash

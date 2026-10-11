@@ -488,7 +488,7 @@ const wf = s.workflows?.available_workflows?.[0];   // POST its input to wf.endp
 
 You choose what's wired at create time by declaring ids in the `addons`,
 `dataSources`, `aiModels`, `workflows` arrays (discover via `GET $BASE/addons`,
-`/datasources`, `/ai-models`, `/workflows`). How you pass them depends on the route:
+`/data-sources`, `/ai-gateway/models`, `/workflows`). How you pass them depends on the route:
 - JSON `POST $BASE/apps` and `PATCH $BASE/apps/:id`: send them as top-level body
   fields, e.g. `{"addons":["<id>"]}`. On `PUT` each array REPLACES the connected set.
 - Multipart `POST $BASE/apps/import` (zip bundle): they are NOT standalone form
@@ -534,7 +534,7 @@ app.get('/download/:id', async (req, res) => {
 });
 ```
 
-Also: `GET /library/artifacts` (gallery), `/artifacts/:id/versions` + `/restore`,
+Also: `GET /library/artifacts` (gallery), `/library/artifacts/:id/versions` + `…/versions/:version/restore`,
 `PATCH`/`DELETE`, and sharing through `/library/artifacts/:id/permissions` (members and visibility).
 
 ---

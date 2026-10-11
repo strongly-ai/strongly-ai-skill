@@ -32,7 +32,7 @@ in `references/model-evaluation.md`.
 **Auth** follows `SKILL.md`; below, `$BASE` is `$STRONGLY_API_URL/api/v1`
 inside Strongly or `$HOST/api/v1` outside, with `auth=(-H "X-API-Key:
 $STRONGLY_API_KEY")` outside. **Scopes:** baseline builds live under the model
-(`model-registry:read` / `model-registry:write`); the `/drift` routes need
+(`model-registry:read` / `model-registry:write`); the drift routes (`/mlops/drift`, `/mlops/models/:id/drift-*`) need
 `mlops:read` / `mlops:write`.
 
 ---
