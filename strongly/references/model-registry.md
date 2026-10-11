@@ -283,9 +283,10 @@ curl -s -X DELETE "${auth[@]}" "$BASE/mlops/models/$MODEL_ID"  # delete
   `registered` = never deployed, `building`, `deploying`, `starting`, `running`,
   `idle`, `waking`, `stopped`, `failed`), `canServe` (predictions can be made now),
   `activeVersion`, `versionCount` and `updatedAt`.
-- **Delete** returns clear conflicts, not opaque 500s: `409 model-in-use` (the
-  model is connected to apps, disconnect it first) and `409 deployment-busy` (the
-  pod is still provisioning, retry the delete shortly).
+- **Delete** returns clear errors, not opaque 500s: `409 model-in-use` (the
+  model is connected to apps, disconnect it first) and `502 deployment-delete-failed`
+  (its deployment could not be deleted, so the model is kept; the detail is the
+  reason).
 
 ---
 
