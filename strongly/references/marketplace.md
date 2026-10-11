@@ -22,7 +22,7 @@ running offering, or installing/managing a **plugin**.
 to `$HOST/api/v1`; inside Strongly the bearer is auto-injected at
 `$STRONGLY_API_URL/api/v1`. Below, `$BASE` is whichever applies, and
 `auth=(-H "X-API-Key: $STRONGLY_API_KEY")` outside Strongly. Read scopes are
-`marketplace:read`; deploy, reviews, and plugin install/enable/disable/uninstall
+`marketplace:read`; deploy, reviews, and plugin install/change/uninstall
 need `marketplace:deploy`; usage needs `offering-usage:write`; the
 listing-management routes need `marketplace:admin`.
 
@@ -230,45 +230,46 @@ manage them; in multitenant an admin or a developer may (scoped to their org). A
 call without that access returns **403**.
 
 ```bash
-# Browse the plugin catalog (each entry: id, displayName, description,
-# configSchema[], features[]).
-curl -s "${auth[@]}" "$BASE/plugins" | jq '.data.plugins'
+# Browse the plugin catalog (a plain array; each entry: id, displayName,
+# description, configSchema[], features[]).
+curl -s "${auth[@]}" "$BASE/plugins" | jq '.data'
 
-# What is already installed (secrets are never returned).
-curl -s "${auth[@]}" "$BASE/plugins/instances" | jq '.data.instances'
+# What is already installed (paged; secrets are never returned).
+curl -s "${auth[@]}" "$BASE/plugins/instances" | jq '.data[] | {_id, pluginId, enabled, status}'
 ```
 
-Install by plugin `id`. `values` is a flat map keyed by the plugin's
-`configSchema` fields; `features` is a map of feature id to boolean (defaults
-apply when omitted). Re-installing an already-installed plugin updates its config
-and re-enables it. Required config fields are enforced.
+Install with the plugin's `pluginId`. `values` is a flat map keyed by the
+plugin's `configSchema` fields; `features` is a map of feature id to boolean
+(defaults apply when omitted). Installing an installed plugin again updates its
+config and turns it on. Required config fields are enforced. The answer is the
+instance; its `_id` addresses it from then on.
 
 ```bash
 # Install / configure DataHub (values.datahubBaseUrl + values.authMode).
-curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"values":{"datahubBaseUrl":"http://datahub-gms:8080","authMode":"pat","datahubToken":"<pat>"},
+INSTANCE=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"pluginId":"datahub","values":{"datahubBaseUrl":"http://datahub-gms:8080","authMode":"pat","datahubToken":"<pat>"},
        "features":{"lineage":true,"modelSync":true}}' \
-  "$BASE/plugins/datahub/install" | jq '.data'
+  "$BASE/plugins/instances" | jq -r '.data._id')
 
-# Toggle without uninstalling, then uninstall.
-curl -s -X POST "${auth[@]}" "$BASE/plugins/datahub/disable" | jq '.data'
-curl -s -X POST "${auth[@]}" "$BASE/plugins/datahub/enable"  | jq '.data'
-curl -s -X DELETE "${auth[@]}" "$BASE/plugins/datahub"       | jq '.data'
+# Turn it off without uninstalling, on again, then uninstall (204).
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"enabled":false}' "$BASE/plugins/instances/$INSTANCE" | jq '.data.enabled'
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"enabled":true}'  "$BASE/plugins/instances/$INSTANCE" | jq '.data.enabled'
+curl -s -X DELETE "${auth[@]}" "$BASE/plugins/instances/$INSTANCE" -o /dev/null -w '%{http_code}\n'
 ```
 
-Errors on install: a missing required config field is a **400** (`config-invalid`);
-an unknown plugin id is a **404** (`plugin-not-found`); no access is a **403**.
-Enable/disable/uninstall on a plugin that is not installed is a **404**
-(`NOT_INSTALLED`).
+Errors: a missing required config field is a **400** (`validation-error`); an
+unknown plugin id or instance is a **404** (`not-found`); no access is a **403**.
+Turning stripe-app-payments off or uninstalling it while any app still charges
+is a **409** (`invalid-state`): turn off paid access on each app first.
 
 | Method | Path | Scope | Purpose |
 |---|---|---|---|
-| GET | `/plugins` | `marketplace:read` | List installable plugins (schema + features) |
-| GET | `/plugins/instances` | `marketplace:read` | List installed plugin instances the caller can see |
-| POST | `/plugins/:id/install` | `marketplace:deploy` | Install/configure a plugin (`values`, `features`); returns 201 |
-| POST | `/plugins/:id/enable` | `marketplace:deploy` | Enable an installed plugin |
-| POST | `/plugins/:id/disable` | `marketplace:deploy` | Disable an installed plugin without uninstalling |
-| DELETE | `/plugins/:id` | `marketplace:deploy` | Uninstall a plugin |
+| GET | `/plugins` | `marketplace:read` | The installable plugins (schema + features), a plain array |
+| GET | `/plugins/instances` | `marketplace:read` | The installed instances the caller can see (paged) |
+| POST | `/plugins/instances` | `marketplace:deploy` | Install or reconfigure (`pluginId`, `values`, `features`); `201` with the instance |
+| GET | `/plugins/instances/:id` | `marketplace:read` | One instance |
+| PATCH | `/plugins/instances/:id` | `marketplace:deploy` | `enabled`, `values`, `features`; answers with the instance |
+| DELETE | `/plugins/instances/:id` | `marketplace:deploy` | Uninstall (`204`) |
 
 ---
 
