@@ -194,8 +194,7 @@ Deploy body fields, from the route:
 - **`autoShutdownMinutes`**: `> 0` deploys on-demand (replicas start at 0, the pod
   wakes on the first inference request and scales back to zero after this idle
   window). `0` or omitted means always-on.
-- **`schedulingMode`**: `always_on`, `on_demand`, or `scheduled`.
-  **`scheduleCron`**: cron expression for `scheduled` mode.
+- **`schedulingMode`**: `always_on` or `on_demand`.
 - **`scalingMode`**: `fixed` (default, wakes to `replicas`) or `auto` (demand
   autoscaling: the gateway ramps 0 to `maxReplicas` on live load). With `auto`,
   set **`minReplicas`**, **`maxReplicas`**, and **`targetConcurrency`** (desired =
