@@ -334,8 +334,8 @@ Agents can message each other. These routes are scoped by agent authorization
 |---|---|---|
 | GET | `/agents` | List agents with live status (`q`, `status`, `limit`, `cursor`) |
 | POST | `/agents` | Create an agent, as the Agent Builder does |
-| POST | `/workflows/:id/promote` | Promote a workflow to an agent (`toolWorkflowIds`) |
-| POST | `/agents/:id/demote` | Turn an agent back into a workflow |
+| POST | `/workflows/:id/promote` | Promote a workflow to an agent (`toolWorkflowIds`); answers the agent with `warnings` |
+| POST | `/agents/:id/demote` | Turn an agent back into a workflow; answers the workflow |
 | GET | `/agents/name-availability` | Check a name (`name`) |
 | GET | `/agents/templates`, `/agents/templates/:key` | Reference agent payloads (`iris`, `atlas`, `sage`, `aria`) |
 | GET | `/agents/:id` | Agent details + live status + node graph |
