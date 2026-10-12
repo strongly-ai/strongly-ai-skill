@@ -39,6 +39,10 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # outside Strong
   `DELETE …/:{name}Id/permissions/members/:userId`, `PATCH …/:id/permissions`
   `{ visibility }`; memory adds org-global promotion. Prompts and skills have no
   per-row sharing.
+- **An agent reads as its owner, never as an admin.** A request a workload makes
+  (an agent, a workflow, an app, with its signed token) reaches only the owner's own
+  rows plus rows shared with the owner or public, even when the owner is a platform
+  or org admin. A person calling with an API key or from the UI keeps the admin reach.
 - **`linkedIds` = agent membership.** Pass agent `workflowId`s to attach a row to
   agents (a row can belong to many). On **list/GET** filters, `linkedIds` is AND
   (a row must belong to ALL supplied ids). On **recall** endpoints
