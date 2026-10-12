@@ -109,7 +109,7 @@ Optional fields:
 | `orbColor` | `stylized_3d` orb | Hex colour (default `#22d3ee`). |
 | `orbSize` | `stylized_3d` orb | Number (default `0.6`). |
 | `config` | all | `{ resolution?, frameRate?, idleMotion? }` (defaults `512x512`, `30`, idle motion on). |
-| `resources` | all | Compute overrides `{ cpu?, memory?, gpu?, gpuType? }`; omit to accept the per-tier defaults. |
+| `resources` | `animated_portrait`, `realtime_lipsync` | The GPU pod's `{ cpu?, memory?, gpu?, gpuType?, useSpot?, spotFallback? }` (default 2 vCPU, 8Gi, one `nvidia-a10g`). A `stylized_3d` avatar renders in the browser, runs no pod and keeps no `resources`. |
 | `onDemand` | `animated_portrait`, `realtime_lipsync` | `{ schedulingMode: on_demand \| always_on, autoShutdownMinutes }`. Defaults to `on_demand` with a 5-minute idle shutdown; set `always_on` to keep it warm. |
 
 The response `data` is the created avatar, including its `_id` and initial
@@ -179,7 +179,7 @@ curl -s "${auth[@]}" "$BASE/avatars?name=Guide%20Orb" | jq '.data[0]._id'
 curl -s "${auth[@]}" "$BASE/avatars/$ID" | jq '.data | {name, tier, status}'
 
 # Update: only these fields are mutable
-curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' "$BASE/avatars/$ID" -d '{
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/avatars/$ID" -d '{
   "name": "Guide Orb v2", "description": "Homepage greeter",
   "config": { "frameRate": 24 }, "orbColor": "#34d399"
 }' | jq '.data'
@@ -189,9 +189,10 @@ curl -s -X DELETE "${auth[@]}" "$BASE/avatars/$ID"
 ```
 
 `?name=` is an **exact** match (whitespace-only is ignored and returns the full
-list). Update accepts only `name`, `description`, `config`, `resources`,
-`renderStyle`, `orbColor`, and `orbSize`; anything else is ignored, and you can
-only update an avatar you own. Delete is final and enforces ownership.
+list). Update accepts only `name`, `description`, `config`, `resources` (GPU tiers
+only), `renderStyle`, `orbColor`, and `orbSize`; anything else is ignored. Its
+owner, a user it is shared with to edit, or an admin may update or delete it;
+delete is final.
 
 ---
 
