@@ -278,6 +278,7 @@ specific version's bytes, write or upload a file as a new version, and delete
 | `GET /volumes/:id/data/files/content` | `volumes:read` | Download a file's bytes, base64-encoded. Query `path`, optional `version` (default latest). |
 | `POST /volumes/:id/data/files` | `volumes:write` | Write a file as a new version. Body `path`, plus `content` (text) or `contentBase64` (binary), optional `message`. |
 | `DELETE /volumes/:id/data/files` | `volumes:write` | Delete (tombstone) a file. Query `path`, optional `message`. |
+| `DELETE /volumes/:id/data/folders` | `volumes:write` | Delete (tombstone) every file under a folder, at any depth, in one operation (e.g. an AutoML job's output `automl/<job id>`). Query `path`, optional `message`. Answers `{ path, deleted }`; 404 when the folder has no files. |
 | `GET /projects/:id/volumes` | `projects:read` | The volumes that belong to a project (its project volume). |
 | `DELETE /volumes/:id` | `volumes:write` | Delete. |
 
