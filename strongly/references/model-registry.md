@@ -189,6 +189,12 @@ curl -s -X POST "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/stop"
 curl -s -X POST "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/start"
 ```
 
+An AutoML model is served on the trainer image that trained it (`artifact.trainerImage`, by its
+digest), never on whatever trainer is current. A model whose `retrainReason` is set (published
+before AutoML jobs recorded their trainer image: "Retrain to deploy") is refused by deploy,
+start and a version's deploy with `409` and that reason: retrain its AutoML job with the same
+data and settings and publish the new model; retrying the deploy cannot work.
+
 Deploy body fields, from the route:
 
 - **`autoShutdownMinutes`**: `> 0` deploys on-demand (replicas start at 0, the pod
@@ -278,11 +284,13 @@ curl -s -X DELETE "${auth[@]}" "$BASE/mlops/models/$MODEL_ID"  # delete
 - **List** accepts `q`, `framework`, `source`, `status` (deployment status),
   `tag`, `workspaceId`, plus `limit`, `cursor`, `sort`. It returns
   lean summaries (the heavy `buildInfo`, `versions`, and `artifact` blobs are
-  omitted, fetch a single model or the versions endpoint for those).
+  omitted, fetch a single model or the versions endpoint for those), each with
+  its `retrainReason` (null when it can be deployed).
 - **Status** (`GET /mlops/models/:id/status`) returns `status` (its deployment's:
   `registered` = never deployed, `building`, `deploying`, `starting`, `running`,
   `idle`, `waking`, `stopped`, `failed`), `canServe` (predictions can be made now),
-  `activeVersion`, `versionCount` and `updatedAt`.
+  `retrainReason` (why it must be retrained before it can be deployed or started, null
+  when it can be), `activeVersion`, `versionCount` and `updatedAt`.
 - **Delete** returns clear errors, not opaque 500s: `409 model-in-use` (the
   model is connected to apps, disconnect it first) and `502 deployment-delete-failed`
   (its deployment could not be deleted, so the model is kept; the detail is the

@@ -68,7 +68,11 @@ object-storage data source.
 | `GET /mlops/automl-jobs/:id/logs` | Trainer logs | path `id`, `lines?`, `since?` |
 | `POST /mlops/automl-jobs/:id/stop` | Stop a running job | path `id` |
 | `DELETE /mlops/automl-jobs/:id` | Delete a job | path `id` |
-| `POST /mlops/automl-jobs/:id/deploy` | Publish the best model of a tabular or multimodal job to the model registry (a timeseries job's is refused) | path `id`, `registryName?` |
+| `POST /mlops/automl-jobs/:id/deploy` | Publish the best model of a tabular or multimodal job to the model registry (a timeseries job's is refused; so is a job that records no `trainerImage`: retrain it) | path `id`, `registryName?` |
+
+A job records the trainer image it ran on, by its digest (`trainerImage`); its experiment run
+(`systemInfo.trainerImage`) and the published model's `artifact.trainerImage` carry it, and the
+model is always served on that image, whatever trainer is current.
 
 A job's scores (`metrics.val_score`, `metrics.test_score`, leaderboard `score`) are AutoGluon's in
 `models_info.eval_metric`: higher is better, so an error metric (RMSE, MAE, MASE, log loss) is

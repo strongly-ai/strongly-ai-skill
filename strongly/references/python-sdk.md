@@ -280,8 +280,12 @@ model = client.model_registry.create(
     problem_type="classification",   # set this if you plan to run drift detection
     description="Production churn model",
 )
-client.model_registry.deploy(model.id, cpu=2, memory_gb=4)
+client.model_registry.deploy(model.id, resources={"cpu": "2", "memory": "4Gi"})
 ```
+
+A model's `retrain_reason` is why it must be retrained before it can be deployed or started (an
+AutoML model that records no trainer image), `None` when it can be; `deploy` and `start` raise
+`ConflictError` with it.
 
 ---
 
