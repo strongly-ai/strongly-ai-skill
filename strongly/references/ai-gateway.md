@@ -62,7 +62,14 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/models/prebuilt?category=llm" | jq '.data
 ```
 
 **Register a model.** `name`, `type`, `provider`, and `vendorModelId` are
-required. `cache_config` optionally enables semantic caching.
+required. `modelType` (chat, multimodal, embedding, ...) comes from the
+certified catalog or a prebuilt template; for a model neither records, send
+it, or the create is refused. A chat model records `contextWindow` and
+`maxOutputTokens` the same way. A saved provider key is given by `apiKeyId`
+only when you may use that key (yours, or any key for a platform admin); a
+key you may not use is refused as not found. `cache_config` optionally
+enables the response, semantic and prompt caches (prompt caching on any chat
+or multimodal model certified for it).
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gateway/models" \
@@ -78,7 +85,7 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gatew
 | `GET /ai-gateway/models/providers` | Distinct third-party providers + counts | `ai-gateway:read` |
 | `GET /ai-gateway/models/certified` | Curated third-party catalog (`provider`, `modelType`, `capability`) | `ai-gateway:read` |
 | `GET /ai-gateway/models/prebuilt` | Self-hosted prebuilt templates (`category`, `provider`) | `ai-gateway:read` |
-| `POST /ai-gateway/models` | Create (`name`, `type`, `provider`, `vendorModelId`, `cache_config`) | `ai-gateway:write` |
+| `POST /ai-gateway/models` | Create (`name`, `type`, `provider`, `vendorModelId`, `modelType`, `contextWindow`, `maxOutputTokens`, `apiKey` or `apiKeyId`, `cache_config`) | `ai-gateway:write` |
 | `GET /ai-gateway/models/:id` | Full model detail | `ai-gateway:read` |
 | `GET /ai-gateway/models/:id/options` | Model options (voices, languages, ...) | `ai-gateway:read` |
 | `PATCH /ai-gateway/models/:id` | Update name/description/parameters/`cache_config` | `ai-gateway:write` |
