@@ -241,7 +241,7 @@ with hybrid relevance retrieval, versions, and a quality assessor.
 | `GET /library/skills/:id` | Read full content | |
 | `GET /library/skills/:id/files` · `GET /library/skills/:id/contents?path=` | List bundled files (paths + sizes) / read one file | |
 | `PATCH /library/skills/:id` · `DELETE /library/skills/:id` | Update / delete | |
-| `POST /library/skills/search` | Hybrid (semantic + keyword) relevance; returns `contextBlock` | body: `userTurn, limit, tags` |
+| `POST /library/skills/search` | Hybrid (semantic + keyword) relevance to a turn; returns `contextBlock`. No turn = `400` | body: `userTurn*, limit, tags, linkedIds` |
 | `POST /library/skills/:id/render` | Variable substitution | body: `variables` |
 | `POST /library/skills/:id/assess` | Score against the skill-building guide | |
 | `POST /library/skills/:id/duplicate` · `POST /library/skills/:id/usage-events` | Copy / record a use (`201` with `{ usageCount }`) | |
