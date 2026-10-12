@@ -182,6 +182,8 @@ curl -sN -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gate
 # Images and PDFs: a user message's content is an array of OpenAI chat parts.
 # An image needs a model with capabilityConfig.supportsVision; a PDF (type "file",
 # file_data a data: URL) needs capabilityConfig.supportsPdf, else 400 naming the model.
+# A router sends them only to a member that declares them (400 when none does).
+# Self-hosted models declare supportsVision from their Hugging Face image processor.
 IMG=$(base64 < chart.png | tr -d '\n'); PDF=$(base64 < report.pdf | tr -d '\n')
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gateway/chat/completions" \
   -d '{"model":"'"$ID"'","messages":[{"role":"user","content":[
