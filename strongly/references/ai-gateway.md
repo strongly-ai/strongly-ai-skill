@@ -89,7 +89,7 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gatew
 | `GET /ai-gateway/models/:id` | Full model detail | `ai-gateway:read` |
 | `GET /ai-gateway/models/:id/options` | Model options (voices, languages, ...) | `ai-gateway:read` |
 | `PATCH /ai-gateway/models/:id` | Update name/description/parameters/`cache_config` | `ai-gateway:write` |
-| `DELETE /ai-gateway/models/:id/cache` | Clear the model's semantic cache | `ai-gateway:write` |
+| `DELETE /ai-gateway/models/:id/cache` | Clear the model's cached responses (response cache and semantic cache) | `ai-gateway:write` |
 | `DELETE /ai-gateway/models/:id` | Delete the model | `ai-gateway:write` |
 | `GET /ai-gateway/models/:id/metrics` | Usage/latency metrics | `ai-gateway:read` |
 | `GET /ai-gateway/models/:id/permissions` · `PUT .../permissions` | Read / set `isShared`, `sharedWith` | read / write |
