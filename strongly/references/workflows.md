@@ -368,7 +368,7 @@ the queue itself (an sqs-dest / rabbitmq-dest / kafka-dest node), not through th
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/workflows/:id/deploy` | Deploy to production (202; poll status) |
+| POST | `/workflows/:id/deploy` | Deploy to production (202; poll status). Body optional: `environmentId`, `cpu`/`memory`/`disk`, `gpu`/`gpuType`, `useSpot` (the deployed worker on spot capacity) + `spotFallback` (default true: on-demand when no spot is free); a redeploy keeps the last spot choice |
 | GET | `/workflows/:id/status` | Deployment status, pod/replica health, and the `invocation` block |
 | POST | `/workflows/:id/stop` | Scale to zero, $0 cost, deployment preserved (202) |
 | POST | `/workflows/:id/start` | Scale a stopped workflow back up (202; `replicas`) |
@@ -463,7 +463,7 @@ curl -s -X DELETE "${auth[@]}" "$BASE/streaming-sessions/$SID"
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/streaming-workflows` · `/streaming-workflows/:id` | List / get streaming workflows |
-| POST | `/streaming-workflows/:id/deploy` | Deploy (202; validates the graph first; body `cpu`+`memory` (or neither: sized from the nodes), `disk`, `gpu` (string), `gpu_type`, `idle_timeout_seconds` 60-86400, `max_session_duration_seconds` 300-604800, `max_concurrent_sessions` 1-10000, `autoscaling` `{enabled, min_replicas 0-20, max_replicas 1-50, target_sessions_per_pod 1-100, scale_down_cooldown_seconds 60-900}`; omitted settings keep the previous deploy's) |
+| POST | `/streaming-workflows/:id/deploy` | Deploy (202; validates the graph first; body `cpu`+`memory` (or neither: sized from the nodes), `disk`, `gpu` (string), `gpu_type`, `useSpot` + `spotFallback` (spot capacity, as batch deploy), `idle_timeout_seconds` 60-86400, `max_session_duration_seconds` 300-604800, `max_concurrent_sessions` 1-10000, `autoscaling` `{enabled, min_replicas 0-20, max_replicas 1-50, target_sessions_per_pod 1-100, scale_down_cooldown_seconds 60-900}`; omitted settings keep the previous deploy's) |
 | POST | `/streaming-workflows/:id/undeploy` | Tear down; return to draft |
 | GET | `/streaming-workflows/:id/deployments` · `/sessions` | Deployments (`status` deploying / deployed / undeploying / undeployed / failed; `ephemeral: true` rows are builder test workers) / sessions for a workflow |
 | POST | `/streaming-sessions` | Start a session (`workflowId` required, `mode` production / draft); returns `sessionId`, `wsUrl`, `wsToken` (and `publicWsUrl` when called from inside the platform) |
