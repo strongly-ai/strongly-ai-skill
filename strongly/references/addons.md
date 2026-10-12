@@ -36,8 +36,8 @@ curl -s "${auth[@]}" "$BASE/addon-types" | jq '.data'
 curl -s "${auth[@]}" "$BASE/addons" | jq '.data'
 ```
 
-`GET /addon-types` returns each managed type with what kind of store it is and
-what it is best for. Use it to **recommend** a type by reasoning about the data
+`GET /addon-types` returns each managed type with what kind of store it is,
+what it is best for, and its engine `versions` (`defaultVersion` when none is named). Use it to **recommend** a type by reasoning about the data
 need, not from a memorized list. Type keys are vendor keys, e.g. `postgres`
 (**not** `postgresql`, which is the workflow node type), `mysql`, `mongodb`,
 `redis`, `rabbitmq`, `neo4j`, `milvus`, `greenplum`, `surrealdb`, `kafka`,
@@ -72,6 +72,9 @@ done
 ```
 
 `type` must be a key from `GET /addon-types`; an unsupported value is rejected.
+`version` is optional: one of the type's `versions` from `GET /addon-types`
+(the add-on runs and records the type's `defaultVersion` when it is omitted;
+any other value is rejected).
 Use `postgres`, not `postgresql`. `cpu` is like `"500m"` or `"1"`, `memory` like
 `"512Mi"` or `"1Gi"`, `disk` like `"1Gi"` or `"10Gi"`.
 

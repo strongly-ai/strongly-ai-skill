@@ -62,7 +62,10 @@ use the vendor key.
 The `credentials` shape depends on the `type`. For a SQL database it is typically
 `{ host, port, username, password, database }`; object stores take bucket/endpoint/
 access-key fields; warehouses take their own. Confirm the exact fields for the
-chosen type before creating rather than assuming a shape.
+chosen type before creating rather than assuming a shape: create, update and the
+connection test refuse (`400 validation-error`, naming each problem) a field the type
+does not have (e.g. `bucket` for S3, whose field is `bucketName`) or a missing
+required one.
 
 ---
 
