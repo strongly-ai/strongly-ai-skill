@@ -73,6 +73,9 @@ object-storage data source.
 A job records the trainer image it ran on, by its digest (`trainerImage`); its experiment run
 (`systemInfo.trainerImage`) and the published model's `artifact.trainerImage` carry it, and the
 model is always served on that image, whatever trainer is current.
+When a tabular or multimodal job completes, that serving image is built at once (the job's
+`servingImage`: `status` building, completed or failed with `error`), so a model published later still
+deploys after its trainer image has been retired; a publish while it builds waits for it.
 
 A job's scores (`metrics.val_score`, `metrics.test_score`, leaderboard `score`) are AutoGluon's in
 `models_info.eval_metric`: higher is better, so an error metric (RMSE, MAE, MASE, log loss) is
