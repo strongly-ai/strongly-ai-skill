@@ -236,7 +236,9 @@ models shared with it (Can edit / Can use), "Allow all users" models and
 platform models (admins reach all). Anything else is refused with 403 naming
 the model, including a model saved in a workflow before it was unshared.
 Workflows, apps and agents call as their owner; a router must be one the caller
-may use and calls its members as the router's owner. Pick models from
+may use and calls its members as the router's owner. A router answers chats
+and completions only, so its members are chat, multimodal or completion
+models (any other type is refused when the router is saved). Pick models from
 `GET /ai-gateway/models` (section 1: what the user may use), never a hard-coded id.
 
 ## 5. Guardrails
