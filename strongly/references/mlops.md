@@ -263,7 +263,8 @@ platform pulls the source and publishes it from the beginning for that version.
 A stream view with `aggregations` (`[{column, function, windows}]`, `tileSize`,
 optional `allowedLateness`) serves `<column>_<function>_<window>` features; send events
 with `POST /mlops/feature-stores/:storeId/views/:name/events`. Online windows are as of now (an old event ages out even
-when an entity sends nothing new), matching training data for the same moment.
+when an entity sends nothing new), matching training data for the same moment. An event more
+than `allowedLateness` (default 0) behind its entity's newest event counts in training data only.
 
 An on-demand view (`mode: "on_demand"`) computes features at request time:
 `transformCode` defines `transform(df)` (pandas in: its `onDemandSources`' features +
