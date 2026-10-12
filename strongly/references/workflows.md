@@ -226,7 +226,7 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 | GET | `/workflows/stats` | Workflow counts by status (total / active / paused / draft / archived), templates not counted |
 | GET | `/workflows/:id` | Full detail including all nodes and connections |
 | PATCH | `/workflows/:id` | Partial update (`name`, `description`, `status`, `tags`, `settings`, `deploymentEnvironmentId`) |
-| DELETE | `/workflows/:id` | Delete (409 if deployed or running: undeploy and stop first) |
+| DELETE | `/workflows/:id` | Delete (409 if deployed or running: undeploy and stop first). An agent's workflow is deleted as the agent (`DELETE /agents/:id`) |
 | POST | `/workflows/:id/duplicate` | Copy the workflow; returns the copy |
 | POST | `/workflows/:id/nodes` | Add one node (`nodeType` required; `label`, `config`, `position`) |
 | GET | `/workflows/:id/nodes` | List nodes with inbound/outbound connection counts |

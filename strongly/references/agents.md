@@ -234,9 +234,10 @@ curl -s -X POST "${auth[@]}" "$BASE/agents/$AGENT_ID/stop"      # stop the pod (
 curl -s -X DELETE "${auth[@]}" "$BASE/agents/$AGENT_ID"         # stop + remove agent mode + cleanup
 ```
 
-`DELETE /agents/:id` stops the pod, removes agent mode from the workflow, and
-cleans up records. Use `demote` (section 2b) instead if you want to keep the
-workflow and just turn agent mode off.
+`DELETE /agents/:id` stops the pod (confirmed with the controller), deletes the
+agent's workspaces, then deletes its workflow and records. `DELETE /workflows/:id`
+on an agent's workflow does the same. Use `demote` (section 2b) instead if you
+want to keep the workflow and just turn agent mode off.
 
 ---
 
