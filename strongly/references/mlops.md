@@ -256,6 +256,9 @@ Reads need `mlops:read`, changes need `mlops:write` (both in the `ml-ops` and `d
 | `POST /mlops/feature-stores/:storeId/views/:name/rows` | Write feature rows into a view's history (`rows`) | `mlops:write` |
 | `POST /mlops/feature-stores/:storeId/views/:name/events` | Push real-time events to a streaming aggregation view (`events`) | `mlops:write` |
 | `POST /mlops/feature-stores/:storeId/views/:name/versions/:version/deprecate` | Deprecate a view version: read-only, hidden, still resolved by services pinned to it | `mlops:write` |
+| `PATCH /mlops/feature-stores/:id` | Rename, describe, or set `snapshotRetentionDays` (1-3650, or null = until the store is deleted); answers the store | `mlops:write` |
+| `GET /mlops/feature-stores/:storeId/snapshots` | Training snapshots, newest first (`id`, `featureService`, `sizeBytes`, `createdAt`, `inUse`); needs edit access | `mlops:read` |
+| `DELETE /mlops/feature-stores/:storeId/snapshots/:id` | Delete one snapshot; 409 while an unfinished AutoML job trains from its service | `mlops:write` |
 
 A breaking change creates a new view version whose history starts empty: the
 platform pulls the source and publishes it from the beginning for that version.
