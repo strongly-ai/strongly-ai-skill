@@ -232,7 +232,7 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 | GET | `/workflows/:id/nodes` | List nodes with inbound/outbound connection counts |
 | PATCH | `/workflows/:workflowId/nodes/:id` | Set a node's `config` / `label` |
 | DELETE | `/workflows/:workflowId/nodes/:id` | Remove a node and its connections (`204`) |
-| PUT | `/workflows/:workflowId/nodes/:id/input-mappings` | Set `inputMappings` (`{ targetField: "data.sourceField" }`) |
+| PUT | `/workflows/:workflowId/nodes/:id/input-mappings` | Set `inputMappings` (`{ targetField: "data.sourceField" }`), saved to `node.data.inputMappings`, the one place the builder and the run read them (`GET /workflows/:id` shows them there) |
 | PUT | `/workflows/:workflowId/nodes/:id/passthrough-values` | Set `passThroughValues` (`values`: `{outputKey: "inputName"}`, saved to `node.config`): copies the node's input `inputName` (one of its `inputMappings` keys, so map it first) into its output as `data.<outputKey>` |
 | POST | `/workflows/:id/connections` | Connect nodes (`sourceNodeId`, `targetNodeId`, `sourcePort`, `targetPort`; agent nodes use `targetPort` `"ai"` or `"tools"`; streaming feedback edges pair `feedback` with `maxIterations`) |
 | DELETE | `/workflows/:workflowId/connections/:id` | Remove a connection (`204`; use a REAL id from `GET /workflows/:id`; never invent one) |
