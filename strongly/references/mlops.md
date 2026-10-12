@@ -315,7 +315,7 @@ gateway model id (list them via `references/ai-gateway.md`). All accept
 | `POST /ai-gateway/generations/images` | Image generation | `model`, `prompt`, `n?`, `size?` |
 | `POST /ai-gateway/generations/videos` | Video generation (async job) | `model`, `prompt` |
 | `POST /ai-gateway/generations/music` | Music generation (async job) | `model`, `prompt` |
-| `POST /ai-gateway/generations` | Unified image/video/music generation | `model`, `prompt`, `type?` |
+| `POST /ai-gateway/generations` | Unified image/video/music generation | `model`, `prompt`, `type` (required), `parameters?` |
 | `GET /ai-gateway/generations/:id` | Generation job status | path `id` |
 | `DELETE /ai-gateway/generations/:id` | Cancel a generation job | path `id` |
 

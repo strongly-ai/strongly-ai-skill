@@ -159,7 +159,7 @@ poll `/status` until `active` first. Third-party models have no pod: `deploy`/
 | `POST /ai-gateway/models/:id/start` | Start a stopped model | `ai-gateway:write` |
 | `POST /ai-gateway/models/:id/stop` | Stop self-hosted pod / deactivate third-party | `ai-gateway:write` |
 | `GET /ai-gateway/models/:id/status` | Live deployment status (self-hosted) or db status (third-party) | `ai-gateway:read` |
-| `GET /ai-gateway/models/:id/logs` | Deployment logs (`lines`, `since`, `container`); empty for third-party | `ai-gateway:read` |
+| `GET /ai-gateway/models/:id/logs` | A self-hosted model's log entries (`type`: build, deployment or runtime; `lines`, `since`, `container`); a third-party model is 409 | `ai-gateway:read` |
 | `GET /ai-gateway/models/:id/metrics` | Runtime metrics | `ai-gateway:read` |
 
 ---
@@ -212,7 +212,7 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gatew
 | `POST /ai-gateway/audio/translations` | Speech to English text (multipart) | `model`, `file` |
 | `POST /ai-gateway/generations/images` | Image generation | `model`, `prompt`, `n`, `size` |
 | `POST /ai-gateway/generations/videos` · `/music` | Video / music generation (async job) | `model`, `prompt` |
-| `POST /ai-gateway/generations` | Unified generation | `model`, `prompt`, `type` |
+| `POST /ai-gateway/generations` | Unified generation (async job) | `model`, `prompt`, `type` (required: image, video or music), `parameters?` |
 | `GET /ai-gateway/generations/:id` · `DELETE /ai-gateway/generations/:id` | Poll / cancel a generation job | |
 | `POST /ai-gateway/moderations` | Content moderation | `model`, `input` |
 | `POST /ai-gateway/rerank` | Rerank documents by relevance | `model`, `query`, `documents` |
