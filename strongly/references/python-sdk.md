@@ -226,6 +226,11 @@ with strongly.start_run(run_name="rf-baseline"):
     strongly.log_model(model, "classifier")
 ```
 
+An exception leaving the `with` block ends the run `failed` and records why
+(`error`: the exception's `type`, `message` and `traceback`), shown with the
+run's status in the Experiments UI; `strongly.end_run("failed", error=exc)`
+records one you caught. `client.experiments.retrieve(run_id).error` reads it.
+
 `log_model` records the model's task (`problem_type` in `MLmodel.json`): a
 scikit-learn, XGBoost or LightGBM classifier is `classification`, a regressor
 `regression`; pass `problem_type="classification"` for a model it cannot tell
