@@ -123,7 +123,9 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
 
 `PATCH /agents/:id/config` accepts `personality`, `operatingPromptId`, `contextPolicy`,
 `sessionPolicy`, `heartbeatEnabled`, `heartbeatCron`, `heartbeatTimezone`,
-`maxIterations`, `temperature` (0 to 2), `maxTokens`, `responseFormat`,
+`maxIterations`, `temperature` (0 to 2), `maxTokens` (at most the model's
+per-reply limit, `modelMaxOutputTokens` in `GET /agents/:id/config`; changing the
+model sets it to that limit), `responseFormat`,
 `builtInTools` and `knowledgeBaseIds`. The workflow-level `name` / `description` /
 `nodes` / `connections` are `PATCH /agents/:id`. **Edits to the operating prompt's text and the session policy
 apply live; every other change, including switching to a different operating
