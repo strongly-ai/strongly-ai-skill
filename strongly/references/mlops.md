@@ -193,7 +193,7 @@ with the read endpoints first, then submit and poll.
 | Method + path | Does | Key params |
 |---|---|---|
 | `GET /ai-gateway/fine-tuning-jobs/stats` | Summary stats | none |
-| `GET /ai-gateway/fine-tuning/base-models` | Fine-tunable base models | none |
+| `GET /ai-gateway/fine-tuning/base-models` | The one fine-tuning catalog (sizing: `loraRequirements`, `serving`) | none |
 | `GET /ai-gateway/fine-tuning/hardware` | Hardware/GPU options | none |
 | `GET /ai-gateway/fine-tuning/model-requirements` | VRAM/hardware needs for a base model | `baseModel`, `method?` |
 | `POST /ai-gateway/fine-tuning/recommend` | Recommend a config | `baseModel`, `useCase?`, `datasetSize?` |
@@ -209,7 +209,7 @@ with the read endpoints first, then submit and poll.
 | `DELETE /ai-gateway/fine-tuning-jobs/:id` | Delete a job | path `id` |
 | `POST /ai-gateway/fine-tuning-jobs/:id/deploy` | Deploy the trained model as a self-hosted endpoint; served at `maxTokens` context length, default the base model's context window (required when its HF config records none) | path `id` |
 
-`baseModel` must be an id from `/base-models` (e.g. `meta-llama/Llama-2-7b-hf`);
+`baseModel` must be an id from `/base-models` (e.g. `Qwen/Qwen2.5-7B-Instruct`): any other is refused (400);
 `trainingDataset` is a prepared file (JSONL from a Data Forge export, a project
 volume file path, or a URL/dataset id). Recommended flow:
 `recommend` -> `validate-config` -> `create` -> poll -> `deploy`.
@@ -217,10 +217,10 @@ volume file path, or a URL/dataset id). Recommended flow:
 ```bash
 curl -s "${auth[@]}" "$BASE/ai-gateway/fine-tuning/base-models" | jq '.data'
 curl -s "${auth[@]}" -X POST "$BASE/ai-gateway/fine-tuning-jobs/validate" \
-  -d '{"baseModel":"meta-llama/Llama-2-7b-hf","method":"lora","hardware":{"gpu_type":"A100","gpu_count":1}}'
+  -d '{"baseModel":"Qwen/Qwen2.5-7B-Instruct","method":"lora","hardware":{"gpu_type":"A100","gpu_count":1}}'
 
 JOB=$(curl -s "${auth[@]}" -X POST "$BASE/ai-gateway/fine-tuning-jobs" -d '{
-  "name":"support-tone","baseModel":"meta-llama/Llama-2-7b-hf",
+  "name":"support-tone","baseModel":"Qwen/Qwen2.5-7B-Instruct",
   "trainingDataset":"volumes/train.jsonl"}' | jq -r '.data.job_id // .data._id')
 
 # Terminal states: completed | failed (active: queued, running).
