@@ -207,7 +207,7 @@ with the read endpoints first, then submit and poll.
 | `POST /ai-gateway/fine-tuning-jobs/:id/stop` | Stop a running job | path `id` |
 | `POST /ai-gateway/fine-tuning-jobs/:id/restart` | Restart a job | path `id` |
 | `DELETE /ai-gateway/fine-tuning-jobs/:id` | Delete a job | path `id` |
-| `POST /ai-gateway/fine-tuning-jobs/:id/deploy` | Deploy the trained model as a self-hosted endpoint | path `id` |
+| `POST /ai-gateway/fine-tuning-jobs/:id/deploy` | Deploy the trained model as a self-hosted endpoint; served at `maxTokens` context length, default the base model's context window (required when its HF config records none) | path `id` |
 
 `baseModel` must be an id from `/base-models` (e.g. `meta-llama/Llama-2-7b-hf`);
 `trainingDataset` is a prepared file (JSONL from a Data Forge export, a project
