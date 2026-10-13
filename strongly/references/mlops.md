@@ -262,6 +262,7 @@ Reads need `mlops:read`, changes need `mlops:write` (both in the `ml-ops` and `d
 | `DELETE /mlops/feature-stores/:id` | Delete a store and everything in it (as its page does); 422 while a model, app, workspace or job uses it; add-ons kept | `mlops:write` |
 | `PATCH /mlops/feature-stores/:id` | Rename, describe, or set `snapshotRetentionDays` (1-3650, or null = until the store is deleted); answers the store | `mlops:write` |
 | `POST /mlops/feature-stores/:storeId/views/:name/online-features` | A view's live values: every feature it serves for each of `entityRows` (`viewVersion` optional) | `mlops:read` |
+| `DELETE /mlops/feature-stores/:storeId/views/:name/versions/:id` | Delete one view version (refused while a feature service pins it); its add-on tables and keys are dropped, nothing else | `mlops:write` |
 | `GET /mlops/feature-stores/:storeId/snapshots` | Training snapshots, newest first (`id`, `featureService`, `sizeBytes`, `createdAt`, `inUse`); needs edit access | `mlops:read` |
 | `DELETE /mlops/feature-stores/:storeId/snapshots/:id` | Delete one snapshot; 409 while an unfinished AutoML job trains from its service | `mlops:write` |
 
