@@ -1,8 +1,8 @@
 # Marketplace
 
 The Strongly **Marketplace** is a catalog of ready-to-run **offerings** (apps and
-agents). A user browses the catalog, reads an offering's deploy config, license,
-and reviews, then **deploys** it into their own account. A deployed offering
+agents). A user browses the catalog, reads an offering's deploy config and
+license, then **deploys** it into their own account. A deployed offering
 becomes a normal Strongly **app** (built, deployed to Kubernetes, served behind
 the proxy), so once it is running you manage it exactly like any other app. The
 platform also ships installable **plugins** (platform extensions such as DataHub)
@@ -11,7 +11,8 @@ that you install into your account rather than deploy as an app; see §6.
 Read this when the task is: browsing/searching the catalog, inspecting an
 offering before install, **deploying an offering and polling it to done**,
 listing what the user already deployed, reporting metered **usage** from a
-running offering, or installing/managing a **plugin**.
+running offering, managing an organization's **offering subscription** (admin), or
+installing/managing a **plugin**.
 
 > The catalog calls each listing a "marketplace item"; the usage API calls the
 > same thing an "offering" (its `offeringId` is the app's `appName`). They are
@@ -22,9 +23,9 @@ running offering, or installing/managing a **plugin**.
 to `$HOST/api/v1`; inside Strongly the bearer is auto-injected at
 `$STRONGLY_API_URL/api/v1`. Below, `$BASE` is whichever applies, and
 `auth=(-H "X-API-Key: $STRONGLY_API_KEY")` outside Strongly. Read scopes are
-`marketplace:read`; deploy, reviews, and plugin install/change/uninstall
+`marketplace:read`; deploy and plugin install/change/uninstall
 need `marketplace:deploy`; usage needs `offering-usage:write`; the
-listing-management routes need `marketplace:admin`.
+listing-management and subscription routes need `marketplace:admin`.
 
 ---
 
@@ -53,9 +54,8 @@ Before deploying, inspect the offering:
 # The deploy.json the offering ships (the deploy wizard it declares, see section 8)
 curl -s "${auth[@]}" "$BASE/marketplace/items/$ITEM_ID/deploy-config" | jq '.data'
 
-# License text, and reviews
+# License text
 curl -s "${auth[@]}" "$BASE/marketplace/items/$ITEM_ID/license"  | jq -r '.data'
-curl -s "${auth[@]}" "$BASE/marketplace/items/$ITEM_ID/reviews"  | jq '.data'
 ```
 
 | Method | Path | Scope | Purpose |
@@ -65,15 +65,6 @@ curl -s "${auth[@]}" "$BASE/marketplace/items/$ITEM_ID/reviews"  | jq '.data'
 | GET | `/marketplace/items/:id` | `marketplace:read` | Full detail for one offering |
 | GET | `/marketplace/items/:id/deploy-config` | `marketplace:read` | The offering's `deploy.json` |
 | GET | `/marketplace/items/:id/license` | `marketplace:read` | License text |
-| GET | `/marketplace/items/:id/reviews` | `marketplace:read` | Reviews for the offering |
-| POST | `/marketplace/items/:id/reviews` | `marketplace:deploy` | Add a review (`rating` 1-5, `title`, `comment`) |
-
-```bash
-# Leave a review (rating must be 1..5)
-curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"rating":5,"title":"Great","comment":"Deployed in minutes."}' \
-  "$BASE/marketplace/items/$ITEM_ID/reviews"
-```
 
 ---
 
@@ -111,7 +102,12 @@ runs in the background. Body requires `appName` (the name for the new app) and a
 offering declared (resources, addons, models, permissions) grounded from §1 and
 §2. `config.resources` is the app's `cpu`, `memory`, `disk`, `instances`, and
 `useSpot` (spot capacity) with `spotFallback` (default true: on-demand when no
-spot is available). Missing `appName`/`config` is a 400, missing `marketplaceItemId` a 400, and
+spot is available). A `streaming_workflow` offering also needs
+`config.sessionInitiatorRoles`: the platform roles (`admin`, `developer`, at least one)
+allowed to start sessions of the deployed workflow; start from its deploy config's
+`permissions.session_initiator_roles`. Any other offering refuses the field. A user who
+holds none of the roles is refused a session start with a **403**, even when the
+workflow is shared with them. Missing `appName`/`config` is a 400, missing `marketplaceItemId` a 400, and
 `termsAccepted` not true a 422.
 
 ```bash
@@ -287,6 +283,35 @@ Creating/editing catalog listings is `marketplace:admin`. Create requires
 | DELETE | `/marketplace/items/:id` | `marketplace:admin` | Delete a listing |
 | DELETE | `/marketplace/offering-billing-configs/:id` | `marketplace:admin` | Remove an offering's billing config (Stripe credentials and plans; `:id` is the offering's `appName`); 204, or 422 `resource-in-use` while a subscription that is not canceled uses it |
 
+### Offering subscriptions (admin only)
+
+An organization created as an offering customer (billing mode `offering`, with a billing
+email) pays for an offering through a subscription on a plan of the offering's billing
+config. Nothing here carries money; cost is shown only in FinOps.
+
+| Method | Path | Scope | Purpose |
+|---|---|---|---|
+| GET | `/marketplace/subscriptions` | `marketplace:admin` | List (`organizationId`, `offeringId`, `status`, `limit`, `cursor`), newest first |
+| POST | `/marketplace/subscriptions` | `marketplace:admin` | Create: `organizationId`, `offeringId`, `planName`, `activateImmediately`, `successUrl`, `cancelUrl`; 201 with `checkoutUrl` for the billing contact |
+| GET | `/marketplace/subscriptions/:id` | `marketplace:admin` | One subscription |
+| PATCH | `/marketplace/subscriptions/:id` | `marketplace:admin` | Change its plan: `{ "planName" }` (the one field that changes) |
+| POST | `/marketplace/subscriptions/:id/cancel` | `marketplace:admin` | `{ "atPeriodEnd": true }` ends it with its billing period; `false` cancels now and pauses the organization's apps (data kept) |
+
+```bash
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"organizationId":"'"$ORG_ID"'","offeringId":"caliber","planName":"base",
+       "activateImmediately":false,"successUrl":"https://example.com/paid",
+       "cancelUrl":"https://example.com/back"}' \
+  "$BASE/marketplace/subscriptions" | jq '.data.checkoutUrl'
+```
+
+A subscription's `status` is `active`, `grace` (a payment failed; usable for `graceDays`),
+`suspended` (not usable; also a new one waiting for its first payment) or `canceled`.
+Refusals: billing off (409 `billing-disabled`), the organization not an offering customer
+or without a billing email (409), a second live subscription to the offering (409), a plan
+the billing config does not have (400, naming its plans), Stripe refusing a request (502
+with Stripe's reason), period-end cancel of a subscription whose checkout is pending (409).
+
 ---
 
 ## 8. An offering's deploy wizard (`deploy.json`)
@@ -352,7 +377,7 @@ Field reference:
 |---|---|
 | `name` / `displayName` / `version` / `type` / `description` | Identity of the offering in the marketplace (`type` `"app"` here is the offering kind, not the build type; the build type is `strongly.manifest.yaml`'s). |
 | `steps[]` | The deploy-wizard steps shown to the user (`id` ∈ `permissions`, `resources`, `addons`, `ml-models`, `ai-models`), each `required` or not. |
-| `permissions` | `allowPublic`, `allowUserSelection`, `defaultPublic`, who can reach the app. |
+| `permissions` | `allowPublic`, `allowUserSelection`, `defaultPublic`, who can reach the app. A `streaming_workflow` offering also names `session_initiator_roles` (platform roles `admin`, `developer`): the roles the wizard starts from for who may start its sessions; no other type carries it. |
 | `resources` | `defaults` + selectable `options` for `cpu`, `memory`, `disk`, `instances`. |
 | `addons[]` | Managed stores to provision: `id` (this becomes the `configId` you match in `STRONGLY_SERVICES`), `type`, `required`, `allowExisting`, `internal` (hide from users), `defaults`/`options`, `backupConfig`. |
 | `aiGateway` | `{ required, minModels, maxModels, supportedProviders }`, AI models the app can use. |
@@ -365,7 +390,7 @@ Field reference:
 
 ## Checklist
 - [ ] Browse/filter with `GET /marketplace/items` (`q`, `vertical`, `type`, `featured`); read one with `/items/:id`.
-- [ ] Inspect `/deploy-config`, `/license`, `/reviews` before installing.
+- [ ] Inspect `/deploy-config` and `/license` before installing; a streaming workflow offering also needs `config.sessionInitiatorRoles`.
 - [ ] Ground the deploy `config` against real `available-addons` / `available-models`, never a guessed id.
 - [ ] Deploy needs `appName` + `config` with `marketplaceItemId` and `termsAccepted: true`; it returns 202.
 - [ ] Poll `/marketplace/deployments/:id/status` (by the `deploymentId`) until `status` is `complete`; never claim success before that; read `error` on `failed`.
