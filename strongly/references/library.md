@@ -57,6 +57,10 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # outside Strong
   `POST /library/skills/search`, and `POST /primitives/preferences/search` each return both the
   matched rows and a canonical markdown `contextBlock` an agent drops straight into
   its system prompt. Use these for injection; use plain `GET` lists to browse.
+- **Meaning runs through one model.** Memories, prompts, skills and rules are embedded by the
+  platform's embedding model when saved, and every search embeds its query with it. A failed
+  embedding fails the save or the search with the error (no keyword-only answer, no row
+  without a vector): retry the same call once the AI Gateway is back.
 
 ---
 
