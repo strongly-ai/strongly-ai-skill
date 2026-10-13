@@ -217,6 +217,8 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gatew
 | `GET /ai-gateway/audio/speech/voices` | List TTS voices | |
 | `POST /ai-gateway/audio/transcriptions` | Speech to text (multipart file upload) | `model`, `file`, `language` |
 | `POST /ai-gateway/audio/translations` | Speech to English text (multipart) | `model`, `file` |
+| `POST /ai-gateway/audio/speech-to-speech` | Voice changer: an audio clip spoken in another voice (multipart, returns binary audio) | `model`, `file`, `voice`, `output_format` (`mp3_44100_128`, `pcm_16000`, ...) |
+| `POST /ai-gateway/ocr` | A document's or image's text as markdown per page (Mistral OCR wire format) | `model`, `document` (`{type: document_url, document_url}` or `{type: image_url, image_url}`, a link or `data:` URL) |
 | `POST /ai-gateway/generations/images` | Image generation | `model`, `prompt`, `n`, `size` |
 | `POST /ai-gateway/generations/videos` · `/music` | Video / music generation (async job) | `model`, `prompt` |
 | `POST /ai-gateway/generations` | Unified generation (async job) | `model`, `prompt`, `type` (required: image, video or music), `parameters?` |
@@ -246,7 +248,10 @@ least one (a router without members is refused). Pick models from
 
 Guardrails are rules applied to a model's inputs and outputs: PII, data leak
 prevention, keyword filters (toxicity, prompt injection, content, profanity),
-token limits and rate limits. A model's guardrails are `enabled` plus a list of
+token limits, rate limits, and a hallucination detector (output: a judge chat model checks the
+answer's claims against the request's own messages; `config.output` is `{enabled,
+judge_model_id, threshold, action: block|log}`, the threshold the least share of supported
+claims that passes). A model's guardrails are `enabled` plus a list of
 `rules`; each rule is `{id, template, name, enabled, priority, config}`, where
 `template` is an available id from `GET /ai-gateway/guardrails/templates` and `config` holds
 that template's settings per direction (`input`, `output`), or the rate
@@ -280,7 +285,8 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/models/$ID/guardrail-logs?limit=50" | jq 
 | `PUT /ai-gateway/models/:id/guardrails` | Replace the guardrails (`enabled` and `rules`, both required) | `guardrails:write` |
 | `PATCH /ai-gateway/models/:id/guardrails` | Turn enforcement on or off (`enabled`) | `guardrails:write` |
 | `GET /ai-gateway/guardrails/templates` | Built-in rule templates | `guardrails:read` |
-| `POST /ai-gateway/models/:id/guardrails/test` | Dry-run (`input`, `direction`, `rules`, all required) | `guardrails:write` |
+| `POST /ai-gateway/models/:id/guardrails/test` | Dry-run (`input`, `direction`, `rules`, all required; `grounding`, the context, with a `hallucination-detector` rule) | `guardrails:write` |
+| `GET /ai-gateway/models/:id/guardrails/judge-models` | Chat models that may judge the model's answers (a Hallucination Detector's `judge_model_id`) | `guardrails:read` |
 | `GET /ai-gateway/models/:id/guardrail-logs` | What a model's guardrails did, newest first (`limit`, `cursor`) | `guardrails:read` |
 | `GET /ai-gateway/guardrails/statistics` | Aggregate guardrail stats | `guardrails:read` |
 
