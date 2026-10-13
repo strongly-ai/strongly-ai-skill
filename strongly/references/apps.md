@@ -241,6 +241,8 @@ curl -s -X POST "${auth[@]}" "$BASE/workspaces/$WORKSPACE_ID/sync"
 # 2) Find the volume id (by name) and create the app from it. folderPath is the
 #    folder inside the volume's code that holds strongly.manifest.yaml; omit it
 #    when the app is the whole code. The app needs a size: environmentId, or cpu + memory.
+#    The size is the whole pod: it must be more than the platform's share beside the app
+#    (GET $BASE/apps/minimum-size: platform, or withVolumes when it mounts volumes).
 #    To give the app the volume's data too (its data/ at
 #    /volumes/local/<name>/data while the volume is not shared, or
 #    /volumes/shared/<name>/data once it is), also pick the volume in "volumes" and set a
