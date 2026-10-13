@@ -434,8 +434,8 @@ Convenience headers also exist (`X-Strongly-User-Id/Email/Name/Roles`,
 ## 4. Wiring: `STRONGLY_SERVICES`
 
 **Volumes are not services:** an app reads a volume's files directly. Pass
-`volumes: ["<volume id>", ...]` on create (`POST /apps`) or update (`PATCH /apps/:id`,
-applied at the next deploy/start/restart); each must be one the app's owner may
+`volumes: ["<volume id>", ...]` on create (`POST /apps`) or update (`PATCH /apps/:id`:
+a running app rolls out with them at once); each must be one the app's owner may
 use (their own, or shared with them). The owner's own project volume that is not
 shared mounts at `/volumes/local/<name>`; every shared volume, the owner's own
 included, mounts at `/volumes/shared/<name>`. `code/` is read-only (absent for a
@@ -492,14 +492,22 @@ You choose what's wired at create time by declaring ids in the `addons`,
 `dataSources`, `aiModels`, `workflows` arrays (discover via `GET $BASE/addons`,
 `/data-sources`, `/ai-gateway/models`, `/workflows`). How you pass them depends on the route:
 - JSON `POST $BASE/apps` and `PATCH $BASE/apps/:id`: send them as top-level body
-  fields, e.g. `{"addons":["<id>"]}`. On `PUT` each array REPLACES the connected set.
+  fields, e.g. `{"addons":["<id>"]}`. On `PATCH` each array REPLACES the connected set.
 - Multipart `POST $BASE/apps/import` (zip bundle): they are NOT standalone form
   fields; put them in the `metadata` JSON string, e.g. `metadata={"addons":["<id>"]}`.
 
-Changing the connected set updates the app DEFINITION; `STRONGLY_SERVICES` is
-regenerated from it at build/deploy, so redeploy an already-running app to apply a
-change (see `references/addons.md` section 7). Declaring ids up front, at create or
-upload, is the one-shot path with no extra redeploy.
+`STRONGLY_SERVICES` is built from the connected set at every rollout. Changing the
+set (or the volumes, the environment variables or the autoscaling) with
+`PATCH /apps/:id` rolls a running app out at once with no downtime; a stopped app
+gets it when it starts. Declaring ids up front, at create or upload, is the
+one-shot path.
+
+**Autoscaling:** `autoscaling` on `POST /apps` or `PATCH /apps/:id` is the whole
+block `{ "enabled": true, "minReplicas": 1-20, "maxReplicas": 1-50 (more than
+minReplicas), "cpuThreshold": 1-100, "memoryThreshold": 1-100 (percent of the
+app's size), "scaleUpCooldown": 30-600, "scaleDownCooldown": 60-900 (seconds) }`;
+`"autoscaling": null` turns it off (the app runs `instances`). Kubernetes reads
+the CPU and memory use itself: there is no polling interval.
 
 ---
 
