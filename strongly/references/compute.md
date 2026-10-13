@@ -68,7 +68,9 @@ take their share out of it).
 Optional wiring on `POST /workspaces` (all optional): `projectId` (the project's
 volume mounts at `/volumes/local/<name>/{code,data}`; see `references/projects.md`),
 `dataSources`, `addons`, `aiGateways`, `workflows` (arrays of ids),
-`environmentVariables` (object), `codeSessionEnabled` (add a terminal an assistant
+`environmentVariables` (object: the workspace's own; a name the platform sets in a
+workspace, such as `WORKSPACE_ID`, `STRONGLY_SERVICES` or `STRONGLY_API_URL`, or
+`STRONGLY_API_KEY` is refused with 400), `codeSessionEnabled` (add a terminal an assistant
 can drive), `codingAssistants` (at most one) and `skillIds`, `environmentId`, `customResources`,
 `customPort` (for `custom`), `cluster` (section 3), and `useSpot` (spot
 capacity: cheaper, can be reclaimed) with `spotFallback` (default true: on-demand
