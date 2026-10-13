@@ -196,22 +196,25 @@ can be backed up or restored, and one backup or restore of an addon runs at a
 time (a second request gets `422 action-in-progress`).
 
 ```bash
-# Back up now. Returns the backupId; the backup runs in the background.
-curl -s -X POST "${auth[@]}" "$BASE/addons/$ADDON_ID/backups" | jq '.data'
+# Back up now. Answers the backup (its backupId); it runs in the background.
+BACKUP_ID=$(curl -s -X POST "${auth[@]}" "$BASE/addons/$ADDON_ID/backups" | jq -r '.data.backupId')
+# Follow it until it settles.
+curl -s "${auth[@]}" "$BASE/addons/$ADDON_ID/backups/$BACKUP_ID" | jq '.data | {status, sizeBytes, error}'
 
-# Automatic backups. All three fields are required.
+# Automatic backups: read them, or set all three fields.
+curl -s "${auth[@]}" "$BASE/addons/$ADDON_ID/backup-config" | jq '.data'
 curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"enabled":true,"schedule":"daily","retention":7}' \
   "$BASE/addons/$ADDON_ID/backup-config" | jq '.data'
 
-# Backups and restores, newest first, with each one's status and error.
-curl -s "${auth[@]}" "$BASE/addons/$ADDON_ID/backups" \
-  | jq '.data | {backups: [.backups[] | {backupId, status, sizeBytes, error}],
-                 restores: [.restores[] | {restoreId, backupId, status, error}],
-                 restoreEffect}'
+# Every backup, newest first, a page at a time (meta.nextCursor -> ?cursor=).
+curl -s "${auth[@]}" "$BASE/addons/$ADDON_ID/backups" | jq '.data[] | {backupId, status, sizeBytes, error}'
 
-# Restore a succeeded backup into the same addon (ask the user first).
-curl -s -X POST "${auth[@]}" "$BASE/addons/$ADDON_ID/backups/$BACKUP_ID/restore" | jq '.data'
+# Restore a succeeded backup into the same addon (ask the user first): 202 with the restore.
+RESTORE_ID=$(curl -s -X POST "${auth[@]}" "$BASE/addons/$ADDON_ID/backups/$BACKUP_ID/restore" | jq -r '.data.restoreId')
+curl -s "${auth[@]}" "$BASE/addons/$ADDON_ID/restores/$RESTORE_ID" | jq '.data | {status, error}'
+# Every restore, newest first.
+curl -s "${auth[@]}" "$BASE/addons/$ADDON_ID/restores" | jq '.data'
 ```
 
 `schedule` is `hourly`, `daily`, `weekly` or `monthly` (the first automatic
@@ -220,12 +223,13 @@ backups are kept, manual and scheduled, older ones being deleted.
 
 A backup's `status` goes `starting`, `in_progress`, then `succeeded` (with
 `sizeBytes`) or `failed` (with `error`); a scheduled run that could not start
-is `skipped` with a `reason`. Poll `GET /addons/:id/backups` until it settles.
+is `skipped` with a `reason`. Poll `GET /addons/:addonId/backups/:id` until it settles.
 
 A restore replaces everything the addon holds with what the backup holds:
 data written after the backup is lost, and anything created since is removed.
-The addon keeps running; `restoreEffect` says what connected apps see
-meanwhile (for example, PostgreSQL closes open connections). A restore's
+The addon keeps running; its type's `restoreEffect` in `GET /addon-types` says
+what connected apps see meanwhile (for example, PostgreSQL closes open
+connections). A restore's
 `status` goes `starting`, `in_progress`, then `succeeded` or `failed` (with
 `error`, the step that failed and its output). Always confirm with the user
 before restoring.
@@ -304,9 +308,13 @@ longer exists.
 | GET | `/addons/:id/metrics` | Current CPU / memory / disk usage | `addons:read` |
 | GET | `/addons/:id/logs` | Container logs (`lines`, `since`, `container`) | `addons:read` |
 | POST | `/addons/:id/backups` | Trigger an immediate backup | `addons:write` |
-| PUT | `/addons/:id/backup-config` | Configure automated backups (`enabled`, `schedule`, `retention`) | `addons:write` |
-| GET | `/addons/:id/backups` | Backups and restores (status, size, error) and `restoreEffect` | `addons:read` |
-| POST | `/addons/:addonId/backups/:id/restore` | Restore a succeeded backup into the addon | `addons:write` |
+| GET | `/addons/:id/backup-config` | Automated backup settings (`enabled`, `schedule`, `retention`, `lastBackup`, `nextBackup`) | `addons:read` |
+| PUT | `/addons/:id/backup-config` | Configure automated backups (`enabled`, `schedule`, `retention`); answers the settings | `addons:write` |
+| GET | `/addons/:id/backups` | Backups, newest first, cursor-paged (status, size, error) | `addons:read` |
+| GET | `/addons/:addonId/backups/:id` | One backup (follow one you started) | `addons:read` |
+| POST | `/addons/:addonId/backups/:id/restore` | Restore a succeeded backup into the addon (202 with the restore) | `addons:write` |
+| GET | `/addons/:id/restores` | Restores, newest first, cursor-paged (status, error) | `addons:read` |
+| GET | `/addons/:addonId/restores/:id` | One restore (follow one you started) | `addons:read` |
 | POST | `/addons/:id/connections` | Attach the addon to an app (`appId`) | `addons:write` |
 | DELETE | `/addons/:addonId/connections/:id` | Detach the addon from an app | `addons:write` |
 | GET/PATCH | `/addons/:id/permissions` | Who can reach it / set `visibility` | `addons:read` / `addons:write` |

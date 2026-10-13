@@ -31,20 +31,20 @@ admin or org-owner role; those are called out below and never assumed.
 ## 1. Your account (current user)
 
 The self-serve endpoints act only on the authenticated caller. `GET /users`
-and `GET /users/:id` answer each user as exactly `username`, `email` and `role`
-(`admin`, `developer`, `app`, or `null`). `GET /me` answers you: your `_id`,
+and `GET /users/:id` answer each user as exactly `_id`, `username`, `email` and
+`role` (`admin`, `developer`, `app`, or `null`); `_id` is what `/users/:id` takes.
+`GET /me` answers you: your `_id`,
 `username`, `email` and `role`, your `organization` (`_id`, `role`,
 `isMultiTenant`, `isSolo`: that is the org id used in sections 2 and 3) and the
 `apiKey` the call used (its `_id`, `name`, `keyPrefix`, `scopes`, `expiresAt`).
-A member's user id is in `GET /organizations/:id/members`.
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
 | GET | `/me` | You: `_id`, `username`, `email`, `role`, `organization`, `apiKey` | (any key) |
 | PATCH | `/me` | Update your own profile (`name`) | `users:write` |
 | DELETE | `/me` | Delete your own account: revokes your API keys and login tokens, schedules data erasure | `users:write` |
-| GET | `/users` | List users visible within your organization, each `username`, `email`, `role` (`q`, `active`, `archived`, `limit`, `cursor`, `sort`) | `users:read` |
-| GET | `/users/:id` | Another user in your organization: `username`, `email`, `role` (visibility-filtered) | `users:read` |
+| GET | `/users` | List users visible within your organization, each `_id`, `username`, `email`, `role` (`q`, `active`, `archived`, `limit`, `cursor`, `sort`) | `users:read` |
+| GET | `/users/:id` | Another user in your organization: `_id`, `username`, `email`, `role` (visibility-filtered) | `users:read` |
 
 ```bash
 # Capture your org id for later sections
@@ -63,7 +63,7 @@ these act on *other* users, not yourself):
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
-| POST | `/users` | Create a user (`email`, `name`, `role`) | `users:admin` |
+| POST | `/users` | Create a user (`email`, `name`, `role`); answers the user as `GET /users/:id` does plus `temporaryPassword`, shown only here | `users:admin` |
 | PATCH | `/users/:id` | Update another user | `users:admin` |
 | GET | `/users/:id/assets` | Summarize resources a user owns (impact check before archiving) | `users:admin` |
 | POST | `/users/:id/archive` | Archive a user, with `assetAction` (`transfer`, `transfer-to-admin`, `delete`, `leave-as-is`) and `transferToUserId` | `users:admin` |
@@ -75,9 +75,13 @@ these act on *other* users, not yourself):
 ## 2. Organization, members, and invitations
 
 Reading the organization and its members is self-serve for members
-(`organizations:read`). Changing the organization, adding or removing members,
-changing a member's role, and inviting or cancelling invitations all require
+(`organizations:read`). Changing the organization, removing members, changing a
+member's role, and inviting or cancelling invitations all require
 `organizations:write` and are restricted to an org owner or admin.
+
+Every account belongs to exactly one organization, so nobody is added to one by
+id: a person joins an organization only by invitation, sent to an email address
+with no account yet, and signs up into it from the invitation.
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
@@ -85,7 +89,6 @@ changing a member's role, and inviting or cancelling invitations all require
 | GET | `/organizations/:id` | Get one organization | `organizations:read` |
 | PATCH | `/organizations/:id` | Update the organization (owner/admin) | `organizations:write` |
 | GET | `/organizations/:id/members` | List members, enriched with names and emails | `organizations:read` |
-| POST | `/organizations/:id/members` | Add an existing user (`userId`, optional `role`, default `member`) (owner/admin) | `organizations:write` |
 | PATCH | `/organizations/:organizationId/members/:id` | Change a member's `role` (owner/admin) | `organizations:write` |
 | DELETE | `/organizations/:organizationId/members/:id` | Remove a member (owner/admin) | `organizations:write` |
 | POST | `/organizations/:id/invitations` | Invite by `email` + `role` (owner/admin) | `organizations:write` |
@@ -103,7 +106,7 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 ```
 
 Member ids and invitation ids come from the `members` and `invitations` list
-responses; pass them as `:subId`.
+responses; pass them as the last `:id`.
 
 ---
 

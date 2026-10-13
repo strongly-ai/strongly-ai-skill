@@ -297,6 +297,8 @@ curl -s "${auth[@]}" "$BASE/workflows/-/executions/$EID/progress" | jq '.data'
 curl -s "${auth[@]}" "$BASE/workflows/-/executions/$EID" | jq '.data.outputs'
 
 # On failure, read the per-node error (error_message is on the failed span).
+# Spans are a cursor-paged list, oldest first: meta.total counts them, and
+# meta.nextCursor (as ?cursor=) reaches the next page.
 curl -s "${auth[@]}" "$BASE/workflows/-/executions/$EID/spans?status=failed" | jq '.data'
 ```
 
@@ -321,10 +323,10 @@ In the builder the same requests show in the **Waiting for you** panel.
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/workflows/:id/execute` | Test-run with `triggerInputs`; returns `{executionId, status, outputs, invocation?}` |
-| GET | `/workflows/-/executions` | List runs (`workflow_id`, `status`, `trigger_type`, `since`, `until`, `limit`, `cursor`) |
+| GET | `/workflows/-/executions` | List runs (`status`, `triggerType`, `since`, `until`, `limit`, `cursor`); one workflow's runs are `/workflows/:id/executions` |
 | GET | `/workflows/-/executions/:id` | Full execution: definition + per-node `outputs` |
 | GET | `/workflows/-/executions/:id/progress` | Status + progress; **settles** the run and returns the outputs preview on completion |
-| GET | `/workflows/-/executions/:id/spans` | Per-node spans; read `error_message` here on failure (`node_id`, `name`, `status`, `slim`, `limit`) |
+| GET | `/workflows/-/executions/:id/spans` | Per-node spans, oldest first, cursor-paged; read `error_message` here on failure (`nodeId`, `name`, `status`, `slim`, `limit`, `cursor`) |
 | GET | `/workflows/-/executions/:id/logs` | Execution logs (`level`, `limit`) |
 | POST | `/workflows/-/executions/:id/stop` | Graceful stop (only when `running`) |
 | POST | `/workflows/-/executions/:id/cancel` | Hard-cancel any non-terminal run; idempotent |
@@ -483,8 +485,8 @@ pin, and metadata. It is the same artefact a version commit holds (the definitio
 returned by `GET /workflows/:workflowId/versions/:id`, section 2).
 
 ```bash
-# Export -> the .strongly.json body (the response also sets Content-Disposition
-# for a browser download).
+# Export: a read like any other ({data, meta}); data is the .strongly.json
+# document, the same file the dashboard's Export downloads.
 curl -s "${auth[@]}" "$BASE/workflows/$WID/export" | jq '.data' > workflow.strongly.json
 
 # Import is two calls. FIRST (no resolvedDeps) VALIDATES and returns the
@@ -493,15 +495,16 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d "{\"exportData\": $(cat workflow.strongly.json)}" \
   "$BASE/workflows/import" | jq '.data'
 
-# SECOND, with resolvedDeps filled in, EXECUTES the import (201) and creates the
-# new workflow.
+# SECOND, with resolvedDeps ({"<refId>": "<resource id here>"} for each dependency
+# the first call listed; {} when none) EXECUTES the import (201) and answers the
+# new workflow. Import reads export format version 2.0 only (camelCase keys).
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"exportData": {...}, "resolvedDeps": {...}}' "$BASE/workflows/import" | jq '.data'
 ```
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/workflows/:id/export` | Export the workflow as a `.strongly.json` document |
+| GET | `/workflows/:id/export` | Export the workflow: `data` is its `.strongly.json` document |
 | POST | `/workflows/import` | Import from `.strongly.json` (`exportData`; call once to validate + list dependencies, again with `resolvedDeps` to create the workflow) |
 
 ---
