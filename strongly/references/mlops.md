@@ -211,7 +211,9 @@ with the read endpoints first, then submit and poll.
 
 `baseModel` must be an id from `/base-models` (e.g. `Qwen/Qwen2.5-7B-Instruct`): any other is refused (400);
 `trainingDataset` is a prepared file (JSONL from a Data Forge export, a project
-volume file path, or a URL/dataset id). Recommended flow:
+volume file path, or a URL/dataset id). Fine-tuning trains on NVIDIA GPUs only:
+`environment.gpuCount` is 1 to 8 (default 1, a T4 unless `gpuType` says
+otherwise); `0` is refused (400). Recommended flow:
 `recommend` -> `validate-config` -> `create` -> poll -> `deploy`.
 
 ```bash
@@ -265,11 +267,14 @@ Reads need `mlops:read`, changes need `mlops:write` (both in the `ml-ops` and `d
 A breaking change creates a new view version whose history starts empty: the
 platform pulls the source and publishes it from the beginning for that version.
 
-A stream view with `aggregations` (`[{column, function, windows}]`, `tileSize`,
-optional `allowedLateness`) serves `<column>_<function>_<window>` features; send events
-with `POST /mlops/feature-stores/:storeId/views/:name/events`. Online windows are as of now (an old event ages out even
-when an entity sends nothing new), matching training data for the same moment. An event more
-than `allowedLateness` (default 0) behind its entity's newest event counts in training data only.
+A stream view with `aggregations` (`[{column, function, windows}]`, `tileSize` and the
+required `allowedLateness`, at most its longest window) serves `<column>_<function>_<window>`
+features; send events with `POST /mlops/feature-stores/:storeId/views/:name/events`. Online
+windows are as of now (an old event ages out even when an entity sends nothing new), matching
+training data for the same moment. Events are aggregated by event time: one that arrives out of
+order within `allowedLateness` of its entity's newest event updates the online values as if it
+had arrived in order (set it to the longest window to apply every event a live value reads); a
+later one counts in training data only.
 
 An on-demand view (`mode: "on_demand"`) computes features at request time:
 `transformCode` defines `transform(df)` (pandas in: its `onDemandSources`' features +
