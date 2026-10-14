@@ -200,13 +200,14 @@ claim-locked so a task shared by several agents is never worked twice.
 | `POST /primitives/tasks` | Create | body: `description*, recurrence, dueAt, triggerType, notes, tags, subjectRef, linkedIds, assignedToAgent, createdByAgent` |
 | `GET /primitives/tasks/:id` · `PATCH /primitives/tasks/:id` · `DELETE /primitives/tasks/:id` | Fetch (with its status and scheduling fields) / update (a recurrence change recomputes `nextDueAt`) / delete | |
 | `POST /primitives/tasks/:id/complete` | Mark done; recurring advances to the next occurrence. A fire has one completion: an already-complete fire answers `alreadyComplete: true` and records nothing | body: `notes, executionId, runId` |
+| `GET /primitives/tasks/:id/fires` | The task's fires, newest first: one record per fire, every fire kept (`fireCount` counts them) | `limit, cursor, sort` |
 | `POST /primitives/tasks/:id/claim` | First-claim-wins execution lock: answers the task, or `409` when another agent holds it | body: `claimantId*` |
 | `POST /primitives/tasks/:id/cancel` | Cancel | body: `reason` |
 | `POST /primitives/tasks/:id/skip-next` · `/end-recurrence` | Skip one fire / stop recurring | |
 | `GET/PATCH /primitives/tasks/:id/permissions` · `POST …/permissions/members` · `DELETE /primitives/tasks/:taskId/permissions/members/:userId` | Who can reach it / visibility, share with a user, stop sharing | member body: `userId*, role*` |
 
 `status`: `open | fired | done | failed | cancelled`. A fire whose run ended
-without the task done is a `fireHistory` entry with `status: failed`,
+without the task done is a fire record (`/fires`) with `status: failed`,
 `failureReason`, `runId`, `agentId`; the schedule moves on (a one-time task
 becomes `failed`). `fireRepair` is STAN's repair of the latest failed fire:
 `state` `pending | repairing | fixed | notified` (`notified`: STAN could not fix
@@ -223,7 +224,7 @@ to `null` removes that field. Completing a claimed task counts the run
 (`fireCount`, `lastFiredAt` = claim time). `fireCount` equals the number of
 fires: the same agent run (`runId`) completing again, a done task, or a failed
 fire whose retry already completed it is `alreadyComplete`; while STAN repairs a
-failed fire, the retry's completion turns that fire's entry `done`
+failed fire, the retry's completion turns that fire's record `done`
 (`completedRunId`) without counting or advancing again.
 
 ```bash
