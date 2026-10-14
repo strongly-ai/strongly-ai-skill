@@ -205,7 +205,12 @@ claim-locked so a task shared by several agents is never worked twice.
 | `POST /primitives/tasks/:id/skip-next` · `/end-recurrence` | Skip one fire / stop recurring | |
 | `GET/PATCH /primitives/tasks/:id/permissions` · `POST …/permissions/members` · `DELETE /primitives/tasks/:taskId/permissions/members/:userId` | Who can reach it / visibility, share with a user, stop sharing | member body: `userId*, role*` |
 
-`status`: `open | fired | done | failed | cancelled`. `triggerType`: `heartbeat`
+`status`: `open | fired | done | failed | cancelled`. A fire whose run ended
+without the task done is a `fireHistory` entry with `status: failed`,
+`failureReason`, `runId`, `agentId`; the schedule moves on (a one-time task
+becomes `failed`). `fireRepair` is STAN's repair of the latest failed fire:
+`state` `pending | repairing | fixed | notified` (`notified`: STAN could not fix
+it and the owner got a bell notification), with `reason` and STAN's `summary`. `triggerType`: `heartbeat`
 (the agent completes it when it next wakes) or `scheduled` (platform cron fires it
 at an exact time). `recurrence`: `{kind, timeOfDay?, dayOfWeek?, dayOfMonth?,
 cron?, timezone, until?, maxFires?}` where `kind` is `daily | weekly | monthly |
