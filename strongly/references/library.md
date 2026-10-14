@@ -199,7 +199,7 @@ claim-locked so a task shared by several agents is never worked twice.
 | `GET /primitives/tasks` | List | `kind, status, tags, linkedIds, includeCompleted, q, dueOnly, triggerType, limit, cursor` |
 | `POST /primitives/tasks` | Create | body: `description*, recurrence, dueAt, triggerType, notes, tags, subjectRef, linkedIds, assignedToAgent, createdByAgent` |
 | `GET /primitives/tasks/:id` · `PATCH /primitives/tasks/:id` · `DELETE /primitives/tasks/:id` | Fetch (with its status and scheduling fields) / update (a recurrence change recomputes `nextDueAt`) / delete | |
-| `POST /primitives/tasks/:id/complete` | Mark done; recurring advances to the next occurrence | body: `notes, executionId` |
+| `POST /primitives/tasks/:id/complete` | Mark done; recurring advances to the next occurrence. A fire has one completion: an already-complete fire answers `alreadyComplete: true` and records nothing | body: `notes, executionId, runId` |
 | `POST /primitives/tasks/:id/claim` | First-claim-wins execution lock: answers the task, or `409` when another agent holds it | body: `claimantId*` |
 | `POST /primitives/tasks/:id/cancel` | Cancel | body: `reason` |
 | `POST /primitives/tasks/:id/skip-next` · `/end-recurrence` | Skip one fire / stop recurring | |
@@ -220,7 +220,11 @@ nor `recurrence` is intent-only: no heartbeat runs it on its own. `linkedIds` sa
 which agents work a task; `assignedToAgent` is only a label a Task Due workflow
 trigger filters on. `PATCH` with `dueAt`, `assignedToAgent` or `subjectRef` set
 to `null` removes that field. Completing a claimed task counts the run
-(`fireCount`, `lastFiredAt` = claim time).
+(`fireCount`, `lastFiredAt` = claim time). `fireCount` equals the number of
+fires: the same agent run (`runId`) completing again, a done task, or a failed
+fire whose retry already completed it is `alreadyComplete`; while STAN repairs a
+failed fire, the retry's completion turns that fire's entry `done`
+(`completedRunId`) without counting or advancing again.
 
 ```bash
 # Recurring: every weekday 9am ET. NOTE recurrence, not dueAt.
