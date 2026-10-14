@@ -75,8 +75,7 @@ Durable facts and episodes an agent recalls. Bitemporal (`validFrom`/`validUntil
 | `POST /primitives/memories` | Create | body: `kind*, content*, summary, tags, category, importance, confidence, links, linkedIds, source, eventTime, validFrom, validUntil` |
 | `GET /primitives/memories/:id` · `PATCH /primitives/memories/:id` · `DELETE /primitives/memories/:id` | Fetch / update (content change appends a version) / delete | update body adds `changeNote` |
 | `POST /primitives/memories/search` | Hybrid BM25 + dense-vector search with RRF fusion and temporal-decay re-rank; returns `contextBlock` | body: `q*, limit, kind, tags, linkedIds, weights, rrfK, decayHalfLifeDaysOverride, asOf` |
-| `POST /primitives/memories/ingest` | Mem0-style judge that decides ADD/UPDATE/DELETE/NOOP against similar rows | body: `content*, kind*, tags, model, candidateK, linkedIds` |
-| `GET` · `PATCH /primitives/memory-settings` | The ingest judge model used when an ingest sends no `model` (PATCH: platform admins; only a chat model every user may call, else `400` naming the eligible ones) | PATCH body: `ingestModel*` |
+| `POST /primitives/memories/ingest` | Mem0-style judge for an agent: the agent's own model decides ADD/UPDATE/DELETE/NOOP against its similar memories; the memory joins the agent (no `agentId`: 400; not yours: 403) | body: `content*, kind*, agentId*, tags, candidateK, linkedIds` |
 | `POST /primitives/memories/consolidate` | Sleep-time pass: dedup, evict stale, promote used. `dryRun` to preview | body: `config, dryRun` |
 | `POST /primitives/memories/:id/assess` | The quality ruleset's full report (each check); the score is also kept on the row (`scoreResult`) by every write | |
 | `POST /primitives/memories/:id/invalidate` | Mark contradicted/superseded (sets `validUntil=now`) | body: `supersededBy` |
