@@ -192,12 +192,16 @@ Checklist:
 ## 4. Tasks
 
 Scheduled work an agent does: recurring or one-off, heartbeat- or cron-fired,
-claim-locked so a task shared by several agents is never worked twice.
+claim-locked so an occurrence is never worked twice. **Every task belongs to
+exactly one of its owner's agents** (`linkedIds` names it, plus any pools): a
+create without one, with a plain workflow, two agents or another user's agent is
+a `400`, and deleting the agent deletes its tasks, their fires and their
+notifications.
 
 | Endpoint | Purpose | Key params / body |
 |---|---|---|
 | `GET /primitives/tasks` | List | `kind, status, tags, linkedIds, includeCompleted, q, dueOnly, triggerType, limit, cursor` |
-| `POST /primitives/tasks` | Create | body: `description*, recurrence, dueAt, triggerType, notes, tags, subjectRef, linkedIds, assignedToAgent, createdByAgent` |
+| `POST /primitives/tasks` | Create | body: `description*, linkedIds* (one agent of yours + any pools), recurrence, dueAt, triggerType, notes, tags, subjectRef, assignedToAgent, createdByAgent` |
 | `GET /primitives/tasks/:id` · `PATCH /primitives/tasks/:id` · `DELETE /primitives/tasks/:id` | Fetch (with its status and scheduling fields) / update (a recurrence change recomputes `nextDueAt`) / delete | |
 | `POST /primitives/tasks/:id/complete` | Mark done; recurring advances to the next occurrence. A fire has one completion: an already-complete fire answers `alreadyComplete: true` and records nothing | body: `notes, executionId, runId` |
 | `GET /primitives/tasks/:id/fires` | The task's fires, newest first: one record per fire, every fire kept (`fireCount` counts them) | `limit, cursor, sort` |
@@ -217,9 +221,10 @@ at an exact time). `recurrence`: `{kind, timeOfDay?, dayOfWeek?, dayOfMonth?,
 cron?, timezone, until?, maxFires?}` where `kind` is `daily | weekly | monthly |
 cron`. **For any repeating schedule set `recurrence` and leave `dueAt` empty; use
 `dueAt` only for a single one-off time.** A heartbeat task with neither `dueAt`
-nor `recurrence` is intent-only: no heartbeat runs it on its own. `linkedIds` says
-which agents work a task; `assignedToAgent` is only a label a Task Due workflow
-trigger filters on. `PATCH` with `dueAt`, `assignedToAgent` or `subjectRef` set
+nor `recurrence` is intent-only: no heartbeat runs it on its own. `linkedIds` names
+the one agent that works a task (a `PATCH` of it must keep exactly one of the
+owner's agents); `assignedToAgent` is only a label the Task Due trigger of the
+task's agent filters on. A task never fires a plain workflow. `PATCH` with `dueAt`, `assignedToAgent` or `subjectRef` set
 to `null` removes that field. Completing a claimed task counts the run
 (`fireCount`, `lastFiredAt` = claim time). `fireCount` equals the number of
 fires: the same agent run (`runId`) completing again, a done task, or a failed
@@ -358,5 +363,5 @@ Checklist:
 - [ ] Attach rows to agents with `linkedIds` (agent `workflowId`); AND on list filters, ANY on recall.
 - [ ] Inject with the retrieval endpoint's `data.contextBlock`; browse with plain `GET` lists.
 - [ ] Prefer supersede/version over destructive delete (memory `invalidate`, rules/prompts/skills versions, preferences upsert).
-- [ ] Repeating tasks use `recurrence` (never a one-off `due_at`); claim before executing shared tasks.
+- [ ] Every task names exactly one of your agents in `linkedIds`; repeating tasks use `recurrence` (never a one-off `due_at`); claim before executing.
 - [ ] Artifacts live in `references/apps.md`; the agent runtime that consumes all of this lives in `references/agents.md`.
