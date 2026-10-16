@@ -463,10 +463,15 @@ the app owner's bearer token; on an agent route the call acts as the user:
   them, never edits them. PER-USER: what a copy creates (memories, tasks,
   preferences, artifacts, saved skills/rules/prompts) is its user's alone.
 - A template config change syncs to every copy and redeploys running ones;
-  per-user records are kept. The template can't be deleted while an app has it.
+  per-user records are kept. A failed redeploy leaves that copy out of sync with
+  its error (GET /agents/:id/copies: inSync, templateSyncError; the owner is
+  notified); it is retried when the copy starts, when the template changes, or
+  with Sync now (POST /agents/:id/sync, template or one copy). The template
+  can't be deleted while an app has it.
 - Library versions: every agent reads the latest of each item unless pinned
   (`GET /agents/:id/library-references`, `PATCH /agents/:agentId/library-references/:id
-  {pinnedVersion: n | null}`; UI: agent Settings, Library versions). Template
+  {pinnedVersion: n | null}`; UI: agent Settings, Library versions). A skill or
+  prompt version includes its bundled files (a file-only change is a version). Template
   pins hold for every copy; a copy refuses its own (409). A missing pinned
   version is an error, never the latest.
 - App users reach their agents ONLY this way, through their Home App; the
@@ -482,7 +487,8 @@ the app owner's bearer token; on an agent route the call acts as the user:
 
 Python SDK: `client.apps.update(app_id, agent_template_id=...)`,
 `client.for_user(token).agents.create_from_template(template_id)`,
-`client.agents.library_references(id)`, `client.agents.set_library_version(id, item_id, pinned_version=n)`.
+`client.agents.library_references(id)`, `client.agents.set_library_version(id, item_id, pinned_version=n)`,
+`client.agents.template_copies(id)`, `client.agents.sync_template(id)`.
 User guide: An Agent for Each User (apps/per-user-agents).
 
 ## 4. Wiring: `STRONGLY_SERVICES`
