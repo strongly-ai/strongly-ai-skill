@@ -106,11 +106,39 @@ down a running pod, so `stop` first).
 ---
 
 
-**An app's agent for each of its users.** An app that gives each signed-in user
-their own agent calls these routes with the request's `X-Strongly-User-Token`
-forwarded: the agent is the user's own and records the app (`appId`); a clone
-of the app's source agent also records `sourceAgentId`. See the apps reference,
-"An agent for each user".
+**What an agent may do (every agent).** Each agent carries `allowedFeatures`:
+anything that creates or controls platform resources is a feature (`projects`,
+`workspaces`, `apps`, `addons`, `datasources`, `deployments`, `workflows`,
+`models`, `jobs`, `sharing`, `stan`), and the agent may use only those it is
+granted (`GET/PATCH /agents/:id/allowed-features {allowedFeatures}`; UI: agent
+Overview, "What this agent may do"). A new agent is granted none. It is offered
+only the tools of its features, and anything else it tries (from its runtime or
+code in its workspace, at the API and every platform service) is refused: 403
+`feature-restricted` naming the feature. Grant only what the use case needs.
+
+**Agent clones.** An agent is only for its user; to give others the agent you
+built, they CLONE it (the agent is the BASE). Share a base to clone:
+`POST /agents/:id/permissions/members {userId, role: "cloner"}` (platform users
+and app users; it grants no use or change of the base; UI: agent Permissions
+tab); they list it with `GET /agents/clonable` and clone with
+`POST /agents/:id/clone`. An app can clone its base for each user (apps
+reference, "An agent for each user").
+- OFFICIAL layer: everything the base provides (instructions, model, skills,
+  rules, prompts, knowledge, tools, connectors, data sources, add-ons, settings,
+  pins) flows to every clone and is read-only there: any change on a clone is
+  403 `clone-follows-base`; change the base. Base changes sync to every clone
+  and redeploy running ones (`GET /agents/:id/clones`: inSync, baseSyncError;
+  `POST /agents/:id/sync` retries).
+- PER-USER layer: the clone's user adds their own memories, tasks, knowledge
+  bases (`POST /library/knowledge-bases {cloneId}`), preferences, artifacts,
+  sessions, and skills/rules/prompts linked to the clone, beside the official
+  ones.
+- A clone acts as its user, and uses the base's data sources and add-ons as its
+  user. A platform user's clone uses their own access to everything the base
+  uses: cloning is refused (403, naming each) when they may not use a model,
+  data source, add-on, tool workflow or MCP server the base uses; share those
+  first. It may do what the base's allowlist grants and cannot loosen it.
+- A base can't be deleted while it has clones (or while an app clones it).
 
 **Library versions (every agent).** An agent reads the latest version of each
 Library item it uses unless pinned: `GET /agents/:id/library-references` lists
