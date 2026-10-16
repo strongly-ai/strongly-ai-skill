@@ -108,8 +108,8 @@ down a running pod, so `stop` first).
 
 **An app's agent for each of its users.** An app that gives each signed-in user
 their own agent calls these routes with the request's `X-Strongly-User-Token`
-forwarded: the agent is the user's own and records the app (`appId`); a copy
-of the app's agent template also records `templateId`. See the apps reference,
+forwarded: the agent is the user's own and records the app (`appId`); a clone
+of the app's source agent also records `sourceAgentId`. See the apps reference,
 "An agent for each user".
 
 **Library versions (every agent).** An agent reads the latest version of each

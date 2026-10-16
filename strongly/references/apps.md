@@ -437,58 +437,70 @@ app admin who signed up through the branded page is `role: "app"`,
 
 ### An agent for each user (per-user-agent apps)
 
-Build the agent once as a normal agent, then make it the app's **agent
-template**: `PATCH /apps/:id {agentTemplateId}` (an agent the app's OWNER owns;
-`null` clears it; UI: app Settings tab, Agent Template). Every user who joins
-the app (branded sign-up, Home App binding) gets their own **copy**: owned by
-the user, recording the app (`appId`) and the template (`templateId`), with the
-template's full configuration (model, connectors, knowledge, tools, workspace).
+Build the agent once as a normal agent (the SOURCE agent), then set it as the
+app's "Agent cloned for each user": `PATCH /apps/:id {cloneSourceAgentId}` (an
+agent the app's OWNER owns; `null` clears it; UI: app Settings tab). Every user
+who joins the app (branded sign-up, Home App binding) gets their own **clone**:
+owned by the user, recording the app (`appId`) and its source (`sourceAgentId`),
+with the source agent's full configuration (model, connectors, knowledge, tools,
+workspace).
 
-The app's **backend** calls the agent routes at `$STRONGLY_API_URL/api/v1/agents...`
-forwarding the request's `X-Strongly-User-Token` **unchanged** (never decoded
-and re-signed, never stored: it expires in an hour). The pod's auth-proxy adds
-the app owner's bearer token; on an agent route the call acts as the user:
+The app's **backend** calls `$STRONGLY_API_URL/api/v1` forwarding the request's
+`X-Strongly-User-Token` **unchanged** (never decoded and re-signed, never
+stored: it expires in an hour). The pod's auth-proxy adds the app owner's bearer
+token; on the user's areas (`/agents`, `/primitives`, `/library`) the call acts
+as the signed-in user, through the app:
 
-- `POST /agents {templateId}` creates the user's copy when they have none
-  (409 names an existing one). `POST /agents` with Agent Builder input creates
-  an agent of the app's own design for the user instead.
+- `POST /agents/:id/clone` (the source agent) makes the user's clone when they
+  have none (409 names an existing one). `POST /agents` with Agent Builder input
+  makes an agent of the app's own design for the user instead.
 - `GET /agents` lists only that user's agents of this app; another user's agent
   answers 404. Then `POST /agents/:id/start`, `POST /agents/:id/threads`,
   `POST /agents/:agentId/threads/:id/runs` (SSE), `DELETE /agents/:id`.
-- What the agent uses (model, connectors, data sources, add-ons, knowledge,
-  tool workflows, workspace) resolves as the app's owner; nothing is created in
-  the user's name.
-- Two layers. SHARED: the template's config and the Library skills, rules and
-  prompts linked to the template (plus what it references); every copy uses
-  them, never edits them. PER-USER: what a copy creates (memories, tasks,
-  preferences, artifacts, saved skills/rules/prompts) is its user's alone.
-- A template config change syncs to every copy and redeploys running ones;
-  per-user records are kept. A failed redeploy leaves that copy out of sync with
-  its error (GET /agents/:id/copies: inSync, templateSyncError; the owner is
-  notified); it is retried when the copy starts, when the template changes, or
-  with Sync now (POST /agents/:id/sync, template or one copy). The template
-  can't be deleted while an app has it.
+- `POST /library/knowledge-bases` + `.../:id/documents` make and fill the user's
+  own knowledge base, private to their clone (indexed with an owner's model).
+- AS WHOM (security/appClone.ts): a clone acts as its USER for its identity and
+  every Library record (memories, knowledge, artifacts, tasks, preferences,
+  sessions, saved skills/rules/prompts); as the app's OWNER for the platform
+  resources the source agent wired (models, connectors, data sources, add-ons,
+  tool workflows, workspace, MCP). Gateway calls record user + clone + app.
+- WHAT IT MAY DO: reading, its own agent and Library records, and the source's
+  tool workflows. Anything that creates or controls platform resources is a
+  feature, refused unless the source agent grants it:
+  `GET/PATCH /agents/:id/clone-features {cloneFeatures}` with `projects`,
+  `workspaces`, `apps`, `addons`, `datasources`, `deployments`, `workflows`,
+  `models`, `jobs`, `sharing`, `stan`. A refused request is 403
+  `feature-restricted` naming the feature; the runtime offers only granted tools.
+- Two layers. SHARED: the source agent's config and its linked skills, rules,
+  prompts and knowledge (plus what it references); every clone uses them, never
+  edits them. PER-USER: what a clone creates, only its user's.
+- A source config change syncs to every clone and redeploys running ones;
+  per-user records are kept. A failed redeploy leaves that clone out of sync
+  with its error (`GET /agents/:id/clones`: inSync, sourceSyncError; the owner is
+  notified); it is retried when the clone starts, when the source changes, or
+  with `POST /agents/:id/sync` (source or one clone). The source agent can't be
+  deleted while an app clones it.
 - Library versions: every agent reads the latest of each item unless pinned
   (`GET /agents/:id/library-references`, `PATCH /agents/:agentId/library-references/:id
   {pinnedVersion: n | null}`; UI: agent Settings, Library versions). A skill or
-  prompt version includes its bundled files (a file-only change is a version). Template
-  pins hold for every copy; a copy refuses its own (409). A missing pinned
-  version is an error, never the latest.
+  prompt version includes its bundled files. Source pins hold for every clone; a
+  clone refuses its own (409). A missing pinned version is an error.
 - App users reach their agents ONLY this way, through their Home App; the
-  dashboard stays closed to them. Everything else the app calls acts as the owner.
-- The agent runs as its user: model calls and cost are recorded for the user
-  and the agent, with the app named. One started agent = one pod; prefer
+  dashboard stays closed to them. Developers and admins through an app are held
+  to the same rule.
+- The clone runs as its user: model calls and cost are recorded for the user
+  and the clone, with the app named. One started agent = one pod; prefer
   on-demand agents so idle users cost nothing.
 - Deleted with its tasks and per-user layer when the app deletes it, the user
   is removed/unbound from the app or archived, or the app is deleted (the
-  template stays).
+  source agent stays).
 - A user token that does not verify is refused (401 with why), never run as
   the owner. A user token alone (no bearer) is not a credential.
 
-Python SDK: `client.apps.update(app_id, agent_template_id=...)`,
-`client.for_user(token).agents.create_from_template(template_id)`,
-`client.agents.library_references(id)`, `client.agents.set_library_version(id, item_id, pinned_version=n)`,
-`client.agents.template_copies(id)`, `client.agents.sync_template(id)`.
+Python SDK: `client.apps.update(app_id, clone_source_agent_id=...)`,
+`client.for_user(token).agents.clone(source_agent_id)`, `client.agents.clones(id)`,
+`client.agents.sync(id)`, `client.agents.set_clone_features(id, [...])`,
+`client.agents.library_references(id)`, `client.agents.set_library_version(id, item_id, pinned_version=n)`.
 User guide: An Agent for Each User (apps/per-user-agents).
 
 ## 4. Wiring: `STRONGLY_SERVICES`
