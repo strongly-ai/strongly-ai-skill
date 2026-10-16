@@ -116,7 +116,8 @@ it may do whatever its owner may) until its owner restricts it with a shorter
 list. A restricted agent is offered only the tools of its features, and anything
 else it tries (from its runtime or code in its workspace, at the API and every
 platform service) is refused: 403 `feature-restricted` naming the feature. A
-clone has exactly its base's features (a copy of a clone keeps them).
+clone has exactly its base's features. A clone is never duplicated, exported
+or saved as a template (403 `clone-not-copyable`): clone the base again.
 
 **Agent clones.** An agent is only for its user; to give others the agent you
 built, they CLONE it (the agent is the BASE). Share a base to clone:
