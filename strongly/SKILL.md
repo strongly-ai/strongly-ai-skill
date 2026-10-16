@@ -102,7 +102,10 @@ camelCase.
 
 **Design.** Paths are grouped by product area (`/apps`, `/workflows`, `/agents`,
 `/library/…`, `/primitives/…`, `/mlops/…`, `/ai-gateway/…`, `/finops/…`,
-`/governance/…`). Updates are `PATCH` with only the fields to change; actions are
+`/governance/…`). Updates are `PATCH` with only the fields to change, as a JSON
+Merge Patch: a field set to `null` is removed (refused with `400` for one the
+resource must keep), any other value replaces that field whole, and a map such as
+a node's `config` is patched key by key the same way; actions are
 `POST …/:id/{verb}` (`start`, `stop`, `deploy`, …). Sharing is the same on every
 resource: `GET …/:id/permissions`, `POST …/:id/permissions/members`
 `{ userId, role }`, `DELETE …/:{name}Id/permissions/members/:userId` (`:appId`, `:workflowId`, …),

@@ -230,7 +230,7 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 | POST | `/workflows/:id/duplicate` | Copy the workflow; returns the copy |
 | POST | `/workflows/:id/nodes` | Add one node (`nodeType` required; `label`, `config`, `position`) |
 | GET | `/workflows/:id/nodes` | List nodes with inbound/outbound connection counts |
-| PATCH | `/workflows/:workflowId/nodes/:id` | Set a node's `config` / `label` |
+| PATCH | `/workflows/:workflowId/nodes/:id` | Set a node's `config` / `label`: `config` keys you send replace those keys whole, a key sent as `null` is removed, the rest stay |
 | DELETE | `/workflows/:workflowId/nodes/:id` | Remove a node and its connections (`204`) |
 | PUT | `/workflows/:workflowId/nodes/:id/input-mappings` | Set `inputMappings` (`{ targetField: "data.sourceField" }`), saved to `node.data.inputMappings`, the one place the builder and the run read them (`GET /workflows/:id` shows them there) |
 | PUT | `/workflows/:workflowId/nodes/:id/passthrough-values` | Set `passThroughValues` (`values`: `{outputKey: "inputName"}`, saved to `node.config`): copies the node's input `inputName` (one of its `inputMappings` keys, so map it first) into its output as `data.<outputKey>` |
