@@ -138,7 +138,13 @@ reference, "An agent for each user").
   uses: cloning is refused (403, naming each) when they may not use a model,
   data source, add-on, tool workflow or MCP server the base uses; share those
   first. It may do what the base's allowlist grants and cannot loosen it.
-- A base can't be deleted while it has clones (or while an app clones it).
+- An app user's clone never adds data sources or add-ons, whatever the base
+  grants. A clone's `GET /agents/:id/config` names its base (`baseAgentName`)
+  and its sync state (`baseSyncedAt`, `baseSyncError`); on a clone,
+  `GET /agents/:id/library-references` marks each item `fromBase` (official,
+  read-only) or not (the user's own).
+- A base can't be deleted while it has clones (or while an app clones it):
+  422 `resource-in-use`. A second clone of the same base is 409 `conflict`.
 
 **Library versions (every agent).** An agent reads the latest version of each
 Library item it uses unless pinned: `GET /agents/:id/library-references` lists
