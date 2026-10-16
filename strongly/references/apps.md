@@ -426,8 +426,12 @@ app.use('/api', (req, _res, next) => {
 ```
 
 Convenience headers also exist (`X-Strongly-User-Id/Email/Name/Roles`,
-`X-Strongly-Org-Id`); the JWT is canonical. Common roles: `admin`, `developer`,
-`app`, map them to your app's roles.
+`X-Strongly-Org-Id`); the JWT is canonical. The user claim carries two roles,
+never interchangeable: **`appRole`**, the user's role IN THIS APP (`owner`,
+`admin`, `user`, `viewer`): gate the app's features on it; and **`role`**, their
+PLATFORM role (`admin`, `developer`, `app`), which only the platform reads. An
+app admin who signed up through the branded page is `role: "app"`,
+`appRole: "admin"`. Never use `role` for the app's own permissions.
 
 ---
 
