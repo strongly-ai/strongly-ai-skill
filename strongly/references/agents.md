@@ -108,8 +108,15 @@ down a running pod, so `stop` first).
 
 **An app's agent for each of its users.** An app that gives each signed-in user
 their own agent calls these routes with the request's `X-Strongly-User-Token`
-forwarded: the agent is the user's own and records the app (`appId`); see the
-apps reference, "An agent for each user".
+forwarded: the agent is the user's own and records the app (`appId`); a copy
+of the app's agent template also records `templateId`. See the apps reference,
+"An agent for each user".
+
+**Library versions (every agent).** An agent reads the latest version of each
+Library item it uses unless pinned: `GET /agents/:id/library-references` lists
+each item (`type`, `id`, `name`, `latestVersion`, `pinnedVersion`), and
+`PATCH /agents/:agentId/library-references/:id {pinnedVersion: n | null}` pins or
+unpins (409 `pinned-version-missing` for a version the item lacks).
 
 ## 3. Configure the brain
 

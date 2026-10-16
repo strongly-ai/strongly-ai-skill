@@ -437,32 +437,52 @@ app admin who signed up through the branded page is `role: "app"`,
 
 ### An agent for each user (per-user-agent apps)
 
-To give each signed-in user their own agent, the app's **backend** calls the
-platform's agent routes at `$STRONGLY_API_URL/api/v1/agents...` and forwards the
-request's `X-Strongly-User-Token` **unchanged** (never decoded and re-signed,
-never stored: it expires in an hour). The pod's auth-proxy adds the app owner's
-bearer token; on an agent route the call then acts as the signed-in user:
+Build the agent once as a normal agent, then make it the app's **agent
+template**: `PATCH /apps/:id {agentTemplateId}` (an agent the app's OWNER owns;
+`null` clears it; UI: app Settings tab, Agent Template). Every user who joins
+the app (branded sign-up, Home App binding) gets their own **copy**: owned by
+the user, recording the app (`appId`) and the template (`templateId`), with the
+template's full configuration (model, connectors, knowledge, tools, workspace).
 
-- `POST /agents` `{name, aiModelId, personality?, training?, ...}` creates the
-  user's own agent (`ownerId`), recording the app (`appId`). `aiModelId` is
-  required: a model the **app's owner** may use (the agent uses what its app
-  uses). It does not take `connectors`, `workspace`, `referenceKey`,
-  `fallbackModelIds` or `sharedLinkedIds`.
+The app's **backend** calls the agent routes at `$STRONGLY_API_URL/api/v1/agents...`
+forwarding the request's `X-Strongly-User-Token` **unchanged** (never decoded
+and re-signed, never stored: it expires in an hour). The pod's auth-proxy adds
+the app owner's bearer token; on an agent route the call acts as the user:
+
+- `POST /agents {templateId}` creates the user's copy when they have none
+  (409 names an existing one). `POST /agents` with Agent Builder input creates
+  an agent of the app's own design for the user instead.
 - `GET /agents` lists only that user's agents of this app; another user's agent
   answers 404. Then `POST /agents/:id/start`, `POST /agents/:id/threads`,
   `POST /agents/:agentId/threads/:id/runs` (SSE), `DELETE /agents/:id`.
-- App users (branded sign-up) reach their agents ONLY this way, through their
-  Home App; the dashboard stays closed to them. Everything else the app calls
-  still acts as the owner.
-- The agent runs as its user: model calls and cost are recorded for the user and
-  the agent, with the app named. One started agent = one pod; prefer on-demand
-  agents so idle users cost nothing.
-- Deleted with its tasks when the app deletes it, the user is removed/unbound
-  from the app or archived, or the app is deleted.
+- What the agent uses (model, connectors, data sources, add-ons, knowledge,
+  tool workflows, workspace) resolves as the app's owner; nothing is created in
+  the user's name.
+- Two layers. SHARED: the template's config and the Library skills, rules and
+  prompts linked to the template (plus what it references); every copy uses
+  them, never edits them. PER-USER: what a copy creates (memories, tasks,
+  preferences, artifacts, saved skills/rules/prompts) is its user's alone.
+- A template config change syncs to every copy and redeploys running ones;
+  per-user records are kept. The template can't be deleted while an app has it.
+- Library versions: every agent reads the latest of each item unless pinned
+  (`GET /agents/:id/library-references`, `PATCH /agents/:agentId/library-references/:id
+  {pinnedVersion: n | null}`; UI: agent Settings, Library versions). Template
+  pins hold for every copy; a copy refuses its own (409). A missing pinned
+  version is an error, never the latest.
+- App users reach their agents ONLY this way, through their Home App; the
+  dashboard stays closed to them. Everything else the app calls acts as the owner.
+- The agent runs as its user: model calls and cost are recorded for the user
+  and the agent, with the app named. One started agent = one pod; prefer
+  on-demand agents so idle users cost nothing.
+- Deleted with its tasks and per-user layer when the app deletes it, the user
+  is removed/unbound from the app or archived, or the app is deleted (the
+  template stays).
 - A user token that does not verify is refused (401 with why), never run as
   the owner. A user token alone (no bearer) is not a credential.
 
-Python SDK: `client.for_user(token).agents.create(name=..., ai_model_id=...)`.
+Python SDK: `client.apps.update(app_id, agent_template_id=...)`,
+`client.for_user(token).agents.create_from_template(template_id)`,
+`client.agents.library_references(id)`, `client.agents.set_library_version(id, item_id, pinned_version=n)`.
 User guide: An Agent for Each User (apps/per-user-agents).
 
 ## 4. Wiring: `STRONGLY_SERVICES`
