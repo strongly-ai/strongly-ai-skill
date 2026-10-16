@@ -129,7 +129,8 @@ If the task involves **apps**, three platform mechanics matter. Full detail is i
 - **Identity via one header.** The proxy injects the signed-in user as a JWT in
   `X-Strongly-User-Token` (and convenience `X-Strongly-User-*` headers). Apps
   **decode** it (they never see the signing secret) to know who the user is, with
-  no login screen.
+  no login screen. Forwarding it on the platform's agent routes gives each user
+  their own agent (apps reference, "An agent for each user").
 - **Wiring via `STRONGLY_SERVICES`.** Connected addons, data sources, AI models,
   and workflows arrive as a JSON env var `STRONGLY_SERVICES`. The app reads
   connection strings and model endpoints from there instead of hardcoding them.

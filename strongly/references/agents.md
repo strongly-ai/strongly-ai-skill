@@ -105,6 +105,12 @@ down a running pod, so `stop` first).
 
 ---
 
+
+**An app's agent for each of its users.** An app that gives each signed-in user
+their own agent calls these routes with the request's `X-Strongly-User-Token`
+forwarded: the agent is the user's own and records the app (`appId`); see the
+apps reference, "An agent for each user".
+
 ## 3. Configure the brain
 
 Read the current brain config with `GET /agents/:id/config` (personality,

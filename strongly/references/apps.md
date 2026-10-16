@@ -431,6 +431,36 @@ Convenience headers also exist (`X-Strongly-User-Id/Email/Name/Roles`,
 
 ---
 
+### An agent for each user (per-user-agent apps)
+
+To give each signed-in user their own agent, the app's **backend** calls the
+platform's agent routes at `$STRONGLY_API_URL/api/v1/agents...` and forwards the
+request's `X-Strongly-User-Token` **unchanged** (never decoded and re-signed,
+never stored: it expires in an hour). The pod's auth-proxy adds the app owner's
+bearer token; on an agent route the call then acts as the signed-in user:
+
+- `POST /agents` `{name, aiModelId, personality?, training?, ...}` creates the
+  user's own agent (`ownerId`), recording the app (`appId`). `aiModelId` is
+  required: a model the **app's owner** may use (the agent uses what its app
+  uses). It does not take `connectors`, `workspace`, `referenceKey`,
+  `fallbackModelIds` or `sharedLinkedIds`.
+- `GET /agents` lists only that user's agents of this app; another user's agent
+  answers 404. Then `POST /agents/:id/start`, `POST /agents/:id/threads`,
+  `POST /agents/:agentId/threads/:id/runs` (SSE), `DELETE /agents/:id`.
+- App users (branded sign-up) reach their agents ONLY this way, through their
+  Home App; the dashboard stays closed to them. Everything else the app calls
+  still acts as the owner.
+- The agent runs as its user: model calls and cost are recorded for the user and
+  the agent, with the app named. One started agent = one pod; prefer on-demand
+  agents so idle users cost nothing.
+- Deleted with its tasks when the app deletes it, the user is removed/unbound
+  from the app or archived, or the app is deleted.
+- A user token that does not verify is refused (401 with why), never run as
+  the owner. A user token alone (no bearer) is not a credential.
+
+Python SDK: `client.for_user(token).agents.create(name=..., ai_model_id=...)`.
+User guide: An Agent for Each User (apps/per-user-agents).
+
 ## 4. Wiring: `STRONGLY_SERVICES`
 
 **Volumes are not services:** an app reads a volume's files directly. Pass
