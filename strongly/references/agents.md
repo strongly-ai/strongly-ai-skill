@@ -370,6 +370,7 @@ Agents can message each other. These routes are scoped by agent authorization
 | GET | `/agents/:id/status` | Live pod status (poll to `healthy`) |
 | GET | `/agents/:id/logs` | Recent pod log lines (`lines`, `container`) |
 | POST/GET | `/agents/:id/threads` | Create / list conversation threads |
+| GET | `/agents/:agentId/threads/:id` | One thread with its messages (role, content, createdAt; an answer's runId, tokens, toolCalls) |
 | DELETE | `/agents/:agentId/threads/:id` | Delete a thread |
 | POST | `/agents/:agentId/threads/:id/runs` | Send a message (SSE stream) |
 | GET | `/agents/:id/analytics` | Usage analytics (`days`) |
