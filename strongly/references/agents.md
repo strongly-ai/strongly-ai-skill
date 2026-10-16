@@ -111,10 +111,12 @@ anything that creates or controls platform resources is a feature (`projects`,
 `workspaces`, `apps`, `addons`, `datasources`, `deployments`, `workflows`,
 `models`, `jobs`, `sharing`, `stan`), and the agent may use only those it is
 granted (`GET/PATCH /agents/:id/allowed-features {allowedFeatures}`; UI: agent
-Overview, "What this agent may do"). A new agent is granted none. It is offered
-only the tools of its features, and anything else it tries (from its runtime or
-code in its workspace, at the API and every platform service) is refused: 403
-`feature-restricted` naming the feature. Grant only what the use case needs.
+Overview, "What this agent may do"). A new agent is UNRESTRICTED (every feature:
+it may do whatever its owner may) until its owner restricts it with a shorter
+list. A restricted agent is offered only the tools of its features, and anything
+else it tries (from its runtime or code in its workspace, at the API and every
+platform service) is refused: 403 `feature-restricted` naming the feature. A
+clone has exactly its base's features (a copy of a clone keeps them).
 
 **Agent clones.** An agent is only for its user; to give others the agent you
 built, they CLONE it (the agent is the BASE). Share a base to clone:
@@ -137,7 +139,7 @@ reference, "An agent for each user").
   user. A platform user's clone uses their own access to everything the base
   uses: cloning is refused (403, naming each) when they may not use a model,
   data source, add-on, tool workflow or MCP server the base uses; share those
-  first. It may do what the base's allowlist grants and cannot loosen it.
+  first. It has exactly the base's features and cannot loosen them.
 - An app user's clone never adds data sources or add-ons, whatever the base
   grants. A clone's `GET /agents/:id/config` names its base (`baseAgentName`)
   and its sync state (`baseSyncedAt`, `baseSyncError`); on a clone,
