@@ -322,7 +322,13 @@ An app can have its own public sign-in, sign-up, forgot-password and sign-out
 pages at `<platform>/<slug>/`, with its logo and name, for a customer's or a
 team's own users. Anyone who signs up there becomes an **app user** whose home
 app is this app (they land in it full screen, never in the platform) and is
-listed in the app's permissions.
+listed in the app's permissions. Their organization follows the tenancy mode:
+single-tenant (one user per organization) they get their OWN organization and
+namespace, and their clone of the app's base lives there; multi-tenant they
+join the APP's organization and their clone lives there (binding an existing
+user requires them to be an active member of the app's organization). Either
+way the app owner lists and manages them (`GET /apps/:id/users`) and their
+clone uses the owner's models, tool workflows, workspace and MCP servers.
 
 ```bash
 # Turn it on (only the fields sent change; enabling also enables Home App).
