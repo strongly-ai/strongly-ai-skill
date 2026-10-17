@@ -66,7 +66,7 @@ these act on *other* users, not yourself):
 | POST | `/users` | Create a user (`email`, `name`, `role`); answers the user as `GET /users/:id` does plus `temporaryPassword`, shown only here | `users:admin` |
 | PATCH | `/users/:id` | Update another user | `users:admin` |
 | GET | `/users/:id/assets` | Summarize resources a user owns (impact check before archiving) | `users:admin` |
-| POST | `/users/:id/archive` | Archive a user, with `assetAction` (`transfer`, `transfer-to-admin`, `delete`, `leave-as-is`) and `transferToUserId`; `delete` deletes their resources under the calling administrator's authority, never as the user | `users:admin` |
+| POST | `/users/:id/archive` | Archive a user, with `assetAction` (`transfer`, `transfer-to-admin`, `delete`, `leave-as-is`) and `transferToUserId`; `delete` deletes their resources under the calling administrator's authority, never as the user. Resources include Library records and agent primitives (knowledge bases, pools/Imprints, skills, rules, prompts, memories, artifacts, tasks, preferences) and their STAN sessions, conversations, skills and artifacts, moved or deleted like the rest; `delete` also archives their own (single-member) organization and removes its Kubernetes namespace. `GET /users/:id/assets` counts them all | `users:admin` |
 | POST | `/users/:id/unarchive` | Reactivate an archived user | `users:admin` |
 | POST | `/users/:id/reset-password` | Reset a user's password | `users:admin` |
 
