@@ -337,6 +337,8 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$A
 # The app's users: status active | pending (waiting for approval) | archived
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/users?status=pending&q=&sort=-createdAt&limit=50"
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/users/$USER_ID"                       # one user; PATCH and reset-password answer it too
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' -d "{\"userId\": \"$USER_ID\"}" \
+  "$BASE/apps/$APP_ID/users"                                                  # add an app user (POST /users role app): Home App + their agent clone; 409 if another app's
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"active":true}' \
   "$BASE/apps/$APP_ID/users/$USER_ID"                                         # approve / re-enable
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"active":false}' \
