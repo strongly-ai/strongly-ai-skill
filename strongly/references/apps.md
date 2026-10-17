@@ -428,6 +428,39 @@ with `Accept: text/event-stream`) unchanged and the phone reads it with
 its pod: `thread.run.waiting_for_pod` arrives at once (show "waking"), then
 `pod_ready`, `message.delta`, `completed`; no request timeout applies.
 
+### Remote MCP for the app's users (Claude, ChatGPT)
+
+An app can offer its own MCP server to its users' AI clients: each user adds
+the server URL to Claude (Settings, Connectors, Add custom connector) or
+ChatGPT (connectors), signs in on the app's branded page, approves the client
+on a consent page that lists the scopes, and the client then sees only that
+user's data. The platform runs the OAuth 2.1 server (PKCE S256, DCR and Client
+ID Metadata Documents, rotating refresh tokens) and checks every request at
+`<platform>/mcp/apps/<appId>` before forwarding it to the app's MCP path.
+Needs branded sign-in; only the owner or a platform admin changes it.
+
+```bash
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/remote-mcp" \
+  -d '{ "enabled": true, "path": "/mcp",
+        "scopes": [{ "name": "records:read", "description": "Read your records" }],
+        "redirectHosts": ["claude.ai", "chatgpt.com"], "loopbackRedirects": false }'
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/remote-mcp"        # { appId, remoteMcp, serverUrl, issuer, jwksUrl }
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/mcp-connections"   # every user's connections (paged)
+curl -s -X DELETE "${auth[@]}" "$BASE/apps/$APP_ID/mcp-connections/$CONNECTION_ID"   # disconnect at once
+```
+
+The app's MCP endpoint (Streamable HTTP; stateless JSON mode of the official
+SDKs works) receives only checked requests, with the user as
+`X-Strongly-User-Token` and the access token as `X-Strongly-Mcp-Token`: an
+ES256 JWT (`typ at+jwt`; `iss` = `<platform>/oauth/apps/<appId>`, `aud` =
+the server URL, `sub` = user id, `client_id`, `scope`). Verify it with
+`<platform>/oauth/jwks` (`STRONGLY_HOST`, `STRONGLY_APP_ID` give both URLs),
+enforce the scopes in every tool, read only `sub`'s data, never take a user id
+as a tool argument. The app shows a user their own connections with
+`GET /me/mcp-connections` and `DELETE /me/mcp-connections/:id` (called with the
+user's token, only that app's). Turning it off disconnects everyone; every
+authorization, token, refresh, revocation and tool call is audited.
+
 **Sign-out inside a home app.** A home app fills the screen with no platform
 chrome, so the app links its own sign-out: `<a href="_strongly/sign-out"
 target="_top">Sign out</a>` (relative to the app's root; `target="_top"` so the
