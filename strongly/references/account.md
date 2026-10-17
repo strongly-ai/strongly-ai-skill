@@ -143,12 +143,13 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 How credits work (the user guide's "How Credits Work" page says the same):
 
 - Your plan's credits are added at the start of each month and expire at the end of that month. An annual plan adds each month's credits at the start of that month too (`subscription_credit`, `subscription_credit_expiry`).
-- Additional credits never expire. You can buy additional credits in any whole-dollar amount from $10 (`credit_purchase`, `auto_purchase`, `admin_allocation`).
+- Additional credits never expire while you have a subscription. They are forfeited with the rest of your credits when your subscription ends. You can buy additional credits in any whole-dollar amount from $10 (`credit_purchase`, `auto_purchase`, `admin_allocation`).
 - A credit grant follows its own schedule: each period's credit expires at the end of the period, unless the grant rolls unused credit over to the end of the grant (`grant_credit`, `grant_expiry`). Started periods never change; a `PATCH` applies to the periods to come.
 - Plan and grant credit is used first, the soonest-expiring first. Additional credits are used only after it runs out.
 - Usage is always charged in full. If it takes your balance below zero, the next credit that arrives (plan, grant or additional) pays off what you owe first (`overdraft_payoff`, `reference.paidCents`).
 - When your balance is zero or below, new launches are refused and running workloads are stopped. Stopped resources are deleted 30 days later unless credit is added. Credit that makes the balance positive stops the deletion clock; you restart your workloads yourself.
 - A move to a higher plan takes effect at once, and the difference for the rest of the billing period is charged on your next invoice. A move to a lower plan takes effect at your next renewal. A cancel takes effect at the end of the period you have paid for.
+- When your subscription ends, every credit you still have (plan, grant and additional) is forfeited. Usage up to the end is paid from it first (`credit_forfeiture`: `reference.planCents`, `grantCents`, `additionalCents`).
 - No money is refunded: not when you cancel, not when you move to a lower plan, and not for unused plan, grant or additional credits.
 - Usage is charged in credits; a usage charge carries what was charged, not how it was worked out. For what each resource cost, use FinOps.
 
