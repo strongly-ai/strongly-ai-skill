@@ -230,7 +230,7 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 | GET | `/workflows` | List (`q`, `status`, `tag`, `limit`, `cursor`); summaries only, no graph; templates are not listed |
 | GET | `/workflows/stats` | Workflow counts, templates not counted: by state (total / active / paused / draft / archived; an agent is active while it runs) and by kind (batch / streaming / agents, adding up to total) |
 | GET | `/workflows/:id` | Full detail including all nodes and connections |
-| PATCH | `/workflows/:id` | Partial update (`name`, `description`, `status`, `tags`, `settings`, `deploymentEnvironmentId`) |
+| PATCH | `/workflows/:id` | Partial update (`name`, `description`, `status`, `tags`, `settings`, `deploymentEnvironmentId`, `environmentVariables`) |
 | DELETE | `/workflows/:id` | Delete (409 if deployed or running: undeploy and stop first). An agent's workflow is deleted as the agent (`DELETE /agents/:id`) |
 | POST | `/workflows/:id/duplicate` | Copy the workflow; returns the copy |
 | POST | `/workflows/:id/nodes` | Add one node (`nodeType` required; `label`, `config`, `position`) |
@@ -387,6 +387,32 @@ the queue itself (an sqs-dest / rabbitmq-dest / kafka-dest node), not through th
 
 To delete: undeploy, stop any running execution, then `DELETE /workflows/:id`.
 
+### Environment variables (batch)
+
+A batch workflow has its own environment variables, for the code its author
+supplies: custom nodes and the code node read them with `os.environ`. Use them
+for a key or setting that code needs; an add-on's or data source's credentials
+reach a node through STRONGLY_SERVICES when its config names it, not here.
+
+```bash
+# Patched name by name (JSON Merge Patch of the map): a string sets a name,
+# null removes it, names left out are kept; "environmentVariables": null
+# removes them all. Allowed on a DEPLOYED workflow: its worker rolls with the
+# change (a new worker starts with it before the old one goes, no downtime).
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"environmentVariables": {"MYZOE_DATA_KEY": "a-key", "OLD_SETTING": null}}' \
+  "$BASE/workflows/$WID" | jq '.data.environmentVariables'
+```
+
+Values are strings. A name the sandbox sets (`PATH`, `HOME`, `PYTHONPATH`,
+`WORKFLOW_ID`, `EXECUTION_ID`, `NODE_ID`, ...) and `STRONGLY_API_KEY` are refused
+(400); a streaming workflow or an agent takes none. A draft run gets them as they
+are when it starts. They are not part of a version (a restore keeps the current
+ones), `GET /workflows` lists omit them, and a duplicate, clone, template or
+export carries the names with empty values, never a value. `POST /workflows`
+takes `environmentVariables` too. SDK: `client.workflows.update(wid,
+environment_variables={"MYZOE_DATA_KEY": key})`.
+
 ### Chain workflows and alert on run ends
 
 When a run ends the platform emits `workflow.completed` (completed,
@@ -484,10 +510,13 @@ curl -s -X DELETE "${auth[@]}" "$BASE/streaming-sessions/$SID"
 
 ## 7. Export / import
 
-A workflow is portable as a single `.strongly.json` document: every node with its
-full config, the connections, settings, scopes, workflow type, mode, environment
-pin, and metadata. It is the same artefact a version commit holds (the definition
-returned by `GET /workflows/:workflowId/versions/:id`, section 2).
+A workflow is portable as a single `.strongly.json` document (format `2.0`): its
+name, description, trigger, nodes (each config with secret fields stripped and
+your resource ids replaced by `$ref` dependency declarations), connections,
+layout, and `environmentVariableNames` (the names of its environment variables,
+never their values: the imported workflow has each with an empty value). It is
+NOT a version's definition: for that, read `GET /workflows/:workflowId/versions/:id`
+(section 2).
 
 ```bash
 # Export: a read like any other ({data, meta}); data is the .strongly.json

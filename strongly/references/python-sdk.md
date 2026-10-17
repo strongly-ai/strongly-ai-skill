@@ -184,6 +184,14 @@ at its trigger (the `invocation.url` in `client.workflows.status(id)`), or by a
 platform event with `client.workflows.emit_event(...)`.
 Traces live under `client.executions` (`retrieve`, `spans`, `logs`, `progress`).
 
+A batch workflow's own environment variables (read by its custom nodes and code
+node with `os.environ`) are patched name by name, on a deployed workflow too (its
+worker rolls with them):
+
+```python
+client.workflows.update(wf.id, environment_variables={"MYZOE_DATA_KEY": key, "OLD": None})
+```
+
 **Streaming** (voice and real-time conversation workflows; see also the
 Streaming Workflows guide). Sessions are long-lived, so you deploy once then open
 sessions against the deployment:
