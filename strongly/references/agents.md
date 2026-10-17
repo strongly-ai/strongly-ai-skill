@@ -126,6 +126,14 @@ and app users; it grants no use or change of the base; UI: agent Permissions
 tab); they list it with `GET /agents/clonable` and clone with
 `POST /agents/:id/clone`. An app can clone its base for each user (apps
 reference, "An agent for each user").
+- Unsharing a base from a user who has a clone of it:
+  `DELETE /agents/:agentId/permissions/members/:userId?clones=keep|suspend|delete`
+  (required when they have one: 400 naming the clone without it; ASK the owner which).
+  keep = the clone keeps working as it is, read-only, no longer synced; suspend =
+  stopped, start refused (409 `clone-suspended`) until shared again, records kept;
+  delete = deleted with its user's records. A kept/suspended clone shows
+  `unsharedAs`/`unsharedAt` (clones list, agent, config); sharing again restores sync.
+  An app's clone is not affected. SDK `agents.remove_member(id, user, clones=...)`.
 - OFFICIAL layer: everything the base provides (instructions, model, skills,
   rules, prompts, knowledge, tools, connectors, data sources, add-ons, settings,
   pins) flows to every clone and is read-only there: any change on a clone is
@@ -364,7 +372,10 @@ problem details: read `code` and `detail`.
   take one off the agent (nothing is deleted; both answer the agent). Then delete
   the workflow or add-on itself, and redeploy a running agent. SDK:
   `client.agents.remove_tool_workflow(agent_id, workflow_id)` /
-  `client.agents.remove_addon(agent_id, addon_id)`.
+  `client.agents.remove_addon(agent_id, addon_id)`. `attachments.dataSources` lists the
+  data sources the agent's nodes use (`_id`, `name`, `type`); change them in the builder
+  (SDK `agent.attachments.data_sources`). While it runs, `liveState.stats.totalRuns` and
+  `lastRunAt` are its runs on record and when the newest began.
 - **Artifacts:** the files an agent produces are Library artifacts linked to the
   agent: `GET /library/artifacts?linkedIds=<agentId>` (metadata; filter by
   `artifactType` or `tags`), `GET /library/artifacts/:id` and

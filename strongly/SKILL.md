@@ -97,8 +97,9 @@ is `{ "data": [...], "meta": { "total", "limit", "nextCursor" } }`: pass
 catalogs (templates, base models, hardware tiers) are plain arrays. Errors
 are RFC 9457 problem details (`application/problem+json`):
 `{ "type", "title", "status", "detail", "code", "requestId", "errors"? }`. Read
-`data` on success; surface `detail` (and `code`) on failure. JSON fields are
-camelCase.
+`data` on success; surface `detail` (and `code`) on failure: a `400
+validation-error` names the field and what it expected (`Expected string, got
+number in field name`). JSON fields are camelCase.
 
 **Design.** Paths are grouped by product area (`/apps`, `/workflows`, `/agents`,
 `/library/…`, `/primitives/…`, `/mlops/…`, `/ai-gateway/…`, `/finops/…`,
