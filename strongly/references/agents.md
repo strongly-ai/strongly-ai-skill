@@ -52,6 +52,12 @@ Every reliable agent flow is the same shape. Do not skip the poll.
 A create leaves the agent in DRAFT (no pod). Bringing it LIVE is `start`, **not**
 `redeploy` (redeploy only restarts an already-running pod, see section 6).
 
+An agent always runs as its OWNER, whoever starts it: its pod's token, its
+services and its usage are the owner's (a clone's, its user's), on every start,
+stop, redeploy, wake and base sync. Only its owner, the owner of the app it
+belongs to and platform admins may start, stop or redeploy it (403 otherwise);
+each is in the audit log with the caller and the owner.
+
 ---
 
 ## 2. Create or promote an agent
@@ -145,7 +151,8 @@ reference, "An agent for each user").
   sessions, and skills/rules/prompts linked to the clone, beside the official
   ones.
 - A clone acts as its user, and uses the base's data sources and add-ons as its
-  user. A platform user's clone uses their own access to everything the base
+  user. It runs as its user even when the app's owner or an admin starts or
+  redeploys it. A platform user's clone uses their own access to everything the base
   uses: cloning is refused (403, naming each) when they may not use a model,
   data source, add-on, tool workflow or MCP server the base uses; share those
   first. It has exactly the base's features and cannot loosen them.
