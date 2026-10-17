@@ -112,18 +112,36 @@ responses; pass them as the last `:id`.
 
 ## 3. Credits and transactions
 
-Credits are held at the organization level and shared across its members. Both
-reads are self-serve for members (`organizations:read`).
+Credits exist only when billing is enabled (otherwise `409 billing-disabled`).
+They are held at the organization level and read by the organization's owner
+and platform admins (`organizations:read`). Amounts are integer US cents.
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
-| GET | `/organizations/:id/credits` | Current credit balance for the organization | `organizations:read` |
-| GET | `/organizations/:id/transactions` | Credit transaction history (`limit`) | `organizations:read` |
+| GET | `/organizations/:id/credits` | Balance: `grantCreditsBalance`, `monthlyCreditsBalance`, `purchasedCreditsBalance` and their sum `balance` | `organizations:read` |
+| GET | `/organizations/:id/transactions` | Credit transaction history (`type`, `limit`, `cursor`) | `organizations:read` |
+| GET | `/organizations/:id/credit-grants` | The org's credit grants, each with per-period issued/used/expired/remaining | `organizations:read` |
+| GET | `/organizations/:organizationId/credit-grants/:id` | One credit grant | `organizations:read` |
+| POST | `/organizations/:id/credit-grants` | Platform admin: create a grant (`label`, `amountCents`, `startsAt` UTC midnight, `period`, `periodCount` or `endsAt`, `unusedCredit`) | `organizations:write` |
+| PATCH | `/organizations/:organizationId/credit-grants/:id` | Platform admin: change the periods to come (merge patch) | `organizations:write` |
+| POST | `/organizations/:organizationId/credit-grants/:id/end` | Platform admin: stop after the current period | `organizations:write` |
 
 ```bash
 curl -s "${auth[@]}" "$BASE/organizations/$ORG_ID/credits" | jq '.data'
 curl -s "${auth[@]}" "$BASE/organizations/$ORG_ID/transactions?limit=50" | jq '.data'
+
+# Platform admin: $500 a month for 12 months from 1 November (unused credit expires each month)
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"label":"Partner deal, year 1","amountCents":50000,"startsAt":"2026-11-01T00:00:00Z","periodCount":12}' \
+  "$BASE/organizations/$ORG_ID/credit-grants" | jq '.data'
 ```
+
+A credit grant adds its credit when each period starts (`grant_credit`
+transaction). Usage pays from grant credit first (the credit of the period the
+usage happened in, soonest-expiring first), then monthly, then purchased
+credits. Unused credit expires at the period's end (`grant_expiry`) unless
+`unusedCredit` is `rollover`, which carries it to the grant's end. Started
+periods never change; a `PATCH` applies to the periods to come.
 
 ---
 
@@ -168,6 +186,6 @@ same token is safe and just refreshes its timestamp.
 - [ ] Self-serve on your own record: `GET`/`PATCH` `/me`, and `DELETE /me` (irreversible, caller-only).
 - [ ] Treat user create/update/archive/unarchive/reset-password as `users:admin`, acting on other users only.
 - [ ] Treat org update, member add/remove/role, and invite/cancel as `organizations:write` and org owner/admin.
-- [ ] Credits and transactions are read-only at the organization level and shared across members.
+- [ ] Credits, transactions and credit grants are read by the org's owner and platform admins; only platform admins create, change or end a grant.
 - [ ] Notifications and their single-item routes are scoped to you; ownership is enforced on `:id` read/delete.
 - [ ] Register a push device with `notifications:write`; the token is deduped, so re-registering is safe.
