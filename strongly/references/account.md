@@ -118,7 +118,8 @@ and platform admins (`organizations:read`). Amounts are integer US cents.
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
-| GET | `/organizations/:id/credits` | Balance: `grantCreditsBalance`, `monthlyCreditsBalance`, `purchasedCreditsBalance` and their sum `balance` | `organizations:read` |
+| GET | `/organizations/:id/credits` | `balance` = `planCreditsBalance` + `grantCreditsBalance` + `additionalCreditsBalance`; `planMonths` (this month's plan credits: issued, used, remaining, `expiresAt`), `nextPlanMonth`, `grantPeriods`, `overdraft` (what is owed), `autoPurchase` | `organizations:read` |
+| POST | `/organizations/:id/credit-purchases` | Buy additional credits: `{ "amount": <cents, whole dollars, at least 1000> }`; returns a Stripe Checkout `url` to pay at | `organizations:write` |
 | GET | `/organizations/:id/transactions` | Credit transaction history (`type`, `limit`, `cursor`) | `organizations:read` |
 | GET | `/organizations/:id/credit-grants` | The org's credit grants, each with per-period issued/used/expired/remaining | `organizations:read` |
 | GET | `/organizations/:organizationId/credit-grants/:id` | One credit grant | `organizations:read` |
@@ -136,12 +137,17 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   "$BASE/organizations/$ORG_ID/credit-grants" | jq '.data'
 ```
 
-A credit grant adds its credit when each period starts (`grant_credit`
-transaction). Usage pays from grant credit first (the credit of the period the
-usage happened in, soonest-expiring first), then monthly, then purchased
-credits. Unused credit expires at the period's end (`grant_expiry`) unless
-`unusedCredit` is `rollover`, which carries it to the grant's end. Started
-periods never change; a `PATCH` applies to the periods to come.
+How credits work (the user guide's "How Credits Work" page says the same):
+
+- Your plan's credits are added at the start of each month and expire at the end of that month. An annual plan adds each month's credits at the start of that month too (`subscription_credit`, `subscription_credit_expiry`).
+- Additional credits never expire. You can buy additional credits in any whole-dollar amount from $10 (`credit_purchase`, `auto_purchase`, `admin_allocation`).
+- A credit grant follows its own schedule: each period's credit expires at the end of the period, unless the grant rolls unused credit over to the end of the grant (`grant_credit`, `grant_expiry`). Started periods never change; a `PATCH` applies to the periods to come.
+- Plan and grant credit is used first, the soonest-expiring first. Additional credits are used only after it runs out.
+- Usage is always charged in full. If it takes your balance below zero, the next credit that arrives (plan, grant or additional) pays off what you owe first (`overdraft_payoff`, `reference.paidCents`).
+- When your balance is zero or below, new launches are refused and running workloads are stopped. Stopped resources are deleted 30 days later unless credit is added. Credit that makes the balance positive stops the deletion clock; you restart your workloads yourself.
+- A move to a higher plan takes effect at once, and the difference for the rest of the billing period is charged on your next invoice. A move to a lower plan takes effect at your next renewal. A cancel takes effect at the end of the period you have paid for.
+- No money is refunded: not when you cancel, not when you move to a lower plan, and not for unused plan, grant or additional credits.
+- Usage is charged in credits; a usage charge carries what was charged, not how it was worked out. For what each resource cost, use FinOps.
 
 ---
 
