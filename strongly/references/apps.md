@@ -323,7 +323,9 @@ Access is the platform's Access Control (`PATCH /apps/:id/permissions`
 get in: Private, Sign-in required (branded sign-in, below) or Public (below).
 Users is one list of everyone who can open it by name, `GET /apps/:id/users`
 (`type` platform = a Strongly user, app = an app user; `access` owner, editor =
-Can edit, user = Can use). Add a Strongly user with `POST
+Can edit, user = Can use). It names other people, so only those who manage the
+app read it (owner, Can edit, app admins, administrators); anyone who only uses
+it (Can use, an app user, a Home App user) gets 403. Add a Strongly user with `POST
 /apps/:id/permissions/members` (`role` editor or user); add an app user as their
 Home App with `POST /apps/:id/users`, or to use only with role user.
 
@@ -374,7 +376,7 @@ curl -s "${auth[@]}" "$BASE/apps/$APP_ID?include=analytics&range=30d"  # detail 
 
 ### Charging for access (the owner's own Stripe account)
 
-**Needs the Stripe App Payments plugin.** Paid access exists only while the Stripe App Payments marketplace plugin is installed and on for the organization (`POST /plugins/instances` with `pluginId` `stripe-app-payments`, admin; in multi-tenant an organization developer). Without it every paid-access endpoint answers `409 plugin-not-installed` and the Auth tab shows no Paid access card. The plugin refuses to be turned off or uninstalled while any app still charges (`409 invalid-state`).
+**Needs the Stripe App Payments plugin.** Paid access exists only while the Stripe App Payments marketplace plugin is installed and on for the organization (`POST /plugins/instances` with `pluginId` `stripe-app-payments`, admin; in multi-tenant an organization developer). Without it every paid-access endpoint answers `409 plugin-not-installed` and the app's Permissions tab shows no Paid access card. The plugin refuses to be turned off or uninstalled while any app still charges (`409 invalid-state`).
 
 An app with branded sign-in can sell access with the owner's OWN Stripe keys
 (no platform fee; nothing goes through Strongly). This is NOT Strongly billing:
@@ -400,8 +402,10 @@ curl -s "${auth[@]}" "$BASE/apps/$APP_ID/paid-access/subscriptions?status=active
 Users of the app pick a plan at `<platform>/<slug>/plans` (Stripe Checkout)
 and manage it at `<platform>/<slug>/billing` (Stripe Customer Portal; a team
 payer also runs seats, members and invites there). The proxy serves a user
-while a subscription covers them; the owner, collaborators, app admins and
-platform admins never need one. Inside the app, link to `_strongly/billing`
+while a subscription covers them; those who manage the app (the owner, Can edit
+collaborators, app admins, platform admins and, multi-tenant, the organization's
+admins) never need one. Plans are for the app's users (app users, Can use,
+Home App users). Inside the app, link to `_strongly/billing`
 and `_strongly/plans` (`target="_top"`). A covered user's token carries
 `user.plan` `{ id, kind, status }`: gate features on it, never on anything
 the client sends.
