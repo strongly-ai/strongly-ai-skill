@@ -316,6 +316,17 @@ Lifecycle: `GET /apps` · `GET/PATCH /apps/:id` · `PUT /apps/:id/env` ·
 `GET/PATCH /apps/:id/permissions` + `…/permissions/members` · `POST /apps/:id/start|stop|restart` ·
 `GET /apps/:id/logs` · `GET /apps/:id/metrics` · `DELETE /apps/:id`.
 
+Who can open an app is ONE place in the dashboard: the app's **Permissions** tab
+(sections Access, Users, Sign-in, Native apps, Connected apps (MCP), Domains).
+Access is the platform's Access Control (`PATCH /apps/:id/permissions`
+`visibility` public = "Allow all users": every signed-in user) plus how app users
+get in: Private, Sign-in required (branded sign-in, below) or Public (below).
+Users is one list of everyone who can open it by name, `GET /apps/:id/users`
+(`type` platform = a Strongly user, app = an app user; `access` owner, editor =
+Can edit, user = Can use). Add a Strongly user with `POST
+/apps/:id/permissions/members` (`role` editor or user); add an app user as their
+Home App with `POST /apps/:id/users`, or to use only with role user.
+
 ### Branded sign-in, the app's own users, and usage
 
 An app can have its own public sign-in, sign-up, forgot-password and sign-out
@@ -327,7 +338,7 @@ single-tenant (one user per organization) they get their OWN organization and
 namespace, and their clone of the app's base lives there; multi-tenant they
 join the APP's organization and their clone lives there (binding an existing
 user requires them to be an active member of the app's organization). Either
-way the app owner lists and manages them (`GET /apps/:id/users`) and their
+way the app owner lists and manages them (`GET /apps/:id/users?type=app`) and their
 clone uses the owner's models, tool workflows, workspace and MCP servers.
 
 ```bash
@@ -340,8 +351,9 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$A
 # -> data.auth.pages = { signIn, signUp, forgotPassword, signOut }; share signIn.
 # GET /apps/:id returns the same under data.auth (logo omitted; hasLogo).
 
-# The app's users: status active | pending (waiting for approval) | archived
-curl -s "${auth[@]}" "$BASE/apps/$APP_ID/users?status=pending&q=&sort=-createdAt&limit=50"
+# Everyone who can open it by name (type platform | app, access owner | editor | user);
+# status active | pending (waiting for approval) | archived (owner, app admins, admins only)
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/users?type=app&status=pending&q=&sort=-createdAt&limit=50"
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/users/$USER_ID"                       # one user; PATCH and reset-password answer it too
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' -d "{\"userId\": \"$USER_ID\"}" \
   "$BASE/apps/$APP_ID/users"                                                  # add an app user (POST /users role app): Home App + their agent clone; 409 if another app's
@@ -411,7 +423,7 @@ curl -s "${auth[@]}" "$BASE/apps/$APP_ID/native-sign-in"   # { appId, nativeSign
 ```
 
 The iPhone app uses the `StronglyAppAuth` Swift package (iOS 17+) with the
-Server URL and App ID shown on the Auth tab. Over DDP it calls, all with the
+Server URL and App ID shown in the Native apps section of the app's Permissions tab. Over DDP it calls, all with the
 appId: `appSignIn.app`, `appSignIn.signUp` (emails a 6-digit code),
 `appSignIn.verifyEmail`, `appSignIn.sendCode` (`verify-email` | `reset-password`),
 `appSignIn.resetPassword`, Meteor `login` with `{ appSignIn: { appId, email,
