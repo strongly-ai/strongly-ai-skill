@@ -375,7 +375,7 @@ the queue itself (an sqs-dest / rabbitmq-dest / kafka-dest node), not through th
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/workflows/:id/deploy` | Deploy to production (202; poll status). Body optional: `environmentId`, `cpu`/`memory`/`disk`, `gpu`/`gpuType`, `useSpot` (the deployed worker on spot capacity) + `spotFallback` (default true: on-demand when no spot is free); a redeploy keeps the last spot choice |
+| POST | `/workflows/:id/deploy` | Deploy to production (202; poll status). Body optional: `environmentId`, `cpu`/`memory`/`disk`, `gpu`/`gpuType`, `useSpot` (the deployed worker on spot capacity) + `spotFallback` (default true: on-demand when no spot is free); a redeploy keeps the last spot choice. `autoscaling` `{minReplicas, maxReplicas, executionsPerReplica}` (each 1-50): pods added for runs that find no room, idle ones given back (never a busy one); run limit becomes maxReplicas x executionsPerReplica; `null` = one pod (10 runs at once); omitted keeps the last; refused for schedule-only workflows |
 | GET | `/workflows/:id/status` | Deployment status, pod/replica health, and the `invocation` block |
 | POST | `/workflows/:id/stop` | Scale to zero, $0 cost, deployment preserved (202) |
 | POST | `/workflows/:id/start` | Scale a stopped workflow back up (202; `replicas`) |
