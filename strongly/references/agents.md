@@ -184,7 +184,14 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
 `maxIterations`, `temperature` (0 to 2), `maxTokens` (at most the model's
 per-reply limit, `modelMaxOutputTokens` in `GET /agents/:id/config`; changing the
 model sets it to that limit), `responseFormat`,
-`builtInTools` and `knowledgeBaseIds`. The workflow-level `name` / `description` /
+`builtInTools`, `knowledgeBaseIds`, and the runtime: `onDemandMode` `always-on` (one
+replica stays up) or `on-demand` (it sleeps after `idleTimeoutSeconds`, at least 60,
+without a message and wakes on the next message, a scheduled task, or its user
+signing in, so it is usually warm by their first question). Unchosen, an agent runs
+always on and the clone an app gives each user runs on demand (`onDemandModeChosen`
+in the config says whether one was chosen); a base's clones follow it. The config
+also carries `status` (`running`, `starting`, `idle` while asleep, `error` with
+`statusError`, `stopped`) and `wakeError` (why a wake at sign-in failed). The workflow-level `name` / `description` /
 `nodes` / `connections` are `PATCH /agents/:id`. **Edits to the operating prompt's text and the session policy
 apply live; every other change, including switching to a different operating
 prompt, needs a redeploy** (section 6) to take effect on a running pod.

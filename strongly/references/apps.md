@@ -424,9 +424,11 @@ apps). Sessions follow the platform's rules (5 per user, 60 minutes idle).
 Chat with the user's agent from the phone as a stream, never a plain request:
 the app relays the platform's run SSE (`POST /agents/:agentId/threads/:id/runs`
 with `Accept: text/event-stream`) unchanged and the phone reads it with
-`AppProxySession.events(path, body:)`. An on-demand agent's first message wakes
-its pod: `thread.run.waiting_for_pod` arrives at once (show "waking"), then
-`pod_ready`, `message.delta`, `completed`; no request timeout applies.
+`AppProxySession.events(path, body:)`. A user's on-demand clone wakes when they
+sign in (or open the app), so it is usually warm by their first question; a
+message to one still asleep wakes its pod: `thread.run.waiting_for_pod` arrives
+at once (show "waking"), then `pod_ready`, `message.delta`, `completed`; no
+request timeout applies.
 
 ### Remote MCP for the app's users (Claude, ChatGPT)
 
