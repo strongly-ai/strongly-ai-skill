@@ -85,7 +85,11 @@ the `services/*` routes above just list what is connectable as a node here.
 
 A custom node's packages (`functionDefinition.pipDependencies`, requirements.txt
 format) install once per worker pod for each node version, shared by every item
-running in parallel. The Milvus source, destination and Semantic Memory nodes are
+running in parallel. Its code (and the `code` node's) runs in the pod's sandbox
+container: no cloud or cluster identity, none of the worker's env; platform calls
+(storage, state, metrics, connected nodes) work through the worker. `self.get_addon()`
+/ `self.get_datasource()` see only the add-ons and data sources its own config names
+(`addonId`, `dataSourceId`, or a key ending in `AddonId`/`DataSourceId`). The Milvus source, destination and Semantic Memory nodes are
 safe inside a Loop or Map with several parallel workers and pods.
 
 The `llm` node's live output is at **`data.response`** (the model text), and its
