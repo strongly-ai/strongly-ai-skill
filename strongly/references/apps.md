@@ -437,8 +437,9 @@ single-use, last 10 minutes, take 5 guesses; wrong passwords and codes lock the
 address out of the app for 15 minutes. Signed in, `apps.getProxyUrl` gives the
 app's proxy URL, opened with the `meteor_login_token` cookie (the app gets the
 user as from the web, `X-Strongly-User-Token`); direct REST calls send the
-token as `X-Strongly-Login-Token` and reach what an app user may (read-only,
-apps). Sessions follow the platform's rules (5 per user, 60 minutes idle).
+token as `X-Strongly-Login-Token` and reach only `GET /me` and `DELETE /me`
+(every other route 403 `app-user-restricted`; call the app's own API through
+the proxy instead). Sessions follow the platform's rules (5 per user, 60 minutes idle).
 Chat with the user's agent from the phone as a stream, never a plain request:
 the app relays the platform's run SSE (`POST /agents/:agentId/threads/:id/runs`
 with `Accept: text/event-stream`) unchanged and the phone reads it with
@@ -606,7 +607,10 @@ as the signed-in user, through the app:
   as its user. It may do what the base's allowlist grants, NEVER adding data
   sources or add-ons. Gateway calls record user + clone + app.
 - App users reach their agents ONLY this way, through their Home App; the
-  dashboard stays closed to them. Developers and admins through an app are held
+  dashboard stays closed to them. With their own sign-in an app user sees only
+  their app cards (name and icon), opens an app full screen, and changes their
+  own password and MFA; every other method, publication and REST route answers
+  them 403 `app-user-restricted`. Developers and admins through an app are held
   to the same rule.
 - Deleted with its tasks and per-user layer when the app deletes it, the user
   is removed/unbound from the app or archived, or the app is deleted (the base
