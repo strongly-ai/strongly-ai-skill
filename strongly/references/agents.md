@@ -215,8 +215,8 @@ curl -s -X POST "${auth[@]}" "$BASE/agents/$AGENT_ID/start" | jq '.data'
 ```
 
 Start, stop and redeploy answer what they did, never the agent: `{agentId, ownerId
-(the user it runs as), action, status, pod {id, status}, mcpRegisterFailures?,
-restarted?}` (redeploy of a stopped agent: `restarted: false`, `status: stopped`).
+(the user it runs as), action, status, pod {id, status}, mcpRegisterFailures?}`
+(redeploy of a stopped agent restarts nothing: `status: stopped`, `pod: null`).
 Read the agent with `GET /agents/:id`. Start answers `mcpRegisterFailures`. **A
 non-empty `mcpRegisterFailures` means the pod started but is MISSING those
 connectors' tools** (it will answer "I cannot do that" on first use). Do not
