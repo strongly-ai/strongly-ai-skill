@@ -343,6 +343,8 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"active":
   "$BASE/apps/$APP_ID/users/$USER_ID"                                         # approve / re-enable
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"active":false}' \
   "$BASE/apps/$APP_ID/users/$USER_ID"                                         # signed out, cannot sign in
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"role":"admin"}' \
+  "$BASE/apps/$APP_ID/users/$USER_ID"                                         # their role in the app (appRole): admin | user; owner or platform admin only
 curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/users/$USER_ID/reset-password" # emails a reset code (Home App users)
 curl -s -X DELETE "${auth[@]}" "$BASE/apps/$APP_ID/users/$USER_ID"                   # off the app; account kept
 
