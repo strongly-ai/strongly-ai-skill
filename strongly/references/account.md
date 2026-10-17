@@ -33,6 +33,9 @@ admin or org-owner role; those are called out below and never assumed.
 The self-serve endpoints act only on the authenticated caller. `GET /users`
 and `GET /users/:id` answer each user as exactly `_id`, `username`, `email` and
 `role` (`admin`, `developer`, `app`, or `null`); `_id` is what `/users/:id` takes.
+An app user (`role` `app`) holds no API keys: they use the platform only through
+their app, and a user changed to `app` loses every key they held. An app user
+sees only themselves in `GET /users`.
 `GET /me` answers you: your `_id`,
 `username`, `email` and `role`, your `organization` (`_id`, `role`,
 `isMultiTenant`, `isSolo`: that is the org id used in sections 2 and 3) and the
