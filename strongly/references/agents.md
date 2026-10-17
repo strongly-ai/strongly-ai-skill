@@ -214,12 +214,15 @@ Start the pod:
 curl -s -X POST "${auth[@]}" "$BASE/agents/$AGENT_ID/start" | jq '.data'
 ```
 
-Start answers the agent (as `GET /agents/:id` shows it) with `mcpRegisterFailures`. **A
+Start, stop and redeploy answer what they did, never the agent: `{agentId, ownerId
+(the user it runs as), action, status, pod {id, status}, mcpRegisterFailures?,
+restarted?}` (redeploy of a stopped agent: `restarted: false`, `status: stopped`).
+Read the agent with `GET /agents/:id`. Start answers `mcpRegisterFailures`. **A
 non-empty `mcpRegisterFailures` means the pod started but is MISSING those
 connectors' tools** (it will answer "I cannot do that" on first use). Do not
 report the agent ready: read `GET /agents/:id/logs`, fix or re-provision the
 connector, and start again. Start is idempotent (a second start answers the
-running agent). If the model was never resolved, start returns
+running agent's live pod). If the model was never resolved, start returns
 `422 unresolved-model-placeholder`: set a real model (section 6) and retry.
 
 Then **poll status until healthy**:
