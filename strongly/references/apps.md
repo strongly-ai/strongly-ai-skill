@@ -421,6 +421,12 @@ app's proxy URL, opened with the `meteor_login_token` cookie (the app gets the
 user as from the web, `X-Strongly-User-Token`); direct REST calls send the
 token as `X-Strongly-Login-Token` and reach what an app user may (read-only,
 apps). Sessions follow the platform's rules (5 per user, 60 minutes idle).
+Chat with the user's agent from the phone as a stream, never a plain request:
+the app relays the platform's run SSE (`POST /agents/:agentId/threads/:id/runs`
+with `Accept: text/event-stream`) unchanged and the phone reads it with
+`AppProxySession.events(path, body:)`. An on-demand agent's first message wakes
+its pod: `thread.run.waiting_for_pod` arrives at once (show "waking"), then
+`pod_ready`, `message.delta`, `completed`; no request timeout applies.
 
 **Sign-out inside a home app.** A home app fills the screen with no platform
 chrome, so the app links its own sign-out: `<a href="_strongly/sign-out"
