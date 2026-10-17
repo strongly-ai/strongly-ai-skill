@@ -429,6 +429,14 @@ sign in (or open the app), so it is usually warm by their first question; a
 message to one still asleep wakes its pod: `thread.run.waiting_for_pod` arrives
 at once (show "waking"), then `pod_ready`, `message.delta`, `completed`; no
 request timeout applies.
+Face ID sign-in: after an email sign-in, `enableBiometricSignIn(reason:)` asks
+once and keeps the login token only in the Keychain under `.biometryCurrentSet`
+(`WhenPasscodeSetThisDeviceOnly`, never synced, unreadable once enrolment
+changes); at launch `signInWithBiometrics(reason:)` reads it after Face ID and
+resumes it with Meteor `login`; `disableBiometricSignIn()` turns it off; sign
+out and account deletion remove it. `BiometricSignInError` names the case
+(`cancelled`, `failed`, `lockedOut`, `invalidated`, `sessionEnded`, ...); the
+app then shows its email sign-in. The app needs `NSFaceIDUsageDescription`.
 
 ### Remote MCP for the app's users (Claude, ChatGPT)
 
