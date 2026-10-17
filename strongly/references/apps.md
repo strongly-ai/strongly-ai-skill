@@ -326,9 +326,9 @@ listed in the app's permissions.
 
 ```bash
 # Turn it on (only the fields sent change; enabling also enables Home App).
-# access: "instant" (usable at once; email verification when mail is set up)
-# or "approval" (an app admin activates each account).
-curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/auth" -d '{
+# Every new account confirms its email with a 6-digit code first. access:
+# "instant" (usable once confirmed) or "approval" (then an app admin activates it).
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/auth" -d '{
   "enabled": true, "slug": "client-portal", "signupEnabled": true,
   "access": "approval", "allowedDomains": ["example.com"] }'
 # -> data.auth.pages = { signIn, signUp, forgotPassword, signOut }; share signIn.
@@ -341,7 +341,7 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"active":
   "$BASE/apps/$APP_ID/users/$USER_ID"                                         # approve / re-enable
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"active":false}' \
   "$BASE/apps/$APP_ID/users/$USER_ID"                                         # signed out, cannot sign in
-curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/users/$USER_ID/reset-password" # emails the branded reset link
+curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/users/$USER_ID/reset-password" # emails a reset code (Home App users)
 curl -s -X DELETE "${auth[@]}" "$BASE/apps/$APP_ID/users/$USER_ID"                   # off the app; account kept
 
 # Usage (the platform's own count of proxied requests; range 7d | 30d | 90d)
@@ -383,6 +383,40 @@ platform admins never need one. Inside the app, link to `_strongly/billing`
 and `_strongly/plans` (`target="_top"`). A covered user's token carries
 `user.plan` `{ id, kind, status }`: gate features on it, never on anything
 the client sends.
+
+### Native app sign-in (the developer's own iPhone app)
+
+A developer can ship their own iPhone app for the app's users, with native
+sign-in screens (no web pages). Its users are app users only, bound to the app
+as their Home App, by the same rules as the branded pages (sign-up open or
+closed, instant or approval access, allowed domains, the agent cloned for each
+user). Only the settings are REST; the sign-in itself is DDP (Meteor), never
+REST: the app proxy runs on the Meteor login token it gives.
+
+```bash
+# Turn it on (needs the branded sign-in settings saved; enables Home App).
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/native-sign-in" \
+  -d '{ "enabled": true, "iosBundleIds": ["com.example.portal"] }'
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/native-sign-in"   # { appId, nativeSignIn: { enabled, iosBundleIds, updatedAt, updatedBy } }
+```
+
+The iPhone app uses the `StronglyAppAuth` Swift package (iOS 17+) with the
+Server URL and App ID shown on the Auth tab. Over DDP it calls, all with the
+appId: `appSignIn.app`, `appSignIn.signUp` (emails a 6-digit code),
+`appSignIn.verifyEmail`, `appSignIn.sendCode` (`verify-email` | `reset-password`),
+`appSignIn.resetPassword`, Meteor `login` with `{ appSignIn: { appId, email,
+password: { digest, algorithm: "sha-256" }, device } }` (answers the login
+token; refuses platform accounts `not-an-app-user`, another app's users
+`other-app-user`, unconfirmed `email-not-verified`, waiting `account-inactive`),
+`logout`, `appSignIn.sessions`, `appSignIn.endSession`,
+`appSignIn.signOutEverywhere`, `appSignIn.deleteAccount` (password confirmed;
+the platform's account deletion, required by the App Store). Codes are
+single-use, last 10 minutes, take 5 guesses; wrong passwords and codes lock the
+address out of the app for 15 minutes. Signed in, `apps.getProxyUrl` gives the
+app's proxy URL, opened with the `meteor_login_token` cookie (the app gets the
+user as from the web, `X-Strongly-User-Token`); direct REST calls send the
+token as `X-Strongly-Login-Token` and reach what an app user may (read-only,
+apps). Sessions follow the platform's rules (5 per user, 60 minutes idle).
 
 **Sign-out inside a home app.** A home app fills the screen with no platform
 chrome, so the app links its own sign-out: `<a href="_strongly/sign-out"
