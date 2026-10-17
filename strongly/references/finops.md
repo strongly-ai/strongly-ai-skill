@@ -10,13 +10,18 @@ Read this when the task is: reporting spend or trends, finding cost drivers or
 anomalies, checking savings, listing budgets, organizing resources into groups
 for cost rollups, or scheduling resources to stop and start on a timetable.
 
-**Who usage belongs to.** Every workload's cost and usage belong to the user who
-deployed it, whoever uses or triggers it: a deployed workflow's runs are its
-deployer's, a draft run the user who ran it, an app's usage its deployer's (its
-end users are never charged), a workspace its owner's, a job its launcher's, an
-agent its starter's. Calls a workload makes to a model, add-on, MCP server or
-agent that another member set up count to the calling workload's deployer, not
-to the resource's owner. Budgets, credits and every figure here use this rule.
+**Who usage belongs to.** Every cost has an **owner** (whose resource it is: a
+deployed workflow's deployer, an app's or add-on's owner, an agent's owner, a
+workspace's or job's starter) and a **user** (who caused it: an app's signed-in
+user, the user a run is for, an agent's owner for its tool calls). With no one
+else, the user is the owner (automatic triggers, idle and base time, anonymous
+visitors). A run's user is who started it (an app passing its user's
+`X-Strongly-User-Token` makes it that app user; a sub-workflow its parent's user;
+a schedule or webhook the deployer); who it runs as stays its deployer. Shared
+resources are divided each hour by use, every share keeping its owner: app pods
+by viewers' request time, add-ons by the request time of the apps that use
+them, deployed workflow pods by run time. Credits are per organization. Group
+by `owner` or `user`: both total the same. User budgets watch what the user owns.
 
 **Auth** follows `SKILL.md`. Outside Strongly send `X-API-Key` to `$HOST/api/v1`;
 inside Strongly the base is `$STRONGLY_API_URL/api/v1` and the bearer is
@@ -61,8 +66,8 @@ Choosing the right one:
 - **Time series over time**, no grouping: `costs/trends` (or `costs/monthly`,
   `costs/daily` for pre-summarized month/day rollups).
 - **Group costs by a dimension**: `costs/breakdown` with `groupBy` one of
-  `resource_type` (default), `resource_id`, `namespace`, `solution`, `org`,
-  `user`. Filter to one `resourceType` (`app`, `addon`, `workflow`, `workspace`,
+  `resource_type` (default), `resource_id`, `namespace`, `org`, `owner`
+  (whose resources), `user` (who caused the cost), `workload`. Filter to one `resourceType` (`app`, `addon`, `workflow`, `workspace`,
   `ml_model`, `self_hosted_model`, `automl`, `fine_tuning`) to compare inside a
   type. Use `gpu_cost` from the split to quantify GPU spend.
 - **Rank the biggest spenders**: `costs/top-drivers` or `dashboard/top-drivers`.
@@ -77,14 +82,14 @@ Choosing the right one:
 | `GET /finops/dashboard` | (none) | Overview: `stats`, `costTrend`, `monthlyCosts`, `topDrivers` |
 | `GET /finops/dashboard/stats` | `period` | Headline stats for the window |
 | `GET /finops/dashboard/top-drivers` | `limit`, `period` | Top drivers for the dashboard |
-| `GET /finops/costs/trends` | `window`, `granularity` (`hourly`\|`daily`\|`monthly`) | Time series of `{ timestamp, cost }` |
+| `GET /finops/costs/trends` | `window`, `granularity` (`hourly`\|`daily`\|`weekly`\|`monthly`), `groupBy`, `resourceType` | Time series of `{ timestamp, cost }`, each point broken down by `groupBy` when given |
 | `GET /finops/costs/monthly` | `months`, `year` | Monthly entries + average/highest/lowest summary |
 | `GET /finops/costs/daily` | `startDate`, `endDate`, `resourceType` | Daily entries + total/average/trend |
-| `GET /finops/costs/breakdown` | `window`, `groupBy`, `resourceType`, `orgId`, `userId` | Per-group `total_cost` + cpu/ram/gpu/storage/network split |
+| `GET /finops/costs/breakdown` | `window`, `groupBy`, `resourceType`, `orgId`, `ownerId`, `userId`, `namespace` | Per-group `total_cost` + cpu/ram/gpu/storage/network split |
 | `GET /finops/costs/services` | `period`, `startDate`, `endDate` | Breakdown by resource type over a window or explicit range |
 | `GET /finops/costs/top-drivers` | `window`, `limit` | Ranked resources with GPU cost + efficiency |
 | `GET /finops/costs/realtime` | `window`, `aggregate`, `namespace` | Live Kubecost cost items |
-| `GET /finops/costs/historical` | `startDate`, `endDate`, `groupBy`, `orgId`, `userId` | Stored historical cost data |
+| `GET /finops/costs/historical` | `startDate`, `endDate`, `groupBy`, `orgId`, `ownerId`, `userId` | Stored historical cost data |
 | `GET /finops/costs/efficiency` | `window`, `namespace`, `aggregate` | Resource efficiency metrics |
 | `GET /finops/costs/forecast` | `months` | `historical`, `predictions`, growth/confidence analysis |
 | `GET /finops/costs/anomalies` | `days`, `threshold` | Detected anomalies for the window |
@@ -92,9 +97,9 @@ Choosing the right one:
 | `GET /finops/data-health` | (none) | Cost-collection coverage and any data gaps |
 
 Notes that save a wrong call:
-- There is no `groupBy` on `trends` and no `compareWindow` on `top-drivers`.
-  Group with `breakdown`; compare month over month with `costs/monthly` or
-  `trends`.
+- There is no `compareWindow` on `top-drivers`; compare periods with
+  `costs/monthly` or `trends` (its `changePercent` is on the previous period).
+- `ownerId` keeps the costs a user owns, `userId` the costs a user caused.
 - On `breakdown`, an unrecognized `groupBy` silently falls back to
   `resource_type`, and a wrong `resourceType` returns an empty breakdown. Pass
   exact values.
