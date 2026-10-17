@@ -471,6 +471,44 @@ then set `window.top.location.href` to the `redirect` it answers. The page
 
 ---
 
+### Public apps (anyone on the internet, no sign-in)
+
+A public app (a marketing site with a waitlist form) is served to anyone without
+signing in at `https://<subdomain>.<apps domain>/` and its verified custom
+domains, NEVER on the dashboard (`/api/proxy/<id>/` redirects there). It is
+served at the ROOT of its own host: no `X-Forwarded-Prefix`, so an app built
+per section 1 (relative base) works unchanged. Requests carry NO identity (no
+`X-Strongly-User-Token`); while it is a public site its pods have NO Strongly
+API access (the API refuses its token) and it uses only its granted add-ons,
+data sources and models: a waitlist form writes to the app's own database
+add-on from the app's server route. Only the owner or an admin may turn it on,
+and only after the user acknowledges the risk (`riskAcknowledged: true`):
+quote `risk` from the GET and wait for their yes.
+
+```bash
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/public-access"     # status off|preparing|live, url, risk, conflicts
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/public-access" \
+  -d '{ "enabled": true, "riskAcknowledged": true, "subdomain": "myzoe-site" }'
+# poll until "status": "live" (its pods restart once without platform access)
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/public-access" -d '{ "enabled": false }'
+```
+
+- A whole-app site can not have branded/native sign-in, Home App, paid access,
+  workflows, feature stores or agents. A product with a signed-in area is TWO
+  apps: the public site, and a branded sign-in app it links to.
+- `paths: ["/mcp", "/.well-known/"]` makes only those prefixes public on a
+  signed-in app (an MCP server, OAuth endpoints): the caller's own
+  `Authorization` reaches the app; Strongly credentials are refused.
+- `challenge: true`: bot protection for forms (page loads pass a silent
+  browser check, posts need its token). Off for API/MCP clients.
+- Edge: HTTPS only, per-IP rate limits (anonymous form posts tighter: 429),
+  body limit `maxRequestBytes` (413), HSTS/nosniff/CSP added (your own CSP can
+  only tighten it). Cookies stay host-only; name session cookies `__Host-...`.
+- Custom domain: `POST /apps/$APP_ID/domains {"hostname":"www.example.com"}`,
+  add the ownership TXT, `POST /apps/$APP_ID/domains/$DOMAIN_ID/check`, add
+  the certificate CNAME and the routing CNAME (hostname -> the app's host),
+  check until `"status": "active"`. Apex: ALIAS/ANAME or forward to www.
+
 ## 3. Identity
 
 The proxy signs the user in and passes identity as a **signed JWT**, the app
