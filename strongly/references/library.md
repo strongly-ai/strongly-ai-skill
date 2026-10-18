@@ -39,6 +39,12 @@ BASE="$HOST/api/v1"; auth=(-H "X-API-Key: $STRONGLY_API_KEY")   # outside Strong
   `DELETE …/:{name}Id/permissions/members/:userId`, `PATCH …/:id/permissions`
   `{ visibility }`; memory adds org-global promotion. Prompts and skills have no
   per-row sharing.
+- **Every row names its owner.** `ownerId` and `ownerName` are always set, and a version's
+  `createdBy` / `createdByName` name who wrote it; a renamed user's rows show the new name, a
+  deleted user's read `Deleted user <name>`. The platform's own rows (system skills such as
+  `computer-use`, the platform operating prompts) are owned by the system user: `ownerId`
+  `system`, `ownerName` `System`. Every user may read them; no one changes, shares, reassigns
+  or deletes one (`403`, admins too). `duplicate` makes a copy the caller owns.
 - **An agent reads as its owner, never as an admin.** A request a workload makes
   (an agent, a workflow, an app, with its signed token) reaches only the owner's own
   rows plus rows shared with the owner or public, even when the owner is a platform
@@ -270,6 +276,11 @@ with hybrid relevance retrieval, versions, and a quality assessor.
 | `POST /library/skills/:id/duplicate` · `POST /library/skills/:id/usage-events` | Copy / record a use (`201` with `{ usageCount }`) | |
 | `GET /library/skills/:id/versions` · `POST /library/skills/:skillId/versions/:version/restore` | Versions + restore | |
 | `POST /library/skills/import` | Import a skill from a GitHub URL | body: `githubUrl*` |
+
+A **system skill** (`source: "system"`, owner `System`) ships with the platform: list,
+read and attach it (`POST /agents/:id/skills`) like any skill, never change it. `computer-use`
+is attached, locked, to every agent with the `computer` tool family when it starts. Creating a
+skill with `source: "system"` is `400 invalid-source`.
 
 Skill content is markdown instructions; bundled files load on demand, so never bulk-
 read a whole bundle. Report the `action` from create truthfully (say "updated" for
