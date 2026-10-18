@@ -337,7 +337,7 @@ Home App with `POST /apps/:id/users`, or to use only with role user.
 ### Branded sign-in, the app's own users, and usage
 
 An app can have its own public sign-in, sign-up, forgot-password and sign-out
-pages at `<platform>/<slug>/`, with its logo and name, for a customer's or a
+pages at `<platform>/sites/<slug>/`, with its logo and name, for a customer's or a
 team's own users. Anyone who signs up there becomes an **app user** whose home
 app is this app (they land in it full screen, never in the platform) and is
 listed in the app's permissions. Their organization follows the tenancy mode:
@@ -404,8 +404,8 @@ curl -s "${auth[@]}" "$BASE/apps/$APP_ID/paid-access"                         # 
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/paid-access/subscriptions?status=active"  # payer, plan, status, seats
 ```
 
-Users of the app pick a plan at `<platform>/<slug>/plans` (Stripe Checkout)
-and manage it at `<platform>/<slug>/billing` (Stripe Customer Portal; a team
+Users of the app pick a plan at `<platform>/sites/<slug>/plans` (Stripe Checkout)
+and manage it at `<platform>/sites/<slug>/billing` (Stripe Customer Portal; a team
 payer also runs seats, members and invites there). The proxy serves a user
 while a subscription covers them; those who manage the app (the owner, Can edit
 collaborators, app admins, platform admins and, multi-tenant, the organization's
@@ -512,11 +512,11 @@ then set `window.top.location.href` to the `redirect` it answers. The page
 ### Public apps (anyone on the internet, no sign-in)
 
 A public app (a marketing site with a waitlist form) is served to anyone without
-signing in at `<your Strongly address>/<slug>` (`url` from the GET), the app's
+signing in at `<your Strongly address>/sites/<slug>` (`url` from the GET), the app's
 one slug, shared with branded sign-in: an app is public OR signs people in. It
-is served under that prefix (`X-Forwarded-Prefix: /<slug>`), so an app built per
+is served under that prefix (`X-Forwarded-Prefix: /sites/<slug>`), so an app built per
 section 1 (relative base, `<base href>` from the prefix) works unchanged; the
-platform injects `<base href="/<slug>/">` into HTML that has none. Take the
+platform injects `<base href="/sites/<slug>/">` into HTML that has none. Take the
 client's API base from `document.baseURI`, never from matching
 `/api/proxy/` in the path.
 
