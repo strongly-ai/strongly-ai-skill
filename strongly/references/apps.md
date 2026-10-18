@@ -512,22 +512,13 @@ then set `window.top.location.href` to the `redirect` it answers. The page
 ### Public apps (anyone on the internet, no sign-in)
 
 A public app (a marketing site with a waitlist form) is served to anyone without
-signing in at `<your Strongly address>/sites/<slug>` (`url` from the GET), the app's
-one slug, shared with branded sign-in: an app is public OR signs people in. It
-is served under that prefix (`X-Forwarded-Prefix: /sites/<slug>`), so an app built per
-section 1 (relative base, `<base href>` from the prefix) works unchanged; the
-platform injects `<base href="/sites/<slug>/">` into HTML that has none. Take the
-client's API base from `document.baseURI`, never from matching
-`/api/proxy/` in the path.
-
-Every answer carries a browser **sandbox** (`Content-Security-Policy: sandbox
-allow-scripts allow-forms allow-popups allow-downloads`, no
-`allow-same-origin`): the page has an opaque origin, so `localStorage`,
-`sessionStorage` and `document.cookie` THROW (wrap them in try/catch), cookies
-are stripped both ways (`Set-Cookie` never arrives), `alert()`/`confirm()` are
-blocked, and its own `fetch` calls are cross-origin: the platform answers CORS
-for the app's path (`Access-Control-Allow-Origin: *`, preflights included),
-never with credentials. An app that needs a session is a signed-in app.
+signing in on a domain of its own, never the dashboard's:
+`https://<slug>.<public apps domain>/` (`url` from the GET; never build it).
+`slug` is the app's one slug, shared with branded sign-in: an app is public OR
+signs people in. It is served at the ROOT of its own host (no path prefix), as an
+ordinary website: its own cookies (made host-only), `localStorage` and service
+workers work. A platform whose admin has not turned public apps on answers
+`404 public-apps-disabled`.
 
 Requests carry NO identity (no `X-Strongly-User-Token`); while it is a public
 site its pods have NO Strongly API access (the API refuses its token) and it
@@ -537,7 +528,7 @@ an admin may turn it on, and only after the user acknowledges the risk
 (`riskAcknowledged: true`): quote `risk` from the GET and wait for their yes.
 
 ```bash
-curl -s "${auth[@]}" "$BASE/apps/$APP_ID/public-access"     # status off|preparing|live, slug, url, risk, conflicts
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/public-access"     # status off|preparing|live, slug, url, host, pathUrls, risk, conflicts
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/public-access" \
   -d '{ "enabled": true, "riskAcknowledged": true, "slug": "myzoe-site" }'
 # poll until "status": "live" (its pods restart once without platform access)
@@ -547,14 +538,39 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$A
 - A whole-app site can not have branded/native sign-in, Home App, paid access,
   workflows, feature stores or agents. A product with a signed-in area is TWO
   apps: the public site, and a branded sign-in app it links to.
-- `paths: ["/mcp"]` makes only those prefixes under the app's address public on
-  a signed-in app (an MCP server): the caller's own `Authorization` reaches the
-  app; Strongly credentials are refused.
-- Edge: per-IP rate limits (anonymous form posts tighter: 429), body limit
-  `maxRequestBytes` (413), nosniff added (your own CSP can only tighten the
-  platform's; it can not lift the sandbox).
-- Own domain: the platform hosts none. Set the domain to redirect to the app's
-  address at your domain provider.
+- `paths: ["/oauth", "/webhooks"]` makes only those prefixes of a signed-in app
+  public, at `https://<slug>.<public apps domain>/<path>` (`pathUrls`): OAuth
+  callbacks, webhooks, an MCP server. The caller's own `Authorization` reaches
+  the app; Strongly credentials are refused. Register `pathUrls` with the other
+  service; never a dashboard address.
+- Edge: its own load balancer with per-IP rate limits (anonymous form posts
+  tighter: 429), body limit `maxRequestBytes` (413), HTTPS only.
+
+#### Custom domains (the owner's own domain, certificate automatic or uploaded)
+
+```bash
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/domains" -d '{ "hostname": "www.example.com" }'
+# answers dnsRecords: tell the user to set BOTH exactly:
+#   routing:     CNAME www.example.com -> <slug>.<public apps domain>   (apex: true = root domain: ALIAS/ANAME/flattened CNAME)
+#   certificate: CNAME _<hash>.www.example.com -> _<hash>.acm-validations.aws  (automatic certificate; keep it, it renews with it)
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/domains"                       # status pending|active|failed, dns, certificate, lastCheckError
+curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/domains/$DOMAIN_ID/refresh"   # check now (a failed certificate is requested again)
+curl -s -X DELETE "${auth[@]}" "$BASE/apps/$APP_ID/domains/$DOMAIN_ID"
+```
+
+- Served (`active`) once the hostname resolves to the app's address and the
+  certificate is issued: usually minutes (DNS up to 48 hours). The platform
+  checks every minute until then, hourly after.
+- `lastCheckError` names the problem: a CNAME pointing elsewhere, a record not
+  in DNS yet, CAA records that do not allow `amazon.com`, a missing validation
+  record (renewal would fail).
+- Own certificate: `POST /apps/:id/certificates` `{certificate, privateKey, chain,
+  domainIds}` (PEM; checked: key matches, chain reaches a trusted root, valid now,
+  covers each domain; the key goes to AWS Certificate Manager only).
+  `PUT /apps/:appId/certificates/:id` replaces it in place (renewal, no gap);
+  `PATCH /apps/:appId/domains/:id {"certificate": {"source": "issued"}}` or
+  `{"source": "uploaded", "certificateId"}` switches. Never ask a user to paste
+  a private key into a chat: they upload it in the Domains section or by API.
 
 ## 3. Identity
 
