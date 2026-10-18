@@ -159,8 +159,16 @@ Rules the build enforces (it rejects the graph with an actionable error otherwis
 - A Loop or Map body ends in a Loop Accumulator (`merge`) that receives the body's
   last node; the workflow continues from the accumulator. The loop returns there
   on its own: never connect the Loop or Map itself to the accumulator (on the
-  canvas an iterator has one output handle, its body). The builder canvas frames
-  exactly that body.
+  canvas an iterator has one output handle, its body; a stored connection from
+  its `"completed"` port fails validation). The builder canvas frames exactly
+  that body.
+- The loop ends at the FIRST Loop Accumulator its body reaches. Only a `merge`
+  ends a loop: `aggregate`, `data-aggregator`, `merge-data`, `consensus` and
+  `priority-queue` are ordinary steps, so put one after the accumulator to work
+  on every item's result (`inputMappings: {"data": "data.data"}`). Every body
+  path that reaches an accumulator reaches the same one (validation names them
+  otherwise); a branch inside the body rejoins at a plain step, never at a
+  merge; a nested loop ends at its own accumulator and the outer body goes on.
 - To spread a loop's items over pods, set its `config.scaling`:
   `{"enabled": true, "maxPods": 3, "targetItemsPerPod": 50, "maxWorkers": 4, "retryAttempts": 2}`.
   Pods = ceil(items / `targetItemsPerPod`), at most `maxPods` (default 10, counts
