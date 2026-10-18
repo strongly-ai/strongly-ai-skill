@@ -550,16 +550,18 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$A
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/domains" -d '{ "hostname": "www.example.com" }'
-# answers dnsRecords: tell the user to set BOTH exactly:
+# answers dnsRecords: tell the user to set them exactly:
 #   routing:     CNAME www.example.com -> <slug>.<public apps domain>   (apex: true = root domain: ALIAS/ANAME/flattened CNAME)
+#   ownership:   TXT _strongly-verify.www.example.com "strongly-verify=<token>"  (required for a root domain or a provider that hides the CNAME)
 #   certificate: CNAME _<hash>.www.example.com -> _<hash>.acm-validations.aws  (automatic certificate; keep it, it renews with it)
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/domains"                       # status pending|active|failed, dns, certificate, lastCheckError
 curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/domains/$DOMAIN_ID/refresh"   # check now (a failed certificate is requested again)
 curl -s -X DELETE "${auth[@]}" "$BASE/apps/$APP_ID/domains/$DOMAIN_ID"
 ```
 
-- Served (`active`) once the hostname resolves to the app's address and the
-  certificate is issued: usually minutes (DNS up to 48 hours). The platform
+- Served (`active`) once DNS shows the hostname is this app's (its CNAME names
+  the app's address, or its TXT ownership record carries its token: reaching the
+  shared load balancer alone is `dns.status: unverified`) and the certificate is issued: usually minutes (DNS up to 48 hours). The platform
   checks every minute until then, hourly after.
 - `lastCheckError` names the problem: a CNAME pointing elsewhere, a record not
   in DNS yet, CAA records that do not allow `amazon.com`, a missing validation
