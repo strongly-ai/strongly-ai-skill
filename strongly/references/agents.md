@@ -140,9 +140,11 @@ reference, "An agent for each user").
   delete = deleted with its user's records. A kept/suspended clone shows
   `unsharedAs`/`unsharedAt` (clones list, agent, config); sharing again restores sync.
   An app's clone is not affected. SDK `agents.remove_member(id, user, clones=...)`.
-- OFFICIAL layer: everything the base provides (instructions, model, skills,
-  rules, prompts, knowledge, tools, connectors, data sources, add-ons, settings,
-  pins) flows to every clone and is read-only there: any change on a clone is
+- OFFICIAL layer: everything the base provides (name and description,
+  instructions, model, skills, rules, prompts, knowledge, tools, connectors,
+  data sources, add-ons, settings, pins) flows to every clone and is read-only
+  there: renaming the base renames every clone on sync (a user who has another
+  agent of that name gets "<name> (2)"); any change on a clone is
   403 `clone-follows-base`; change the base. Base changes sync to every clone
   and redeploy running ones (`GET /agents/:id/clones`: inSync, baseSyncError;
   `POST /agents/:id/sync` retries).
