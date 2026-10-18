@@ -157,8 +157,10 @@ Rules the build enforces (it rejects the graph with an actionable error otherwis
   Switch-Case uses `"case_0"`.. (one per entry of `config.cases`, in order) and
   `"default"`.
 - A Loop or Map body ends in a Loop Accumulator (`merge`) that receives the body's
-  last node AND the Loop's or Map's `sourcePort: "completed"`; the workflow
-  continues from the accumulator. The builder canvas frames exactly that body.
+  last node; the workflow continues from the accumulator. The loop returns there
+  on its own: never connect the Loop or Map itself to the accumulator (on the
+  canvas an iterator has one output handle, its body). The builder canvas frames
+  exactly that body.
 - To spread a loop's items over pods, set its `config.scaling`:
   `{"enabled": true, "maxPods": 3, "targetItemsPerPod": 50, "maxWorkers": 4, "retryAttempts": 2}`.
   Pods = ceil(items / `targetItemsPerPod`), at most `maxPods` (default 10, counts
@@ -168,8 +170,9 @@ Rules the build enforces (it rejects the graph with an actionable error otherwis
   its own `config.maxWorkers` (default 10), `config.inputArrayPath` is the path
   to the array in its mapped inputs (`items`, or e.g. `data.rows` with `data`
   mapped), and `config.maxItems` keeps the first N (0 = all).
-- A Goal Loop body hangs off `"continue"` and its accumulator takes
-  `sourcePort: "complete"`; edges from `"complete"` run once the loop ends.
+- A Goal Loop (and a While Loop) body hangs off `"continue"` and ends in an
+  accumulator, where the loop returns on its own once it ends; never connect the
+  loop itself to the accumulator.
 - Parallel Branch runs the branches wired from its `"output"` at the same time
   (`config.maxWorkers`, default 10); a node every branch feeds (e.g. a merge with
   `inputMappings: {"data": "data"}`) is their join and runs after them. A branch
