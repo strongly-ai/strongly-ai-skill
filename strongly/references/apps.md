@@ -72,6 +72,11 @@ Two facts drive everything, the same in both:
   sets none of them, so don't depend on them for paths. Every workspace, job and
   app has `STRONGLY_API_URL` for API calls and `STRONGLY_BASE_URL`, the public
   address, for full links.)
+- Calls to platform services (`STRONGLY_API_URL`, the gateway) go through the
+  pod's auth-proxy, which keeps HTTP/1.1 connections open (idle 600s, says
+  `Connection: close` whenever it closes one): use the HTTP client's normal
+  connection pool; never open a connection per call. Streams (SSE) and
+  WebSockets pass through as written.
 - Listen on **`PORT`**, else 3000: a deployed app gets `PORT` from the platform;
   in a workspace 8080 is taken by VS Code, so run on 3000 (or another free port)
   and open `$STRONGLY_BASE_URL/api/workspace-proxy/$STRONGLY_WORKSPACE_ID/port/3000/`
