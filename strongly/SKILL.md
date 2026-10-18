@@ -109,7 +109,7 @@ resource must keep), any other value replaces that field whole, and a map such a
 a node's `config` is patched key by key the same way; actions are
 `POST …/:id/{verb}` (`start`, `stop`, `deploy`, …). Sharing is the same on every
 resource: `GET …/:id/permissions`, `POST …/:id/permissions/members`
-`{ userId, role }`, `DELETE …/:{name}Id/permissions/members/:userId` (`:appId`, `:workflowId`, …),
+`{ userId, role }` (a user has one role: posting again with another role changes it), `DELETE …/:{name}Id/permissions/members/:userId` (`:appId`, `:workflowId`, …),
 `PATCH …/:id/permissions { visibility }`. The full contract is served at
 `GET /api/v1/openapi.json`.
 
