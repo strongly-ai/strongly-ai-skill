@@ -103,9 +103,11 @@ downstream nodes read `data.<field>`.
 
 A `code` node can log its own run metrics: `metric(name, value, unit)` in its
 Python (e.g. `metric("values redacted", n, "count")`) records a span metric with
-the node as source, shown in the run's Execution Metrics with trace-level
-`avg_`/`min_`/`max_` aggregates. `value` is a finite number, `unit` optional text;
-a bad argument fails the node. In `runOnceForEachItem` each item's calls count.
+the node as source, shown in the run's Execution Metrics. `value` is a finite
+number, `unit` optional text; a bad argument fails the node. In
+`runOnceForEachItem` each item's calls count. A metric is saved only when a node
+logs it (`log_metric` in a node, `metric` in Code): the platform adds none of
+its own, and token counts are not metrics (see the run's AI usage below).
 
 ---
 
@@ -212,15 +214,26 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
   add-ons, gets a worker started for it (allow up to a minute). Deployed runs use
   the deployment. One in-flight run per workflow unless its concurrency is raised.
 - Loop Pod Scaling works in draft and deployed runs alike; the trace has a
-  `DISTRIBUTED` span for the loop, and the accumulator collects every item.
+  `DISTRIBUTED` span for the loop (at every tracing level but off), every body
+  span is drawn under it by worker pod and item, and the accumulator collects
+  every item. A body span's `mapped_input` is what the item received (its
+  mappings and `data.currentItem`), never the node's settings; its
+  `_metadata.loops` carries the loop's `currentIteration`/`totalIterations`
+  as in an unscaled loop. Each node span has `duration_ms` (wall time) and
+  `cpu_ms` (the node's own CPU, its sandbox's included), and a body span
+  `metadata.concurrent_items` (items its pod ran at once). A worker pod runs
+  `maxWorkers` items as threads on the pod's CPU: CPU-bound items (PDF
+  parsing) gain nothing from more threads, only from more CPU or more pods.
 - Node data is cached in three tiers (memory for items up to 100 KB, pod disk up to
   10 MB, object storage for everything, shared across pods). Nothing to configure.
   A run's cache is deleted 24 h after it ends, except the newest finished run of
   each workflow (kept for resume).
-- Built-in nodes log **metrics** (judge scores, LLM tokens, `rows_affected`, item
-  counts): each span's `metrics` in `/workflows/-/executions/:id/spans`; when a run ends every
-  metric name also gets trace-level `avg_`/`min_`/`max_` aggregates, shown on the
-  trace's Execution Metrics card.
+- Built-in nodes log **metrics** with `log_metric` (judge scores, `rows_affected`,
+  item counts, an LLM call's `response_time_ms`): each span's `metrics` in
+  `/workflows/-/executions/:id/spans`, at the level the node gave. Nothing else is
+  a metric. A run's tokens are the AI Gateway's:
+  `GET /workflows/-/executions/:id/ai-usage` (requests, input/output/total
+  tokens, per model).
 
 ### Create or edit incrementally
 
@@ -333,6 +346,7 @@ In the builder the same requests show in the **Waiting for you** panel.
 | GET | `/workflows/-/executions/:id/progress` | Status + progress; **settles** the run and returns the outputs preview on completion |
 | GET | `/workflows/-/executions/:id/spans` | Per-node spans, oldest first, cursor-paged; read `error_message` here on failure (`nodeId`, `name`, `status`, `slim`, `limit`, `cursor`) |
 | GET | `/workflows/-/executions/:id/logs` | Execution logs (`level`, `limit`) |
+| GET | `/workflows/-/executions/:id/ai-usage` | The run's AI Gateway usage: requests and input/output/total tokens, in all and per model (the run's one token figure) |
 | POST | `/workflows/-/executions/:id/stop` | Graceful stop (only when `running`) |
 | POST | `/workflows/-/executions/:id/cancel` | Hard-cancel any non-terminal run; idempotent |
 | POST | `/workflows/-/executions/:id/resume` | Resume a failed/paused run (`trigger_data`) |
