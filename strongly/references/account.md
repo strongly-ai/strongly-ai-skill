@@ -168,7 +168,8 @@ push device mutates your user record, so it needs a write scope.
 | POST | `/me/notifications/mark-all-read` | Mark all your notifications read; answers `{ count }` | `notifications:write` |
 | PATCH | `/me/notifications/:id` | `{ read }`: mark one of your notifications read or unread; answers the notification | `notifications:write` |
 | DELETE | `/me/notifications/:id` | Delete one of your notifications (`204`) | `notifications:write` |
-| POST | `/me/push-devices` | Register an APNs/device push token (`token`, optional `platform`, default `ios`) | `notifications:write` |
+| POST | `/me/push-devices` | Register an APNs/device push token (`token`, optional `platform`, default `ios`); answers the device (`201`) | `notifications:write` |
+| DELETE | `/me/push-devices/:id` | Unregister one of your devices by its push token (`204`) | `notifications:write` |
 
 ```bash
 # Unread inbox and count
@@ -185,8 +186,16 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   "$BASE/me/push-devices" | jq '.data'
 ```
 
-The push token is deduped by value on your user record, so re-registering the
-same token is safe and just refreshes its timestamp.
+The platform registers the token with Strongly's push relay (the one service
+holding the iPhone app's APNs key) and then keeps it on your user record, so
+re-registering the same token is safe and just refreshes its timestamp. A
+platform with no relay configured answers `503` naming the missing
+`PUSH_RELAY_URL` / `PUSH_RELAY_KEY`; a relay that refuses answers `502`.
+
+```bash
+# Unregister a device (the id is its push token)
+curl -s -X DELETE "${auth[@]}" "$BASE/me/push-devices/<apns-hex-token>" -o /dev/null -w '%{http_code}\n'
+```
 
 ---
 
