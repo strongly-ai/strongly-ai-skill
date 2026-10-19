@@ -223,6 +223,10 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
   after it. A run needing more than 1 vCPU / 1 GB, or reaching data sources or
   add-ons, gets a worker started for it (allow up to a minute). Deployed runs use
   the deployment. One in-flight run per workflow unless its concurrency is raised.
+- An unscaled (sequential) loop's trace is one `LOOP` span for the whole loop;
+  its control passes sit under it and each item's body spans under that item's
+  `ITERATION` span ("Iteration N", failed when the item errored). A node span
+  starts when the node does (its code load included).
 - Loop Pod Scaling works in draft and deployed runs alike; the trace has a
   `DISTRIBUTED` span for the loop (at every tracing level but off), every body
   span is drawn under it by worker pod and item, and the accumulator collects
