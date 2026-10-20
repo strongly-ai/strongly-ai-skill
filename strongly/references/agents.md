@@ -73,12 +73,14 @@ placeholder and `start` rejects it with `422 unresolved-model-placeholder`.
 
 ```bash
 AGENT_ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"name":"Support Bot","personality":"Warm, concise.",
-       "aiModelId":"<ai-model-_id>"}' \
+  -d '{"name":"Support Bot","description":"Answers order and shipping questions.",
+       "personality":"Warm, concise.","aiModelId":"<ai-model-_id>"}' \
   "$BASE/agents" | jq -r '.data._id')
 ```
 
-Notable optional fields on the wizard body: `personality`, `operatingPromptId`
+Notable optional fields on the wizard body: `description` (what the agent is
+for, shown in the agent list and on its Overview; ask the user for one),
+`personality`, `operatingPromptId`
 or `operatingPromptName`, `referenceKey` (e.g. `"atlas"`), `responseFormat`
 (`json_object` | `text`), `fallbackModelIds[]`, `contextPolicy`, `sessionPolicy`,
 `heartbeat` (`{ enabled, cron, timezone }` for autonomous wakeups),
@@ -99,9 +101,13 @@ If the user already has a workflow, promote it:
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"toolWorkflowIds":["<wf-a>","<wf-b>"]}' \
+  -d '{"toolWorkflowIds":["<wf-a>","<wf-b>"],"description":"Triages inbound tickets."}' \
   "$BASE/workflows/$WORKFLOW_ID/promote"
 ```
+
+`description` becomes the agent's (the workflow keeps its own when it is left out).
+A marketplace agent install takes the offering's description; a clone keeps its
+base's (read-only on the clone).
 
 Promote validates that the workflow has a function-calling node, a resolved LLM
 model, and at least one trigger. On a validation failure it returns
