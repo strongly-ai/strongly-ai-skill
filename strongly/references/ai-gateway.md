@@ -243,6 +243,11 @@ and completions only, so its members are chat, multimodal or completion
 models (any other type is refused when the router is saved), and it needs at
 least one (a router without members is refused). Pick models from
 `GET /ai-gateway/models` (section 1: what the user may use), never a hard-coded id.
+With `healthCheck.enabled`, each member has a circuit in the router, shared by
+every gateway replica: `failureThreshold` failures in a row open it (no traffic),
+`intervalSeconds` later it lets `recoveryThreshold` test requests through, and that
+many successes close it (a failure reopens it). Read it from
+`GET /ai-gateway/routers/:id/stats` (`members[].circuit.state`: closed, open, half_open).
 
 ## 5. Guardrails
 
