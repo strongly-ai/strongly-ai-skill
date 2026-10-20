@@ -101,7 +101,7 @@ binding it.
 | Method + path | Scope | Purpose |
 |---|---|---|
 | `GET /environments` | `workspaces:read` | List saved environments (cursor-paged). Query `enabledOnly`; `includeUsage` adds `usageCount` and `inUse` to each. |
-| `POST /environments` | `workspaces:write` | Create; answers `201` with the environment. Required: `name`. Optional: `description`, `cpu`, `memoryGb`, `gpuCount`, `gpuType`, `storageGb`, `isPublic`, `baseImage`, `dockerfile`. |
+| `POST /environments` | `workspaces:write` | Create; answers `201` with the environment. Required: `name`. Optional: `description`, `vcpu`, `memoryGb`, `gpuCount`, `gpuType`, `storageGb`, `isPublic`, `baseImage`, `dockerfile`. |
 | `GET /environments/base-image-status` | `workspaces:read` | `statuses` by environment id: `current` / `outdated` / `unknown`. |
 | `GET /environments/:id` | `workspaces:read` | Get one, including `buildStatus`, `imageName`, `buildLogs`, `versions` and `usageCount`. |
 | `PATCH /environments/:id` | `workspaces:write` | Update; answers with the environment. A `baseImage` / `dockerfile` change triggers a rebuild. |
