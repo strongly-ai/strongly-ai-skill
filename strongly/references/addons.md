@@ -252,10 +252,13 @@ curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
   "$BASE/addons/$ADDON_ID/schedule" | jq '.data'
 ```
 
-`startTime` and `stopTime` are `HH:MM` (24-hour). `daysOfWeek` uses 1 = Monday
-through 7 = Sunday. `holidayCalendar` is `us`, `uk`, or `none`. Outside the
-window the addon is stopped, so anything depending on it should tolerate the
-downtime.
+`startTime` and `stopTime` are `HH:MM` (24-hour) and must differ; a `stopTime`
+earlier than `startTime` is the next morning (22:00 to 06:00 runs overnight
+from each listed day). `daysOfWeek` uses 1 = Monday through 7 = Sunday.
+`holidayCalendar` is `us` (the eleven federal holidays), `uk` (bank holidays of
+England and Wales), or `none`. The GET response's `lastStartAt` / `lastStopAt`
+are what the platform did, not settings. Outside the window the addon is
+stopped, so anything depending on it should tolerate the downtime.
 
 ---
 
