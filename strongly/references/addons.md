@@ -41,7 +41,8 @@ what it is best for, and its engine `versions` (`defaultVersion` when none is na
 need, not from a memorized list. Type keys are vendor keys, e.g. `postgres`
 (**not** `postgresql`, which is the workflow node type), `mysql`, `mongodb`,
 `redis`, `rabbitmq`, `neo4j`, `milvus`, `greenplum`, `surrealdb`, `kafka`,
-`mqtt`. Kafka and MQTT are also data source types (a broker the user runs
+`mqtt`, `duckdb` (pg_duckdb: PostgreSQL with the DuckDB engine for analytical SQL and
+Parquet/CSV in S3; any Postgres client connects). Kafka and MQTT are also data source types (a broker the user runs
 elsewhere): streaming workflow nodes and marketplace installs take either,
 so offer an add-on only when the user has no broker of their own.
 

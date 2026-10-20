@@ -2,7 +2,7 @@
 
 A Strongly **data source** is a connection to an **external** store the user
 already runs (a Postgres/MySQL/SQL Server/Oracle database, a Snowflake/BigQuery/
-Redshift warehouse, a Mongo/Elasticsearch/DynamoDB/Firestore/Redis store, or an
+Redshift warehouse, a MotherDuck database or DuckDB/Parquet file in S3 (read only), a Mongo/Elasticsearch/DynamoDB/Firestore/Redis store, or an
 S3/MinIO/GCS/Azure object bucket). The user supplies the host and credentials;
 the platform stores them encrypted and hands the connection to apps and workflows
 by id. Strongly does not provision or run the store; it only connects to it.
@@ -49,11 +49,11 @@ an addon when you want Strongly to stand up and operate the store.
 
 ## 2. Discover the type keys and required fields
 
-`type` is a **vendor key**, and the create endpoint is the source of truth for the
-accepted values. The keys enumerated by the API are: `postgres`, `mysql`, `mssql`,
-`oracle`, `snowflake`, `bigquery`, `redshift`, `mongodb`, `elasticsearch`,
-`dynamodb`, `firestore`, `redis`, and the object-storage keys `s3`, `minio`,
-`gcs`, `azure-blob`. Any other value is rejected.
+`type` is a **vendor key**, and the platform is the source of truth for the
+accepted values: `GET /workflow-nodes/services/data-source-fields/{type}`
+(`get_datasource_fields`) returns a type's fields, and answers an unknown type with
+every type there is (databases, warehouses, document, graph and vector stores,
+spreadsheets, object storage, queues). Any other value is rejected.
 
 Watch the naming: it is **`postgres`, not `postgresql`** (`postgresql` is the
 workflow NODE type, a different thing). Do not guess a key from the product name;
@@ -62,7 +62,11 @@ use the vendor key.
 The `credentials` shape depends on the `type`. For a SQL database it is typically
 `{ host, port, username, password, database }`; object stores take bucket/endpoint/
 access-key fields; warehouses take their own. Confirm the exact fields for the
-chosen type before creating rather than assuming a shape: create, update and the
+chosen type with `get_datasource_fields` before creating rather than assuming a
+shape. A `select` field lists its `options`; a field with `showIf` applies, and is
+required, only when that field has that value (e.g. `duckdb`: `connectionType`
+`motherduck` takes `apiKey` and `database`, `s3` takes `path`, `region` and optional
+keys). Create, update and the
 connection test refuse (`400 validation-error`, naming each problem) a field the type
 does not have (e.g. `bucket` for S3, whose field is `bucketName`) or a missing
 required one.
@@ -72,7 +76,7 @@ required one.
 ## 3. Create, list, get, update, delete
 
 **Create.** Required: `name`, `label`, `type`, `credentials`. Optional:
-`description`, `category`.
+`description`. The category is set from the type; sending one is refused.
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
