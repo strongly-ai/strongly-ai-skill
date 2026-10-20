@@ -86,8 +86,10 @@ Choosing the right one:
   `workflow`, `workspace`, `self-hosted-model`, ...); `resourceType` keeps one
   type. Use `gpuCost` from the split to quantify GPU spend.
 - **Rank the biggest spenders**: `costs/top-drivers` or `dashboard/top-drivers`.
-- **Look ahead**: `costs/forecast` (growth-rate projection over N months from the
-  last 90 days, with a confidence level).
+- **Look ahead**: `costs/forecast` (`weeks`, default 13: daily cost projected whole
+  weeks ahead by weekly-seasonal exponential smoothing; each day, week and the
+  total has `predicted` and a 95% `lowerBound`..`upperBound`; nothing with under
+  14 recorded days). Quote the interval, not just the median.
 - **Find spikes**: `costs/anomalies` (lookback `days` + `threshold`).
 - **Find waste**: `costs/savings` (rightsizing recommendations from efficiency).
 - **Per-resource utilization**: `costs/efficiency`.
@@ -105,7 +107,7 @@ Choosing the right one:
 | `GET /finops/costs/realtime` | `window`, `aggregate`, `namespace` | Live Kubecost cost items |
 | `GET /finops/costs/historical` | `startDate`, `endDate`, `groupBy`, `orgId`, `ownerId`, `userId`, `resourceType`, `workload` | The breakdown over a date range |
 | `GET /finops/costs/efficiency` | `window`, `groupBy`, `orgId`, `ownerId`, `userId`, `resourceType`, `workload`, `namespace` | CPU and memory used against requested, overall and per group |
-| `GET /finops/costs/forecast` | `months` | `historical`, `predictions`, growth/confidence analysis |
+| `GET /finops/costs/forecast` | `weeks` (1-52, default 13) | `historical`, `predictions` (days), `weeks`, `total`, each with `predicted`/`lowerBound`/`upperBound`; `interval` (0.95), `model` |
 | `GET /finops/costs/anomalies` | `days`, `threshold` | Detected anomalies for the window |
 | `GET /finops/costs/savings` | `category`, `minSavings` | Rightsizing recommendations + total potential savings |
 | `GET /finops/data-health` | (none) | Cost-collection coverage, data gaps, organization-hours not composed, unmetered scale-ups, hours Kubecost built only part of (not charged until whole), hours the cost refresh could not read or record, with why (not charged until recorded) |
@@ -136,6 +138,9 @@ curl -s "${auth[@]}" "$BASE/finops/budgets/<budgetId>" | jq '.data'
 | `GET /finops/budgets/:id` | path `id` | 404 if not in the caller's tenant |
 
 There is no create, update, or delete for budgets on this API. Do not attempt one.
+A budget's `notifications.email` says whether it also emails its alerts (they are
+bell notifications either way); `notifications.mode` is `immediate` or `digest`.
+AI Gateway spend is its self-hosted models' pods: a `self_hosted_model` budget.
 
 ---
 
