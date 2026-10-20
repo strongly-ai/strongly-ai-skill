@@ -305,7 +305,9 @@ curl -s -X POST "${auth[@]}" "$BASE/workflows/$WID/structure-check" | jq '.data'
 
 ## 4. Run (batch) and poll to a real result
 
-`POST /workflows/:id/execute` test-runs the workflow. It waits briefly and, when
+`POST /workflows/:id/execute` test-runs a draft (runs are for drafts: a deployed
+workflow runs only when its triggers fire, so a hand-started run of one is refused,
+409; undeploy to test a change). It waits briefly and, when
 the run settles fast, returns a compact per-node `outputs` preview inline. If it is
 still `running`, poll to a terminal state before claiming anything.
 
@@ -354,7 +356,7 @@ In the builder the same requests show in the **Waiting for you** panel.
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/workflows/:id/execute` | Test-run with `triggerInputs`; returns `{executionId, status, outputs, invocation?}` |
+| POST | `/workflows/:id/execute` | Test-run a draft with `triggerInputs`; returns `{executionId, status, outputs, invocation?}`. A deployed workflow: 409 |
 | GET | `/workflows/-/executions` | List runs (`status`, `triggerType`, `since`, `until`, `limit`, `cursor`); one workflow's runs are `/workflows/:id/executions` |
 | GET | `/workflows/-/executions/:id` | Full execution: definition + per-node `outputs` |
 | GET | `/workflows/-/executions/:id/progress` | Status + progress; **settles** the run and returns the outputs preview on completion |

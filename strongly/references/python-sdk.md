@@ -179,9 +179,11 @@ for span in client.executions.spans(exec_id):
     print(f"  {span.node_id}: {span.status} ({span.duration_ms}ms)")
 ```
 
-`client.workflows.execute(...)` starts a dev run. A **deployed** workflow is invoked
-at its trigger (the `invocation.url` in `client.workflows.status(id)`), or by a
-platform event with `client.workflows.emit_event(...)`.
+`client.workflows.execute(...)` starts a draft run. Runs are for drafts: on a
+**deployed** workflow it is refused (`ConflictError`, 409) unless it names its
+`trigger_type` (an app's own trigger). A deployed workflow is invoked at its trigger
+(the `invocation.url` in `client.workflows.status(id)`), or by a platform event with
+`client.workflows.emit_event(...)`; to test a change, undeploy, run, deploy again.
 Traces live under `client.executions` (`retrieve`, `spans`, `logs`, `progress`).
 
 A batch workflow's own environment variables (read by its custom nodes and code
