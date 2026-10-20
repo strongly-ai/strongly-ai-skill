@@ -38,13 +38,13 @@ exception is the evidence download (section 3), which streams raw file bytes.
 
 A policy is the rule set. It carries a `category`, a `severity`, the
 `applicableResourceTypes` it governs, and a `stages` array (each stage holds the
-gates a resource must clear). `create` returns `data.policyId`.
+gates a resource must clear). `create` returns the policy (its id is `data._id`).
 
 ```bash
 # List (optional filters: category, severity, isActive, search)
 curl -s "${auth[@]}" "$BASE/governance/policies?isActive=true&category=compliance" | jq '.data'
 
-# Create -> data.policyId
+# Create -> the policy; its id is data._id
 POLICY=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' -d '{
   "name":"Model card required",
   "description":"Every AI model ships a completed model card before deploy",
@@ -89,7 +89,7 @@ curl -s "${auth[@]}" "$BASE/governance/audit?action=gate_approved" | jq '.data' 
 | Method + path | Scope | Does |
 |---|---|---|
 | `GET /governance/policies` | `governance:read` | List policies (`category`, `severity`, `isActive`, `q`) |
-| `POST /governance/policies` | `governance:write` | Create a policy, returns `data.policyId` |
+| `POST /governance/policies` | `governance:write` | Create a policy, returns it (`data._id`) |
 | `GET /governance/policies/:id` | `governance:read` | Get one policy |
 | `PATCH /governance/policies/:id` | `governance:write` | Update a policy |
 | `DELETE /governance/policies/:id` | `governance:write` | Delete a policy |
@@ -155,7 +155,7 @@ curl -s "${auth[@]}" \
 | Method + path | Scope | Does |
 |---|---|---|
 | `GET /governance/solutions` | `governance:read` | List solutions (`status`, `q`) |
-| `POST /governance/solutions` | `governance:write` | Create a solution, returns `data.solutionId` |
+| `POST /governance/solutions` | `governance:write` | Create a solution, returns it (`data._id`) |
 | `GET /governance/solutions/:id` | `governance:read` | Get one solution |
 | `PATCH /governance/solutions/:id` | `governance:write` | Update a solution (`name`, `description`) |
 | `DELETE /governance/solutions/:id` | `governance:write` | Delete a solution |
