@@ -58,7 +58,7 @@ POLICY=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' -d '{
 
 # Get, update, delete
 curl -s "${auth[@]}" "$BASE/governance/policies/$POLICY" | jq '.data'
-curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"isActive":false}' "$BASE/governance/policies/$POLICY" | jq '.data'
 curl -s -X DELETE "${auth[@]}" "$BASE/governance/policies/$POLICY"
 ```
@@ -70,16 +70,20 @@ policy and copy its `stages` shape rather than guessing field names.
 `applicableResourceTypes` must be drawn from the platform's fixed list. Fetch it:
 
 ```bash
-curl -s "${auth[@]}" "$BASE/governance/resource-types" | jq -r '.data[].id'
-# app workflow addon dataSource volume mlModel aiGatewayModel workspace project
-# skill prompt agent codeSession abTest marketplaceApp
+curl -s "${auth[@]}" "$BASE/governance/resource-types" | jq -r '.data[] | "\(.id) selectable=\(.selectable)"'
+# app workflow addon workspace volume project mlModel fineTuningJob automlJob
+# dataSource agent avatar job codeSession abTest marketplaceApp aiGatewayModel
+# workflowTool dataForge
+# A solution workload names one resource ({"type":"app","id":"<id>"}) only for a
+# selectable type; any type can be bound whole with id "*" (every resource of
+# the type, including ones created later, for everyone the solution applies to).
 ```
 
 Org-wide views:
 
 ```bash
 curl -s "${auth[@]}" "$BASE/governance/metrics" | jq '.data'                 # aggregate counts
-curl -s "${auth[@]}" "$BASE/governance/audit?action=approve" | jq '.data'    # admin only
+curl -s "${auth[@]}" "$BASE/governance/audit?action=gate_approved" | jq '.data'  # admin only
 ```
 
 | Method + path | Scope | Does |
@@ -99,20 +103,24 @@ curl -s "${auth[@]}" "$BASE/governance/audit?action=approve" | jq '.data'    # a
 
 A **solution** is a resource under governance. Create it, ask what it needs, then
 submit each gate, get it reviewed, and check whether it may deploy. `create`
-returns `data.solutionId`.
+returns the solution (its id is `data._id`).
 
 ```bash
-# Create -> data.solutionId
+# Create -> the solution; its id is data._id
 SOL=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"name":"Fraud model v2","description":"Q3 fraud scoring model"}' \
+  -d '{"name":"Fraud model v2","description":"Q3 fraud scoring model","workloads":[{"type":"app","id":"'"$APP_ID"'"}],"policyIds":["'"$POLICY"'"]}' \
   "$BASE/governance/solutions" | jq -r '.data._id')
 
 # What must this solution clear? (policies + gates that apply)
 curl -s "${auth[@]}" "$BASE/governance/solutions/$SOL/requirements" | jq '.data'
 
 # Submit one gate. gateId is in the path; body names the owning policy + payload.
+# data by kind: input {"textValue"} | {"numberValue"} | {"dateValue"} | {"selectedOptions":[...]};
+# acknowledgment {"acknowledged":true}; approval {} (asks the reviewers);
+# threshold {"metricValue":0.93}; guardrail {"guardrailsVerified":true}.
+# Evidence gates take files: POST .../gates/$GATE_ID/evidence.
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"policyId":"'"$POLICY"'","data":{"answer":"yes","notes":"attached"}}' \
+  -d '{"policyId":"'"$POLICY"'","data":{"textValue":"Reviewed by the risk team"}}' \
   "$BASE/governance/solutions/$SOL/gates/$GATE_ID/submit" | jq '.data'
 
 # Recompute the solution's overall status after submissions change
