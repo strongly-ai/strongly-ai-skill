@@ -203,6 +203,12 @@ Rules the build enforces (it rejects the graph with an actionable error otherwis
   shows it as Continue on Iteration Error). A node whose required input is
   missing or empty FAILS ("required input missing: <name>"); only a node on a
   conditional branch that did not run is skipped.
+- To call a Strongly app on this platform, use the REST API node (`api`) with
+  `config.target: "app"`, `appId` (the app's id) and `appPath` (or map the
+  `appPath` input). It calls the app's in-cluster route as the run's owner (the
+  app gets their `X-Strongly-User-Token`); no auth settings. An External URL on
+  the platform's public address under `/api/proxy/` is refused: a workflow
+  cannot sign in there (401).
 - A node's resources are `config.resourcesOverride` `{cpu, memory, gpu, gpuType,
   disk}` (the Resources tab; memory/disk in Mi/Gi); unset fields use the
   definition's defaults.
