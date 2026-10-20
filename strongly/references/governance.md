@@ -72,7 +72,7 @@ policy and copy its `stages` shape rather than guessing field names.
 ```bash
 curl -s "${auth[@]}" "$BASE/governance/resource-types" | jq -r '.data[] | "\(.id) selectable=\(.selectable)"'
 # app workflow addon workspace volume project mlModel fineTuningJob automlJob
-# dataSource agent avatar job codeSession abTest marketplaceApp aiGatewayModel
+# dataSource agent avatar job codeSession abTest aiGatewayModel
 # workflowTool dataForge
 # A solution workload names one resource ({"type":"app","id":"<id>"}) only for a
 # selectable type; any type can be bound whole with id "*" (every resource of

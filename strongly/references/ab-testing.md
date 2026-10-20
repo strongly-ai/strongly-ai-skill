@@ -261,7 +261,7 @@ Report `inconclusive` as inconclusive, quoting `reason` when it is set.
 | `POST /mlops/ab-tests` | Create | `mlops:write` |
 | `GET /mlops/ab-tests/:id` | Variants and their counters, strategy config, deployment | `mlops:read` |
 | `PATCH /mlops/ab-tests/:id` | Update `name`, `description`, `tags` | `mlops:write` |
-| `DELETE /mlops/ab-tests/:id` | Delete (stopped first when running) | `mlops:write` |
+| `DELETE /mlops/ab-tests/:id` | Delete (stopped first when running), with its experiments (a running one is stopped first) | `mlops:write` |
 | `POST /mlops/ab-tests/:id/deploy` / `stop` / `start` | Start, stop, restart routing | `mlops:write` |
 | `POST /mlops/ab-tests/:id/predict` | Predict through the test | `mlops:write` |
 | `PATCH /mlops/ab-tests/:testId/variants/:id` | Set a variant's `weight` (`weighted_random`) and/or `enabled` | `mlops:write` |
