@@ -618,12 +618,11 @@ app admin who signed up through the branded page is `role: "app"`,
 
 ### An agent for each user (per-user-agent apps)
 
-Build the agent once as a normal agent (the BASE), then set it as the app's
-"Agent cloned for each user": `PATCH /apps/:id {cloneBaseAgentId}` (an agent the
-app's OWNER owns; `null` clears it; UI: app Settings tab). Every user who joins
-the app (branded sign-up, Home App binding) gets their own **clone**: owned by
-the user, recording the app (`appId`) and its base (`baseAgentId`). Clones and
-their rules are the agents reference's "Agent clones"; what is app-specific:
+Build the agent once as a normal agent (the BASE, an agent the app's OWNER
+owns). The app makes each user's own **clone** of it itself, when the user first
+needs it (the platform makes none on sign-up or binding): owned by the user,
+recording the app (`appId`) and its base (`baseAgentId`). Clones and their rules
+are the agents reference's "Agent clones"; what is app-specific:
 
 The app's **backend** calls `$STRONGLY_API_URL/api/v1` forwarding the request's
 `X-Strongly-User-Token` **unchanged** (never decoded and re-signed, never
@@ -631,8 +630,9 @@ stored: it expires in an hour). The pod's auth-proxy adds the app owner's bearer
 token; on the user's areas (`/agents`, `/primitives`, `/library`) the call acts
 as the signed-in user, through the app:
 
-- `POST /agents/:id/clone` (the base) makes the user's clone when they have
-  none (409 names an existing one). `POST /agents` with Agent Builder input
+- `POST /agents/:id/clone` (the base: one of the app owner's own agents, or one
+  shared with the user to clone) makes the user's clone when they have none
+  (409 names an existing one). `POST /agents` with Agent Builder input
   makes an agent of the app's own design for the user instead.
 - `GET /agents` lists only that user's agents of this app; another user's agent
   answers 404. Then `POST /agents/:id/start`, `POST /agents/:id/threads`,
@@ -642,7 +642,8 @@ as the signed-in user, through the app:
 - An app's clone uses the models, tool workflows, workspace and MCP servers an
   app user cannot hold as the app's OWNER; the base's data sources and add-ons
   as its user. It may do what the base's allowlist grants, NEVER adding data
-  sources or add-ons. Gateway calls record user + clone + app.
+  sources or add-ons. The app's own request for the user (no clone calling) and
+  an agent of the app's own design are granted no feature. Gateway calls record user + clone + app.
 - App users reach their agents ONLY this way, through their Home App; the
   dashboard stays closed to them. With their own sign-in an app user sees only
   their app cards (name and icon), opens an app full screen, and changes their
@@ -655,8 +656,7 @@ as the signed-in user, through the app:
 - A user token that does not verify is refused (401 with why), never run as
   the owner. A user token alone (no bearer) is not a credential.
 
-Python SDK: `client.apps.update(app_id, clone_base_agent_id=...)`,
-`client.for_user(token).agents.clone(base_agent_id)`, `client.agents.clones(id)`,
+Python SDK: `client.for_user(token).agents.clone(base_agent_id)`, `client.agents.clones(id)`,
 `client.agents.sync(id)`, `client.agents.set_allowed_features(id, [...])`.
 User guide: Agent Clones (agents/agent-clones).
 
