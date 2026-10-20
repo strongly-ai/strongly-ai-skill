@@ -195,6 +195,17 @@ Rules the build enforces (it rejects the graph with an actionable error otherwis
 - `inputMappings` paths are relative to the data arriving at the node (a webhook
   payload arrives under `data.body.<field>`); a wrong path yields empty output on
   a green run, so verify with a real execution.
+- The run's inputs (a webhook's request, an app's or REST call's `triggerInputs`)
+  reach the trigger node, which outputs them. Every node also gets the run's own
+  parameters, without the request's headers and signature, at
+  `inputs.workflow_inputs` (mapping path `$root.<path>`); never as loose inputs.
+- `continueOnError` is a node parameter in its config (`PATCH` the node; the Loop
+  shows it as Continue on Iteration Error). A node whose required input is
+  missing or empty FAILS ("required input missing: <name>"); only a node on a
+  conditional branch that did not run is skipped.
+- A node's resources are `config.resourcesOverride` `{cpu, memory, gpu, gpuType,
+  disk}` (the Resources tab; memory/disk in Mi/Gi); unset fields use the
+  definition's defaults.
 - Give each config field the shape its schema type saves: `tags`/`multiselect`
   a list of strings, `fieldBuilder`/`array` a list of objects (Data Aggregator
   `operations`, Notification `channels`), `keyValue`/`object`/`json` an object
@@ -390,6 +401,11 @@ The `status` response carries an **`invocation`** block once a trigger exists:
 after a successful deploy, relay `invocation.url`, the auth mode(s), and the exact
 signing header to the user, so they can actually call their workflow. For a webhook
 whose `secretConfigured` is false, set `config.secret` first or callers get a 401.
+A webhook with a Respond to Webhook node answers the caller with that node's
+status, headers and body once it runs (the request waits); without one it
+answers `{success, executionId}` at once. A Sub-Workflow node's child run has
+trigger `sub-workflow` and records its parent (`parentExecutionId` on
+`POST /workflows/:id/execute`).
 A generic webhook signs `X-Webhook-Signature: sha256=<hex HMAC of the raw body>`;
 with `config.requireTimestamp` on, the caller also sends `X-Webhook-Timestamp`
 (Unix seconds) and signs `"<timestamp>.<raw body>"`, and a timestamp more than
