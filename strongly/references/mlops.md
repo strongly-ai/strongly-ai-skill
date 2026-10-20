@@ -80,6 +80,9 @@ deploys after its trainer image has been retired; a publish while it builds wait
 A job's scores (`metrics.val_score`, `metrics.test_score`, leaderboard `score`) are AutoGluon's in
 `models_info.eval_metric`: higher is better, so an error metric (RMSE, MAE, MASE, log loss) is
 negative. Report it with the sign flipped, in the metric's units, never as a percentage.
+The job's experiment runs differ: their `val_score` and `test_score` are already in the metric's
+units (an RMSE positive; the job's run names it as `eval_metric`), and `relative_score_pct` is a
+model's score as a percentage of the best model's (100 for the best).
 `metrics.feature_importance` is each feature's permutation importance (a share of the total) on
 the rows `metrics.feature_importance_rows` names, which the model was not trained on.
 
