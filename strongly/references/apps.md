@@ -492,7 +492,8 @@ SDKs works) receives only checked requests, with the user as
 `X-Strongly-User-Token` and the access token as `X-Strongly-Mcp-Token`: an
 ES256 JWT (`typ at+jwt`; `iss` = `<platform>/oauth/apps/<appId>`, `aud` =
 the server URL, `sub` = user id, `client_id`, `scope`). Verify it with
-`<platform>/oauth/jwks` (`STRONGLY_HOST`, `STRONGLY_APP_ID` give both URLs),
+`<platform>/oauth/jwks` (the app gets the issuer and audience as
+`STRONGLY_MCP_ISSUER` and `STRONGLY_MCP_SERVER_URL`),
 enforce the scopes in every tool, read only `sub`'s data, never take a user id
 as a tool argument. The app shows a user their own connections with
 `GET /me/mcp-connections` and `DELETE /me/mcp-connections/:id` (called with the
