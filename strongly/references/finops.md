@@ -140,6 +140,9 @@ curl -s "${auth[@]}" "$BASE/finops/budgets/<budgetId>" | jq '.data'
 There is no create, update, or delete for budgets on this API. Do not attempt one.
 A budget's `notifications.email` says whether it also emails its alerts (they are
 bell notifications either way); `notifications.mode` is `immediate` or `digest`.
+An alert goes to the budget's recipients (platform admins, or the org's owners and
+admins) and to the owner, and other tracked user, of each workload that spent in
+it this period; those see only their own workloads (`metadata.workloads`).
 AI Gateway spend is its self-hosted models' pods: a `self_hosted_model` budget.
 
 ---
