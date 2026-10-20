@@ -390,9 +390,14 @@ The `status` response carries an **`invocation`** block once a trigger exists:
 after a successful deploy, relay `invocation.url`, the auth mode(s), and the exact
 signing header to the user, so they can actually call their workflow. For a webhook
 whose `secretConfigured` is false, set `config.secret` first or callers get a 401.
+A generic webhook signs `X-Webhook-Signature: sha256=<hex HMAC of the raw body>`;
+with `config.requireTimestamp` on, the caller also sends `X-Webhook-Timestamp`
+(Unix seconds) and signs `"<timestamp>.<raw body>"`, and a timestamp more than
+`config.maxTimestampAge` seconds either side of now is refused (401).
 A **Form** trigger's block gives its public URL (`POST /api/v1/forms/<id>`, no auth,
 multipart or JSON) and `captcha`: with CAPTCHA on, `config.captchaSecretKey` must be
-set or every submission is refused. A **Schedule** trigger's block gives the
+set or every submission is refused. A refused submission tells the submitter only
+"busy" (409), "not accepting submissions" (402) or "Submission failed". A **Schedule** trigger's block gives the
 schedule as it runs (`cron`, `dailyTime` or `intervalMinutes`, plus `timezone`);
 it runs only while deployed, and undeploying stops it. **Email**, **RSS** and **File**
 triggers poll: the deployed workflow checks the mailbox / feed / S3 location every
