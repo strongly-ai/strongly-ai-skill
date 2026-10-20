@@ -105,6 +105,12 @@ A **solution** is a resource under governance. Create it, ask what it needs, the
 submit each gate, get it reviewed, and check whether it may deploy. `create`
 returns the solution (its id is `data._id`).
 
+A marketplace offering is not a resource type of its own: it deploys as the
+workloads it creates (app, add-ons, workflows, agent, models, volumes, avatars),
+each checked by its own id as when the user creates it. A block holds the
+deployment (`governance-hold`, see marketplace.md) until the solution's gates
+are complete; it then continues on its own.
+
 ```bash
 # Create -> the solution; its id is data._id
 SOL=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \

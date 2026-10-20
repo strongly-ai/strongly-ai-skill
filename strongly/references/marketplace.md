@@ -117,22 +117,26 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   "$BASE/marketplace/deploy" | jq '.data'
 ```
 
-Then **poll progress by the marketplace item id** (`$ITEM_ID`), because progress
-is tracked on the offering. Use the lightweight status for a percentage, or the
+Then **poll the deployment by the `_id` the deploy returned** (`$DEPLOYMENT_ID`):
+each deployment has its own record. Use the lightweight status for a percentage, or the
 full deployment for created resources. Do not report success until `status` is
 `complete` (or the payload's `deployed` is true).
 
 ```bash
 # Lightweight: status + percentage
-curl -s "${auth[@]}" "$BASE/marketplace/deployments/$ITEM_ID/status" | jq '.data'
+curl -s "${auth[@]}" "$BASE/marketplace/deployments/$DEPLOYMENT_ID/status" | jq '.data'
 
-# Full: progress, result (result.appId when done), createdResources, error
-curl -s "${auth[@]}" "$BASE/marketplace/deployments/$ITEM_ID" | jq '.data'
+# Full: progress, result (result.appId when done), createdResources, error, governance
+curl -s "${auth[@]}" "$BASE/marketplace/deployments/$DEPLOYMENT_ID" | jq '.data'
 ```
 
-`status` values: `complete`, `failed`, `none` (nothing in progress and not yet
-deployed), or an in-progress status while the build runs (`stepMessage` carries
-the human-readable step). On `failed`, read the `error` field. Progress
+`status` values: `validating`, `deploying`, `governance-hold`, `cancelling`,
+`complete`, `failed`, `cancelled` (`stepMessage` carries the human-readable step).
+On `failed`, read the `error` field. Each workload an offering creates is governed
+like one the user creates; on `governance-hold` governance blocked one: `governance`
+names it and the solutions whose requirements are pending. The deployment keeps what
+it created and continues on its own once they are complete (tell the user what is
+required; do not redeploy). Cancelling it removes what it created. Progress
 `currentStep` maps to `percentage` as:
 
 | currentStep | % | Stage |
