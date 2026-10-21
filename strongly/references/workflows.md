@@ -289,9 +289,8 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 | DELETE | `/workflows/:workflowId/connections/:id` | Remove a connection (`204`; use a REAL id from `GET /workflows/:id`; never invent one) |
 | POST | `/workflows/:id/arrange` | Auto-arrange nodes left-to-right |
 
-Templates (including the platform's public `scaffold` starters) are listed only by
-`GET /workflows/templates`; `POST /workflows/from-template`
-(`templateId`), `POST /workflows/:id/save-as-template`. Sharing:
+Start a workflow from a template of the template library instead of from scratch
+(see "Templates" below). Sharing:
 `GET·PATCH /workflows/:id/permissions` (owner, members, `visibility`),
 `POST /workflows/:id/permissions/members` `{ userId, role }`,
 `DELETE /workflows/:workflowId/permissions/members/:userId`. An agent
@@ -612,3 +611,31 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 - [ ] Invocation URL, auth mode, and signing header relayed to the user; webhook `config.secret` set if a signed caller needs it.
 - [ ] Streaming: deployed, session readiness gated on live pod health, session ended after testing.
 - [ ] Cleanup: undeploy and stop before `DELETE`.
+
+## Templates
+
+Every instance has the platform's template library (`/library/templates`, scopes
+`templates:read` / `templates:write`): `platform-rag-document-qa`,
+`platform-rag-knowledge-ingest`, `platform-rag-knowledge-search`,
+`platform-scheduled-report`, `platform-inbound-triage`, `platform-webhook-llm-store`,
+`platform-scheduled-llm-store` (workflows) and `platform-react-starter` (the app
+every app build starts from), plus the workflow templates users saved.
+
+```bash
+# What fits, and what it leaves to choose (its bindings) and how to adapt it (guide).
+curl -s "${auth[@]}" "$BASE/library/templates?kind=workflow&q=report" | jq '.data[] | {_id, name}'
+curl -s "${auth[@]}" "$BASE/library/templates/platform-scheduled-report" | jq '.data | {bindings, guide}'
+
+# A NEW draft workflow from it, its named choices filled: { "<node id>.<setting>": value }.
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"name":"Daily sales","bindings":{"summarize.model":"<model _id>","fetch.url":"https://api.example.com/sales"}}' \
+  "$BASE/library/templates/platform-scheduled-report/use" | jq '.data.workflowId'
+```
+
+A choice not filled stays a placeholder (`__SELECT_CHAT_MODEL__` and the like):
+the draft names it as not selected until it is set in the node
+(`PATCH /workflows/:workflowId/nodes/:id`). Save a good workflow as your template
+with `POST /library/templates { "workflowId", "name", "guide" }`; change it with
+`PATCH`, delete it with `DELETE /library/templates/:id`, share it with
+`/library/templates/:id/permissions`. SDK: `client.templates.list/retrieve/use/create`.
+

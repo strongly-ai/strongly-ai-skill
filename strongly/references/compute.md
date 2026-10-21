@@ -310,7 +310,7 @@ TUI, not a bash shell: send natural-language tasks with
 
 | Method + path | Scope | Purpose |
 |---|---|---|
-| `POST /code-sessions` | `code-sessions:write` | Create or resume. Required: `projectName`, `projectDescription`. Optional: `projectId`, `workspaceId`, `scaffold` (e.g. `react-starter`), `assistant` (`claude-code` default or `codex`). |
+| `POST /code-sessions` | `code-sessions:write` | Create or resume. Required: `projectName`, `projectDescription`. Optional: `projectId`, `workspaceId`, `assistant` (`claude-code` default or `codex`), and the new workspace's size (`environmentId` or `customResources`). A NEW app build starts from the `react-starter` app template instead (below). |
 | `GET /code-sessions` | `code-sessions:read` | List. `live=true` returns only resumable sessions. |
 | `GET /code-sessions/:id` | `code-sessions:read` | Get one, including `provisioningStep`; polling drives the provisioning transition. |
 | `GET /code-sessions/:id/status` | `code-sessions:read` | Focused lifecycle status. |
@@ -322,11 +322,13 @@ TUI, not a bash shell: send natural-language tasks with
 | `DELETE /code-sessions/:id` | `code-sessions:write` | End the session and stop the workspace. |
 
 ```bash
-# Create a session, poll until ready, then hand the assistant a build task.
+# A new app build: the react-starter app template makes the project (its code is the
+# starter app), its workspace and the code session. Poll until ready, then hand the
+# assistant a build task.
 SID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"projectName":"dashboard","projectDescription":"internal metrics UI",
-       "scaffold":"react-starter"}' \
-  "$BASE/code-sessions" | jq -r '.data._id')
+  -d '{"name":"dashboard","description":"internal metrics UI",
+       "customResources":{"cpu":"2","memory":"8GB","disk":"20GB"}}' \
+  "$BASE/library/templates/platform-react-starter/use" | jq -r '.data.sessionId')
 
 curl -s "${auth[@]}" "$BASE/code-sessions/$SID/status" | jq '.data.status'   # until ready
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
@@ -339,7 +341,7 @@ Login is the user's own Claude account: Strongly supplies no credential. Relay t
 with `login-code`. For Codex (`state: "terminal"`), drive `codex login` through the
 terminal endpoints (`POST /code-sessions/:id/inputs`, `GET /code-sessions/:id/output`).
 
-**The `react-starter` scaffold is deploy-ready.** It seeds a verified Strongly
+**The `react-starter` app template is deploy-ready.** It is a verified Strongly
 starter app that already solves serving behind the proxy: a proxy-safe relative
 base path, the signed-in-user identity read, a `STRONGLY_SERVICES` client, and a
 `/health` endpoint (see `references/apps.md`). Claude Code EXTENDS it, so you do
