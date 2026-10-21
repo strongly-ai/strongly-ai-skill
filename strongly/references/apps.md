@@ -357,6 +357,13 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$A
   "access": "approval", "allowedDomains": ["example.com"] }'
 # -> data.auth.pages = { signIn, signUp, forgotPassword, signOut }; share signIn.
 # GET /apps/:id returns the same under data.auth (logo omitted; hasLogo).
+# The pages' look: primaryColor (buttons and links), buttonTextColor, backgroundColor
+# (#RRGGBB; null = the platform's own) and headingFont (a Google Fonts family). The
+# button text on the button and the links on the background must meet WCAG AA (4.5:1)
+# or the PATCH is refused (400, the detail names the pair to change).
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/auth" -d '{
+  "primaryColor": "#0F2340", "buttonTextColor": "#C9A227", "backgroundColor": "#F7F8FA",
+  "headingFont": "Cormorant Garamond" }'
 
 # Everyone who can open it by name (type platform | app, access owner | editor | user);
 # status active | pending (waiting for approval) | archived (owner, app admins, admins only)
