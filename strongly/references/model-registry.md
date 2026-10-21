@@ -170,6 +170,24 @@ version** to actually roll the live pod onto that version. A running model
 deploys from a non-running state, so to swap the served version on a live model,
 `stop` it first (section 4), then `deploy` the version.
 
+### Delete a version
+
+Delete a duplicate or unwanted version by its number. Confirm with the user first:
+it cannot be undone.
+
+```bash
+# DELETE /mlops/models/:modelId/versions/:id -> 204
+curl -s -X DELETE "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/versions/3"
+```
+
+Its image, its uploaded bundle (kept while another version is the same upload),
+its baselines and the drift analyses against them are deleted. Its predictions are
+kept and still name it; the model lists it in `deletedVersions` and no later
+version takes its number. Refused with `409` and a `code`: `version-active` (deploy
+or activate another version first), `only-version` (delete the model instead),
+`version-deploying`, `baseline-building`. A `502` `image-delete-failed` keeps the
+version; retry. SDK: `client.model_registry.delete_version(model_id, 3)`.
+
 ---
 
 ## 4. Deploy for inference
