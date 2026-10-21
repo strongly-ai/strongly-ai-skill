@@ -302,6 +302,7 @@ longer exists.
 |---|---|---|---|
 | GET | `/addon-types` | List the managed types you can create, with what each is best for | `addons:read` |
 | GET | `/addons` | List existing addons (`q`, `type`, `status`, `limit`, `cursor`) | `addons:read` |
+| GET | `/addons/stats` | The list's counts with its filters: `{ total, byStatus[{status, total}], byType[{type, total}] }` (`requested`: deploy not yet accepted), most first, not a page | `addons:read` |
 | POST | `/addons` | Create an addon (`label`, `type`, `cpu`, `memory`, `disk`, `description?`) | `addons:write` |
 | GET | `/addons/:id` | Get one addon's stored config | `addons:read` |
 | PATCH | `/addons/:id` | Update label / description / resources | `addons:write` |

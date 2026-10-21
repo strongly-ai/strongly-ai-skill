@@ -273,7 +273,7 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/workflows` | Create (only `name` required; `description`, `status`, `workflowType`, `nodes`, `connections`, `tags`, `settings`) |
-| GET | `/workflows` | List (`q`, `status`, `tag`, `limit`, `cursor`); summaries only, no graph; templates are not listed |
+| GET | `/workflows` | List (`q`, `status`, `tag`, `limit`, `cursor`); summaries only, no graph; an agent's (mode agent) has `agentStatus`; templates are not listed |
 | GET | `/workflows/stats` | Workflow counts, templates not counted: by state (total / active / paused / draft / archived; an agent is active while it runs) and by kind (batch / streaming / agents, adding up to total) |
 | GET | `/workflows/:id` | Full detail including all nodes and connections |
 | PATCH | `/workflows/:id` | Partial update (`name`, `description`, `status`, `tags`, `settings`, `deploymentEnvironmentId`, `environmentVariables`) |

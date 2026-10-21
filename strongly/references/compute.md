@@ -53,6 +53,7 @@ take their share out of it).
 | Method + path | Scope | Purpose |
 |---|---|---|
 | `GET /workspaces` | `workspaces:read` | List. Filters: `q`, `status`, `projectId`, `limit`, `cursor`, `sort`. |
+| `GET /workspaces/stats` | `workspaces:read` | The list's counts with its filters: `{ total, byStatus[{status, total}], byEnvironment[{environment, total}] }` (the IDE), most first, not a page. |
 | `POST /workspaces` | `workspaces:write` | Create. Required: `name`, `description`, `environmentType`. |
 | `GET /workspaces/:id` | `workspaces:read` | Get one. |
 | `PATCH /workspaces/:id` | `workspaces:write` | Update `name`, `description`, its services (`addons`, `dataSources`, `aiGateways`, `mlModels`, `workflows`, `featureStores`, `agents`; each add-on's and data source's Python client is installed at start), `codingAssistants` (at most one) and `skillIds` (from the next start or restart), or `environmentVariables` (before its first start). Size, IDE and image are fixed at create. |

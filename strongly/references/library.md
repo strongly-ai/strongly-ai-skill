@@ -206,7 +206,8 @@ notifications.
 
 | Endpoint | Purpose | Key params / body |
 |---|---|---|
-| `GET /primitives/tasks` | List | `kind, status, tags, linkedIds, includeCompleted, q, dueOnly, triggerType, limit, cursor` |
+| `GET /primitives/tasks` | List, latest changed first; each names its agent (`agentId`, `agentName`) | `kind, status, tags, linkedIds, includeCompleted, q, dueOnly, triggerType, sort (-updatedAt default, dueAt soonest due first with undated last, -dueAt, createdAt, -createdAt, updatedAt), limit, cursor` |
+| `GET /primitives/tasks/stats` | The list's counts: `{ total, byStatus, byTriggerType, fires, failing }` (rows `{ <field>, total }`, most first; failing = latest failed fire unfixed) | the list's filters |
 | `POST /primitives/tasks` | Create | body: `description*, linkedIds* (one agent of yours + any pools), recurrence, dueAt, triggerType, notes, tags, subjectRef, assignedToAgent, createdByAgent` |
 | `GET /primitives/tasks/:id` · `PATCH /primitives/tasks/:id` · `DELETE /primitives/tasks/:id` | Fetch (with its status and scheduling fields) / update (a recurrence change recomputes `nextDueAt`) / delete | |
 | `POST /primitives/tasks/:id/complete` | Mark done; recurring advances to the next occurrence. A fire has one completion: an already-complete fire answers `alreadyComplete: true` and records nothing | body: `notes, executionId, runId` |

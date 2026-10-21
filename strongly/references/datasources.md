@@ -268,6 +268,8 @@ Data sources:
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/data-sources` | List (filter by `q`, `type`, `category`, `status`; paginated) |
+| GET | `/data-sources/stats` | The list's counts with its filters: `{ total, byStatus, byType, byCategory, usageCount }` (rows `{ <field>, total }`, most first; `usageCount` = launches added up), not a page |
+| GET | `/data-sources/:id/time-series` | Its launches over time (`window` `24h` hourly, `7d`/`30d` daily): points `{ timestamp, launches, users }` (users = different people launched for), every bucket a point |
 | POST | `/data-sources` | Create (`name`, `label`, `type`, `credentials` required) |
 | GET | `/data-sources/:id` | Get one (credentials stripped) |
 | PATCH | `/data-sources/:id` | Update (partial) |

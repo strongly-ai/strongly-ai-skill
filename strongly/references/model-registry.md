@@ -322,12 +322,13 @@ curl -s -X DELETE "${auth[@]}" "$BASE/mlops/models/$MODEL_ID"  # delete
 |---|---|---|
 | POST | `/mlops/models/uploads/validate` | Upload artifact bytes to S3, parse manifest, get `s3Key` |
 | POST | `/mlops/models` | Register a model (servable or external metadata-only) |
-| GET | `/mlops/models` | List registered models (filters + pagination) |
+| GET | `/mlops/models` | List registered models (filters + pagination; `q` on name, description, framework, algorithm) |
+| GET | `/mlops/models/stats` | The list's counts with its filters: `{ total, byDeploymentStatus, byFramework, bySource, byDriftStatus }` (rows `{ <field>, total }`, most first; driftStatus null = never analyzed) |
 | GET | `/mlops/models/:id` | Get one model, full detail |
 | GET | `/mlops/models/:id/status` | Registry-side lifecycle snapshot |
 | PATCH | `/mlops/models/:id` | Update a registered model |
 | DELETE | `/mlops/models/:id` | Delete a registered model |
-| GET | `/mlops/models/:id/versions` | List versions + which is active |
+| GET | `/mlops/models/:id/versions` | List versions, newest first (`sort` `-version` default, `version`, `createdAt`, `-createdAt`) + which is active |
 | POST | `/mlops/models/:id/versions` | Add a version from an uploaded artifact |
 | POST | `/mlops/models/:modelId/versions/:id/activate` | Set the active version (no deploy) |
 | POST | `/mlops/models/:modelId/versions/:id/deploy` | Set active + deploy that version |

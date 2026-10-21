@@ -60,7 +60,7 @@ curl -s "${auth[@]}" "$BASE/marketplace/items/$ITEM_ID/license"  | jq -r '.data'
 
 | Method | Path | Scope | Purpose |
 |---|---|---|---|
-| GET | `/marketplace/items` | `marketplace:read` | List/search offerings (`q`, `vertical`, `type`, `featured`, `limit`, `cursor`, `sort`) |
+| GET | `/marketplace/items` | `marketplace:read` | List/search offerings (`q` on name, description, tags, vendor; `vertical`, `type`, `featured`, `limit`, `cursor`, `sort`) |
 | GET | `/marketplace/verticals` | `marketplace:read` | Categories with item counts |
 | GET | `/marketplace/items/:id` | `marketplace:read` | Full detail for one offering |
 | GET | `/marketplace/items/:id/deploy-config` | `marketplace:read` | The offering's `deploy.json` |
@@ -162,7 +162,7 @@ curl -s -X DELETE "${auth[@]}" "$BASE/marketplace/deployments/$DEPLOYMENT_ID"   
 | Method | Path | Scope | Purpose |
 |---|---|---|---|
 | POST | `/marketplace/deploy` | `marketplace:deploy` | Start a deploy (`appName`, `config`); returns 202 |
-| GET | `/marketplace/deployments` | `marketplace:deploy` | List the user's deployed offerings |
+| GET | `/marketplace/deployments` | `marketplace:deploy` | List the user's deployed offerings, newest first (`marketplaceItemId`: one item's) |
 | GET | `/marketplace/deployments/:id` | `marketplace:deploy` | Full deploy info (progress, result, createdResources) |
 | GET | `/marketplace/deployments/:id/status` | `marketplace:deploy` | Lightweight status + percentage |
 | POST | `/marketplace/deployments/:id/cancel` | `marketplace:deploy` | Cancel an in-progress deploy; answers the deployment, `cancelling` |

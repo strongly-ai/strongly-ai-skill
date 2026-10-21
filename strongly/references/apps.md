@@ -317,13 +317,17 @@ curl -s -X PUT "${auth[@]}" -F "file=@bundle.zip;type=application/zip" "$BASE/ap
 # then deploy again. The running version keeps serving until that deploy.
 ```
 
-Lifecycle: `GET /apps` · `GET/PATCH /apps/:id` · `PUT /apps/:id/env` ·
+Lifecycle: `GET /apps` · `GET /apps/stats` · `GET/PATCH /apps/:id` · `PUT /apps/:id/env` ·
 `GET/PATCH /apps/:id/permissions` + `…/permissions/members` · `POST /apps/:id/start|stop|restart` ·
 `GET /apps/:id/logs` · `GET /apps/:id/metrics` · `GET /apps/:id/time-series` · `DELETE /apps/:id`.
 
 `GET /apps/:id/time-series?window=24h|7d|30d` is the app's CPU and memory over time from
 Kubecost's hourly records (the mean used, the busiest hour, its size; null where it did not
 run), for its owner, collaborators and admins; `GET /apps/:id/metrics` measures it now.
+
+`GET /apps/stats` counts the apps `GET /apps` lists, with the same filters (`q`, `status`,
+`environmentId`, `publicAccess`), over every one you may see: `{ total, byStatus[{status, total}],
+instances }` (replicas set, added up), most first.
 
 Who can open an app is ONE place in the dashboard: the app's **Permissions** tab
 (sections Access, Users, Sign-in, Native apps, Connected apps (MCP), Domains).

@@ -456,7 +456,8 @@ Agents can message each other. These routes are scoped by agent authorization
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/agents` | List agents with live status (`q`, `status`, `limit`, `cursor`) |
+| GET | `/agents` | List agents with live status (`q` on name or description, `status`, `limit`, `cursor`) |
+| GET | `/agents/stats` | The list's counts (`q`): `{ total, byStatus[{status, total}], byHealth[{health, total}] }` (running ones by last health check; null before the first), most first |
 | POST | `/agents` | Create an agent, as the Agent Builder does |
 | POST | `/workflows/:id/promote` | Promote a workflow to an agent (`toolWorkflowIds`); answers the agent with `warnings` |
 | POST | `/agents/:id/demote` | Turn an agent back into a workflow; answers the workflow |

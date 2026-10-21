@@ -80,7 +80,7 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gatew
 
 | Method / path | Does | Scope |
 |---|---|---|
-| `GET /ai-gateway/models/overview` | Counts by status and type | `ai-gateway:read` |
+| `GET /ai-gateway/models/overview` | Counts: `total`, `active`/`deploying`/`stopped`/`failed`, `thirdParty`/`selfHosted`, and `byStatus`, `byType`, `byProvider` rows (`{ <field>, total }`, most first) | `ai-gateway:read` |
 | `GET /ai-gateway/models` | List (`q`, `type`, `status`, `provider`, `modelType`, `limit`, `cursor`, `sort`) | `ai-gateway:read` |
 | `GET /ai-gateway/models/providers` | Distinct third-party providers + counts | `ai-gateway:read` |
 | `GET /ai-gateway/models/certified` | Curated third-party catalog (`provider`, `modelType`, `capability`) | `ai-gateway:read` |
