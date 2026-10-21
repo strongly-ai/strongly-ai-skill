@@ -86,12 +86,13 @@ Every account belongs to exactly one organization, so nobody is added to one by
 id: a person joins an organization only by invitation, sent to an email address
 with no account yet, and signs up into it from the invitation.
 
-Organization names are unique in any letter case, and an organization is shown
-by its name alone everywhere. A person's own organization is `<name>'s
-Organization`, from their account's name (never an email address: creating a
-user with an email as `name` returns `400`); a second person with the same name
-gets `<name>'s Organization 2`. `PATCH /organizations/:id` with a `name` another
-organization has returns `409 duplicate`.
+Show an organization to a person by its `label`, `<owner> (<organization id>)`
+(for example `Zack Hudson (org-zack-hudson-7ohe2kqcw)`), the format every
+Strongly list uses. Names need not be unique. A person's own organization is
+`<name>'s Organization`, from their account's name; a user's name and an
+organization's name are never empty or an email address (`400`). An
+organization is archived only when it holds nothing (`422 resource-in-use`
+otherwise): transfer or delete its resources first.
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
