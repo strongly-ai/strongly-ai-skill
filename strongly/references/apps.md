@@ -180,11 +180,11 @@ app.listen(Number(process.env.PORT || 3000), '0.0.0.0');
 - `Cache-Control: no-store` on the shell → no stale-shell after redeploy.
 
 ### 1d. Build pitfalls that fail a deploy
-- **Node 18 in the generated Dockerfile.** Without your own `Dockerfile`, a Node,
-  React or fullstack app builds `FROM node:18-alpine`. A dependency that needs
-  Node 20+ (current Vite, React Router 7 and others) fails the build: pin versions
-  that support Node 18, or ship a `Dockerfile` `FROM node:20-alpine` (it is used as
-  written).
+- **Node in the generated Dockerfile.** Without your own `Dockerfile`, a Node,
+  React or fullstack app builds `FROM node:22.23.4-alpine` (the patched October
+  2026 Node.js security release). An app that ships its own `Dockerfile` is built
+  from it as written: base it on a patched Node (`node:22.23.4-alpine` or later),
+  never Node 18 or 20, which are end-of-life and get no security fixes.
 - **Express 5** (what `npm i express` installs now): `app.get('*', ...)` crashes
   at start ("Missing parameter name"). Use `app.get('/{*splat}', ...)` or a final
   `app.use((req, res) => ...)` for the SPA fallback.
