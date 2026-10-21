@@ -110,7 +110,7 @@ Choosing the right one:
 | `GET /finops/costs/forecast` | `weeks` (1-52, default 13) | `historical`, `predictions` (days), `weeks`, `total`, each with `predicted`/`lowerBound`/`upperBound`; `interval` (0.95), `model` |
 | `GET /finops/costs/anomalies` | `days`, `threshold` | Detected anomalies for the window |
 | `GET /finops/costs/savings` | `category`, `minSavings` | Rightsizing recommendations + total potential savings |
-| `GET /finops/data-health` | (none) | Cost-collection coverage, data gaps, organization-hours not composed, unmetered scale-ups, hours Kubecost built only part of (not charged until whole), hours the cost refresh could not read or record, with why (not charged until recorded) |
+| `GET /finops/data-health` | (none) | Cost-collection coverage, data gaps, organization-hours not composed, hours Kubecost built only part of (not charged until whole), hours the cost refresh could not read or record, with why (not charged until recorded) |
 
 Notes that save a wrong call:
 - There is no `compareWindow` on `top-drivers`; compare periods with
