@@ -46,7 +46,7 @@ sees only themselves in `GET /users`.
 | GET | `/me` | You: `_id`, `username`, `email`, `role`, `organization`, `apiKey` | (any key) |
 | PATCH | `/me` | Update your own profile (`name`) | `users:write` |
 | DELETE | `/me` | Delete your own account: revokes your API keys and login tokens, schedules data erasure; the account is archived with its memberships | `users:write` |
-| GET | `/users` | List users visible within your organization, each `_id`, `username`, `email`, `role` (`q`, `active`, `archived`, `limit`, `cursor`, `sort`) | `users:read` |
+| GET | `/users` | List users visible within your organization, each `_id`, `username`, `email`, `role` (`q`, `active`, `limit`, `cursor`, `sort`); an archived user is never listed, and `GET /users/:id` answers `404` for one | `users:read` |
 | GET | `/users/:id` | Another user in your organization: `_id`, `username`, `email`, `role` (visibility-filtered) | `users:read` |
 
 ```bash
@@ -70,8 +70,12 @@ these act on *other* users, not yourself):
 | PATCH | `/users/:id` | Update another user | `users:admin` |
 | GET | `/users/:id/assets` | Summarize resources a user owns (impact check before archiving) | `users:admin` |
 | POST | `/users/:id/archive` | Archive a user, with the required `assetAction` (`transfer`, `transfer-to-admin` or `delete`) and `transferToUserId`; an archived user owns nothing (only the user record is kept, for FinOps and analytics), so their resources are transferred or deleted; `delete` deletes their resources under the calling administrator's authority, never as the user. Resources include Library records and agent primitives (knowledge bases, pools/Imprints, skills, rules, prompts, memories, artifacts, tasks, preferences) and their STAN sessions, conversations, memories, skills and artifacts, moved or deleted like the rest; `delete` also archives their own (single-member) organization and removes its Kubernetes namespace. Users are never deleted: their memberships (organization, app-user entries, team seats) are archived with them, so they count as no member or seat. `GET /users/:id/assets` counts them all | `users:admin` |
-| POST | `/users/:id/unarchive` | Reactivate an archived user, restoring the memberships archived with them | `users:admin` |
 | POST | `/users/:id/reset-password` | Reset a user's password | `users:admin` |
+
+There is no unarchive in the API (or STAN or the SDKs): an administrator unarchives a user by
+hand in the dashboard (Add User or Invite with their email offers **Unarchive**; `POST /users`
+and invitations refuse an archived user's email with `409`). Never offer to unarchive through
+the API.
 
 ---
 
@@ -92,7 +96,9 @@ Strongly list uses. Names need not be unique. A person's own organization is
 `<name>'s Organization`, from their account's name; a user's name and an
 organization's name are never empty or an email address (`400`). An
 organization is archived only when it holds nothing (`422 resource-in-use`
-otherwise): transfer or delete its resources first.
+otherwise): transfer or delete its resources first. An archived organization is never
+listed (`status` takes `active` or `suspended`) and `GET`/`PATCH /organizations/:id`
+answer `404` for it, so the API never brings one back.
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
@@ -212,7 +218,7 @@ curl -s -X DELETE "${auth[@]}" "$BASE/me/push-devices/<apns-hex-token>" -o /dev/
 - [ ] Auth set per `SKILL.md` (outside Strongly: `X-API-Key`; inside: injected bearer), `$BASE` chosen to match.
 - [ ] Read yourself with `GET /me` first; take `organization._id` from it for the org, credit, and transaction calls.
 - [ ] Self-serve on your own record: `GET`/`PATCH` `/me`, and `DELETE /me` (irreversible, caller-only).
-- [ ] Treat user create/update/archive/unarchive/reset-password as `users:admin`, acting on other users only.
+- [ ] Treat user create/update/archive/reset-password as `users:admin`, acting on other users only; unarchive is by hand in the dashboard only.
 - [ ] Treat org update, member add/remove/role, and invite/cancel as `organizations:write` and org owner/admin.
 - [ ] Credits, transactions and credit grants are read by the org's owner and platform admins; only platform admins create, change or end a grant.
 - [ ] Notifications and their single-item routes are scoped to you; ownership is enforced on `:id` read/delete.

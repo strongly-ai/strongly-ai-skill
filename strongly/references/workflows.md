@@ -273,8 +273,8 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/workflows` | Create (only `name` required; `description`, `status`, `workflowType`, `nodes`, `connections`, `tags`, `settings`) |
-| GET | `/workflows` | List (`q`, `status`, `tag`, `limit`, `cursor`); summaries only, no graph; an agent's (mode agent) has `agentStatus`; templates are not listed |
-| GET | `/workflows/stats` | Workflow counts, templates not counted: by state (total / active / paused / draft / archived; an agent is active while it runs) and by kind (batch / streaming / agents, adding up to total) |
+| GET | `/workflows` | List (`q`, `status`, `tag`, `limit`, `cursor`); summaries only, no graph; an agent's (mode agent) has `agentStatus`; templates and archived workflows are not listed |
+| GET | `/workflows/stats` | Workflow counts, templates not counted: by state (total / active / paused / draft; an agent is active while it runs) and by kind (batch / streaming / agents, adding up to total) |
 | GET | `/workflows/:id` | Full detail including all nodes and connections |
 | PATCH | `/workflows/:id` | Partial update (`name`, `description`, `status`, `tags`, `settings`, `deploymentEnvironmentId`, `environmentVariables`) |
 | DELETE | `/workflows/:id` | Delete (409 if deployed or running: undeploy and stop first). An agent's workflow is deleted as the agent (`DELETE /agents/:id`) |
@@ -438,7 +438,7 @@ the queue itself (an sqs-dest / rabbitmq-dest / kafka-dest node), not through th
 | POST | `/workflows/:id/stop` | Scale to zero, $0 cost, deployment preserved (202) |
 | POST | `/workflows/:id/start` | Scale a stopped workflow back up (202; `replicas`) |
 | POST | `/workflows/:id/undeploy` | Tear down the pod |
-| PATCH | `/workflows/:id` | Set the workflow `status` (`draft`, `active`, `paused`, `archived`), with any other field |
+| PATCH | `/workflows/:id` | Set the workflow `status` (`draft`, `active`, `paused`), with any other field |
 | GET · PUT | `/workflows/:id/lifecycle` | Get / set the lifecycle policy (`always-on`, `idle-shutdown`, `on-demand`, `scheduled-window`; PUT takes `type`, `idleTimeoutMinutes`, `schedule`) |
 | GET | `/workflows/:id/logs` | Recent worker pod logs (`lines`, `container`) |
 | GET | `/workflows/:id/metrics` | Aggregated run metrics (`window` = `1h`/`24h`/`7d`/`30d`) |

@@ -57,8 +57,12 @@ deletes the project with its jobs, workspaces, run history, board and activity.
 `volume` is required: `delete` removes the project's code/data volume and its
 data; `keep` keeps it as a shared volume owned by the project owner, code and
 data intact (its code read-only from then on). Ask the user which before deleting. `archive`
-takes a project out of sight for good: no list, count or get shows an archived project
-again (`404`) and nothing restores it; confirm with the user first.
+is a delete in all but the record: the project's workspaces are stopped and deleted, its jobs
+and their schedules deleted (live runs stopped, run history with them) and its board archived;
+its volume (code and data), record and activity are kept. No list, count or get shows an
+archived project again (`404`) and nothing restores it. It is refused (`422 resource-in-use`)
+while an agent lives in the project or uses one of its workspaces. Confirm with the user first,
+saying what goes.
 
 | Method | Path | Tool | Notes |
 |---|---|---|---|
@@ -67,7 +71,7 @@ again (`404`) and nothing restores it; confirm with the user first.
 | GET | `/projects/:id` | `get_project` | full project document |
 | PATCH | `/projects/:id` | `update_project` | `name`, `description`, `tags`, `category`, `icon`, `readme`, `isPublic` (any other field is refused) |
 | DELETE | `/projects/:id?volume=delete\|keep` | `delete_project` | `volume`* : delete or keep (as shared) the project volume |
-| POST | `/projects/:id/archive` | `archive_project` | out of sight for good; no restore |
+| POST | `/projects/:id/archive` | `archive_project` | deletes its workspaces and jobs, archives its board, keeps its volume; no restore |
 | GET | `/projects/:id/stats` | `get_project_stats` | usage, workspace counts, activity |
 | GET | `/projects/:id/activity` | `get_project_activity` | `limit`, `cursor` |
 
