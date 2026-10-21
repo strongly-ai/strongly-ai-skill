@@ -90,6 +90,15 @@ or `operatingPromptName`, `referenceKey` (e.g. `"atlas"`), `responseFormat`
 default is ALL disabled), and `workspace` (a persistent code-execution workspace,
 provisioned at start).
 
+To let an agent call one of its owner's Strongly apps, add the `strongly-app`
+connector: `{ "tileId": "strongly-app", "label": "Call a Strongly app",
+"category": "apis", "config": { "appId": "<app id>", "appPath": "/api/items" } }`
+(`appPath` optional: the path used when the agent names none). Its API Caller
+tool calls the app's in-cluster proxy route signed as the agent's owner (the app
+gets their `X-Strongly-User-Token`); no key or token. The `api-caller` connector
+(`base_url`, `auth_header`) is for APIs outside the platform and refuses an
+app's public `/api/proxy/` address.
+
 Reference-agent starting points (for prefilling the wizard) are served by
 `GET /agents/templates` (and one: `GET /agents/templates/:key`, key
 `iris|atlas|sage|aria`). Check a proposed name with

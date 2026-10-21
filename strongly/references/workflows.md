@@ -203,7 +203,8 @@ Rules the build enforces (it rejects the graph with an actionable error otherwis
   shows it as Continue on Iteration Error). A node whose required input is
   missing or empty FAILS ("required input missing: <name>"); only a node on a
   conditional branch that did not run is skipped.
-- To call a Strongly app on this platform, use the REST API node (`api`) with
+- To call a Strongly app on this platform, use the REST API node (`api`), or the
+  API Caller tool (`api-caller`, an agent's), with
   `config.target: "app"`, `appId` (the app's id) and `appPath` (or map the
   `appPath` input). It calls the app's in-cluster route as the run's owner (the
   app gets their `X-Strongly-User-Token`); no auth settings. An External URL on
