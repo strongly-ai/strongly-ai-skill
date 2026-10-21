@@ -105,6 +105,18 @@ Reference-agent starting points (for prefilling the wizard) are served by
 `iris|atlas|sage|aria`). Check a proposed name with
 `GET /agents/name-availability?name=...` (names are unique per user).
 
+The connectors an agent can be given, and the fields each asks for, come from
+`GET /agents/connectors` (a plain array of categories, each with its
+`connectors[]`): a connector backed by a workflow node asks for that node's
+connection fields (`fields[]`: `key`, `label`, `type`, `required`, `default`,
+`options`, `showIf`, `secret`), so the API Caller asks for `target`, `appId` and
+`appPath`, and SMTP for its host, port, user and password. Send one as
+`connectors: [{ tileId, nodeType, addOnType, label, category, config }]` with
+`config` keyed by its fields. A connector listed with `unavailable` cannot be
+given now (its node is not in the node catalog): say why and do not send it; sent
+anyway, it is refused. A field of type `custom` (a Google OAuth authorization)
+can only be completed in the web builder.
+
 ### 2b. Promote an existing workflow
 
 If the user already has a workflow, promote it:
@@ -449,6 +461,7 @@ Agents can message each other. These routes are scoped by agent authorization
 | POST | `/agents/:id/demote` | Turn an agent back into a workflow; answers the workflow |
 | GET | `/agents/name-availability` | Check a name (`name`) |
 | GET | `/agents/templates`, `/agents/templates/:key` | Reference agent payloads (`iris`, `atlas`, `sage`, `aria`) |
+| GET | `/agents/connectors` | The connectors an agent can be given, by category, each with the fields it asks for |
 | GET | `/agents/:id` | Agent details + live status + node graph |
 | PATCH | `/agents/:id` | Update `name`, `description`, `nodes`, `connections` |
 | GET/PATCH | `/agents/:id/config` | Read / update the brain config (only the fields sent change) |
