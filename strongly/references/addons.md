@@ -138,6 +138,9 @@ curl -s "${auth[@]}" "$BASE/addons/$ADDON_ID/logs?lines=200" | jq -r '.data'
 
 # Current CPU / memory / disk usage.
 curl -s "${auth[@]}" "$BASE/addons/$ADDON_ID/metrics" | jq '.data'
+
+# CPU and memory by day over 30 days (Kubecost's hourly records): used, busiest hour, size.
+curl -s "${auth[@]}" "$BASE/addons/$ADDON_ID/time-series?window=30d" | jq '.data.points'
 ```
 
 Read logs first when an addon fails to provision or crash-loops.
@@ -310,6 +313,7 @@ longer exists.
 | GET | `/addons/:id/status` | Live K8s pod state / readiness (poll this) | `addons:read` |
 | GET | `/addons/:id/credentials` | Decrypted host/port/user/password/connection string | `addons:read` |
 | GET | `/addons/:id/metrics` | Current CPU / memory / disk usage | `addons:read` |
+| GET | `/addons/:id/time-series` | CPU and memory over time from Kubecost's hourly records (`cpuCores`, `cpuCoresPeak`, `cpuRequestCores`, `memoryBytes`, `memoryBytesPeak`, `memoryRequestBytes`, `runningMinutes`; null where it did not run); `window` `24h` (hourly points) or `7d`/`30d` (daily UTC points, the default `30d`); answers `{window, granularity, start, end, points[{timestamp, …}]}`, every bucket a point, a quiet one zero | `addons:read` |
 | GET | `/addons/:id/logs` | Container logs (`lines`, `since`, `container`) | `addons:read` |
 | POST | `/addons/:id/backups` | Trigger an immediate backup | `addons:write` |
 | GET | `/addons/:id/backup-config` | Automated backup settings (`enabled`, `schedule`, `retention`, `lastBackup`, `nextBackup`) | `addons:read` |

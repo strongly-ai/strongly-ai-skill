@@ -62,6 +62,7 @@ take their share out of it).
 | `POST /workspaces/:id/restart` | `workspaces:write` | Restart. |
 | `GET /workspaces/:id/status` | `workspaces:read` | Live status (poll this until running). |
 | `GET /workspaces/:id/metrics` | `workspaces:read` | CPU / memory usage. |
+| `GET /workspaces/:id/time-series` | `workspaces:read` | CPU and memory over time from Kubecost's hourly records (`window` `24h`, `7d`, `30d`). |
 | `GET /workspaces/:id/logs` | `workspaces:read` | Container logs. `type` is `pod` (the IDE's own log, the default) or `deploy` (its Kubernetes rollout). |
 | `POST /workspaces/:id/sync` | `workspaces:write` | (Inside a workspace, its own id is `$STRONGLY_WORKSPACE_ID`.) Save to durable storage: commit and push the project volume's code to its configured branch (a shared volume's code is read-only: its result is `skipped: read-only`), and save each changed data file, in every volume the user may write, as a new version. Stop/start/restart keep unsynced work; only delete loses it. Sync to make work durable, visible to others, and buildable (an app builds from synced code) (section 5). |
 

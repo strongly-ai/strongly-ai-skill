@@ -173,6 +173,7 @@ push device mutates your user record, so it needs a write scope.
 |---|---|---|---|
 | GET | `/me/notifications` | List your notifications (`unreadOnly`, `limit`, `cursor`) | `notifications:read` |
 | GET | `/me/notifications/unread-count` | Count of your unread notifications | `notifications:read` |
+| GET | `/me/notifications/stats` | Every notification of yours counted: `{ total, unread, byType[{type, total, unread}] }` (not a page) | `notifications:read` |
 | POST | `/me/notifications/mark-all-read` | Mark all your notifications read; answers `{ count }` | `notifications:write` |
 | PATCH | `/me/notifications/:id` | `{ read }`: mark one of your notifications read or unread; answers the notification | `notifications:write` |
 | DELETE | `/me/notifications/:id` | Delete one of your notifications (`204`) | `notifications:write` |

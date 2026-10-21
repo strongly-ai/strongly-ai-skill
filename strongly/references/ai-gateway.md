@@ -92,6 +92,7 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gatew
 | `DELETE /ai-gateway/models/:id/cache` | Clear the model's cached responses (response cache and semantic cache) | `ai-gateway:write` |
 | `DELETE /ai-gateway/models/:id` | Delete the model | `ai-gateway:write` |
 | `GET /ai-gateway/models/:id/metrics` | Usage/latency metrics | `ai-gateway:read` |
+| `GET /ai-gateway/models/:id/time-series` | Requests, errors, tokens and mean latency over time, those you may count; `window` `24h` (hourly points) or `7d`/`30d` (daily UTC points, the default `30d`); answers `{window, granularity, start, end, points[{timestamp, …}]}`, every bucket a point, a quiet one zero | `ai-gateway:read` |
 | `GET /ai-gateway/models/:id/permissions` · `PUT .../permissions` | Read / set `isShared`, `sharedWith` | read / write |
 
 ---
@@ -307,6 +308,8 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/analytics/usage?dateRange=30d"           
 curl -s "${auth[@]}" "$BASE/ai-gateway/analytics/performance?dateRange=30d&modelId=$ID"       | jq '.data'
 curl -s "${auth[@]}" "$BASE/ai-gateway/analytics/time-series?dateRange=7d&granularity=daily"  | jq '.data'
 curl -s "${auth[@]}" "$BASE/ai-gateway/analytics/providers?dateRange=90d"                     | jq '.data'
+# One model's use by day (window 24h hourly, 7d or 30d daily), the requests you may count:
+curl -s "${auth[@]}" "$BASE/ai-gateway/models/$ID/time-series?window=30d"                    | jq '.data.points'
 ```
 
 | Method / path | Does | Params |

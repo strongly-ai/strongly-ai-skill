@@ -430,6 +430,7 @@ problem details: read `code` and `detail`.
   `POST /library/artifacts` (`title`, `content`, `linkedIds: [agentId]`),
   `DELETE /library/artifacts/:id`.
 - **Analytics:** `GET /agents/:id/analytics?days=30` (1 to 365).
+- **Model calls over time:** `GET /agents/:id/time-series?window=30d` (`24h` hourly, `7d`/`30d` daily): requests, errors, tokens and mean latency of the agent's AI Gateway calls. Its cost is FinOps': `GET /finops/costs/trends?workload=<agent id>`.
 
 ---
 
@@ -477,6 +478,7 @@ Agents can message each other. These routes are scoped by agent authorization
 | DELETE | `/agents/:agentId/threads/:id` | Delete a thread |
 | POST | `/agents/:agentId/threads/:id/runs` | Send a message (SSE stream) |
 | GET | `/agents/:id/analytics` | Usage analytics (`days`) |
+| GET | `/agents/:id/time-series` | Its AI Gateway calls and tokens over time (`window`) |
 | GET | `/agents/:id/sessions` | Chat sessions (`state`) |
 | GET | `/agents/:id/knowledge` | The agent's knowledge catalog |
 | GET | `/agents/:id/knowledge/search?q=` | Search the agent's document sections |

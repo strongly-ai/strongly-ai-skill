@@ -442,6 +442,7 @@ the queue itself (an sqs-dest / rabbitmq-dest / kafka-dest node), not through th
 | GET · PUT | `/workflows/:id/lifecycle` | Get / set the lifecycle policy (`always-on`, `idle-shutdown`, `on-demand`, `scheduled-window`; PUT takes `type`, `idleTimeoutMinutes`, `schedule`) |
 | GET | `/workflows/:id/logs` | Recent worker pod logs (`lines`, `container`) |
 | GET | `/workflows/:id/metrics` | Aggregated run metrics (`window` = `1h`/`24h`/`7d`/`30d`) |
+| GET | `/workflows/:id/time-series` | Runs over time by outcome (`completed`, `partial`, `failed`, `cancelled`, `running` add up to `runs`) with mean, shortest and longest duration; `window` `24h` (hourly) or `7d`/`30d` (daily) |
 
 To delete: undeploy, stop any running execution, then `DELETE /workflows/:id`.
 
