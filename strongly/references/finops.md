@@ -116,11 +116,10 @@ Notes that save a wrong call:
 - There is no `compareWindow` on `top-drivers`; compare periods with
   `costs/monthly` or `trends` (its `changePercent` is on the previous period).
 - A change on the previous period (`changePercent`, `spendTrend`, a row's
-  `trend`) is of the cost per recorded hour. `previousPeriodHoursRecorded`
-  below `hours` means the cost record holds only part of the previous period
-  (it starts on `recordedFrom`): report the change with that coverage. Both
-  the previous cost and the change are `null` only when a period has no
-  recorded hour.
+  `trend`) needs the whole previous period in the cost record (a 30-day change
+  needs 60 days of history). Without it the change is `null` and
+  `noChangeReason` says what is missing ("Needs 60 days of history (55
+  recorded)"): report that line as it is.
 - `ownerId` keeps the costs a user owns, `userId` the costs a user caused.
 - An unknown `groupBy` is refused (400, naming the ones there are), and a wrong
   `resourceType` returns an empty breakdown. Pass exact values.
