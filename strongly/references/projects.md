@@ -44,8 +44,8 @@ curl -s "${auth[@]}" "$BASE/projects?q=churn&status=active&limit=20" | jq '.data
 curl -s "${auth[@]}" "$BASE/projects/$PID" | jq '.data'
 
 # Update: send only the fields you are changing
-curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"status":"active","description":"Q3 + Q4 churn"}' "$BASE/projects/$PID"
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"description":"Q3 + Q4 churn"}' "$BASE/projects/$PID"
 
 # Stats and activity log
 curl -s "${auth[@]}" "$BASE/projects/$PID/stats" | jq '.data'
@@ -56,18 +56,18 @@ curl -s "${auth[@]}" "$BASE/projects/$PID/activity?limit=25" | jq '.data'
 deletes the project with its jobs, workspaces, run history, board and activity.
 `volume` is required: `delete` removes the project's code/data volume and its
 data; `keep` keeps it as a shared volume owned by the project owner, code and
-data intact (its code read-only from then on). Ask the user which before deleting. To keep a project recoverable
-without deleting, use `archive` then `restore`.
+data intact (its code read-only from then on). Ask the user which before deleting. `archive`
+takes a project out of sight for good: no list, count or get shows an archived project
+again (`404`) and nothing restores it; confirm with the user first.
 
 | Method | Path | Tool | Notes |
 |---|---|---|---|
-| GET | `/projects` | `list_projects` | `q`, `status`, `category`, `tag`, `limit`, `cursor` |
+| GET | `/projects` | `list_projects` | `q`, `status` (`active` or `paused`), `category`, `tag`, `limit`, `cursor` |
 | POST | `/projects` | `create_project` | `name`*, `description`*, `filesystemType`, `githubConfig`, `tags` |
 | GET | `/projects/:id` | `get_project` | full project document |
-| PATCH | `/projects/:id` | `update_project` | `name`, `description`, `status` |
+| PATCH | `/projects/:id` | `update_project` | `name`, `description`, `tags`, `category`, `icon`, `readme`, `isPublic` (any other field is refused) |
 | DELETE | `/projects/:id?volume=delete\|keep` | `delete_project` | `volume`* : delete or keep (as shared) the project volume |
-| POST | `/projects/:id/archive` | `archive_project` | restorable |
-| POST | `/projects/:id/restore` | `restore_project` | back to active |
+| POST | `/projects/:id/archive` | `archive_project` | out of sight for good; no restore |
 | GET | `/projects/:id/stats` | `get_project_stats` | usage, workspace counts, activity |
 | GET | `/projects/:id/activity` | `get_project_activity` | `limit`, `cursor` |
 
@@ -145,7 +145,7 @@ role; the same list also feeds who can be assigned on the board (section 5).
 curl -s "${auth[@]}" "$BASE/projects/$PID/members" | jq '.data'
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"email":"dana@acme.com","role":"editor"}' "$BASE/projects/$PID/members"
-curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"role":"viewer"}' "$BASE/projects/$PID/members/<userId>"
 curl -s -X DELETE "${auth[@]}" "$BASE/projects/$PID/members/<userId>"
 ```
