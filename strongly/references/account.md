@@ -86,6 +86,13 @@ Every account belongs to exactly one organization, so nobody is added to one by
 id: a person joins an organization only by invitation, sent to an email address
 with no account yet, and signs up into it from the invitation.
 
+Organization names are unique in any letter case, and an organization is shown
+by its name alone everywhere. A person's own organization is `<name>'s
+Organization`, from their account's name (never an email address: creating a
+user with an email as `name` returns `400`); a second person with the same name
+gets `<name>'s Organization 2`. `PATCH /organizations/:id` with a `name` another
+organization has returns `409 duplicate`.
+
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
 | GET | `/organizations` | List organizations you belong to (`status`, `limit`, `cursor`); platform admins receive all | `organizations:read` |
