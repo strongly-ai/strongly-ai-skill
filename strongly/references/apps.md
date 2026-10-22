@@ -317,6 +317,23 @@ curl -s -X PUT "${auth[@]}" -F "file=@bundle.zip;type=application/zip" "$BASE/ap
 # then deploy again. The running version keeps serving until that deploy.
 ```
 
+### Version history and rollback
+
+Every rollout that runs something new (a new build, or changed settings) records a version:
+its image (`build.version`, `build.repositoryUri`), its settings (environment or size,
+instances, capacity, autoscaling, services, volumes, environment variable NAMES; values stay
+on the app), `deployedBy`/`deployedByName`, `deployedAt`; `isCurrent` marks the one running.
+Rolling back deploys a version's image and settings again as a NEW current version
+(`rolledBackFrom`), with no downtime; its settings are checked as an edit is, and what it
+changes is recorded in the app's activity. Confirm with the user before rolling back; the
+version running now answers 409.
+
+```bash
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/versions" \
+  | jq '.data[] | {_id, versionNumber, image: .build.version, isCurrent, deployedByName}'
+curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/versions/$VERSION_ID/deploy" | jq '.data.versionNumber'
+```
+
 Lifecycle: `GET /apps` · `GET /apps/stats` · `GET/PATCH /apps/:id` · `PUT /apps/:id/env` ·
 `GET/PATCH /apps/:id/permissions` + `…/permissions/members` · `POST /apps/:id/start|stop|restart` ·
 `GET /apps/:id/logs` · `GET /apps/:id/metrics` · `GET /apps/:id/time-series` · `DELETE /apps/:id`.
