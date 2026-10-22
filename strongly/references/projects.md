@@ -138,6 +138,25 @@ curl -s "${auth[@]}" "$BASE/projects/$PID/volumes" | jq '.data'   # the project'
 | GET | `/projects/:id/workspaces` | `list_project_workspaces` |
 | GET | `/projects/:id/volumes` | `list_project_volumes` |
 
+**Jobs.** A job (`POST /jobs`, `create_job`) runs a command with bash in the
+project volume's code folder, on demand (`POST /jobs/:id/run`) or on a schedule.
+`retries` (0 to 10, default 0) tries a failed run again, `retryDelaySeconds`
+(0 to 86400, default 60) after it ended; scheduled and run-now runs alike. Each try
+is its own execution (`GET /jobs/:id/executions`) with its own log and exit code:
+`attempt` of `maxAttempts`, `firstExecutionId` on every later try, and `retryAt` on
+a try waiting for its time (`pending` until then; it holds the job's one live run,
+so a Run Now in the wait is refused with 409). A try that succeeds ends the tries,
+and so do a cancel (`POST /jobs/:jobId/executions/:id/cancel`, running or
+waiting) and a refusal (governance, budget, size). A changed `retries` (`PATCH
+/jobs/:id`) applies from the next run.
+
+```bash
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"retries":2,"retryDelaySeconds":30}' "$BASE/jobs/$JOB_ID" | jq '.data.retries'
+curl -s "${auth[@]}" "$BASE/jobs/$JOB_ID/executions?limit=5" \
+  | jq '.data[] | {_id, status, attempt, maxAttempts, retryAt, exitCode}'
+```
+
 ---
 
 ## 4. Collaborators
