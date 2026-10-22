@@ -338,6 +338,20 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   "$BASE/code-sessions/$SID/inputs"
 ```
 
+**New or existing project.** Ask the user which. Without `projectId` the template
+makes a new project named `name` whose code is the starter app. With `projectId`
+(an existing project they can edit, on the Strongly filesystem) the starter app is
+added to that project's code in a new folder named after `name` (`codeFolder` in
+the answer, e.g. `/volumes/local/<volume name>/code/dashboard`; deploy it with
+`folderPath` set to it), and the workspace and session are made in that project.
+A folder that exists is refused with 409; a GitHub project with 400.
+
+```bash
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d "{\"name\":\"dashboard\",\"projectId\":\"$PID\",\"environmentId\":\"$ENV\"}" \
+  "$BASE/library/templates/platform-react-starter/use" | jq '.data | {projectId, codeFolder, sessionId}'
+```
+
 Login is the user's own Claude account: Strongly supplies no credential. Relay the
 `authUrl` as a clickable link, take the code the user pastes back, and submit it
 with `login-code`. For Codex (`state: "terminal"`), drive `codex login` through the
