@@ -144,7 +144,7 @@ trainer writes to these automatically; you also drive them directly.
 | `POST /mlops/experiments` | Create a tracking record (a run of another with `parentRunId`) | `name`, `description?`, `params?`, `tags?`, `parentRunId?`, `status?` |
 | `POST /mlops/experiments/register` | Create or find by name (idempotent) | `name`, `description?`, `tags?` |
 | `GET /mlops/experiments/:id` | Get one | path `id` |
-| `PATCH /mlops/experiments/:id` | Update | path `id`; `name`, `description`, `status`, `tags` (replaces them), `pinned` (true pins, false unpins), `framework` (the trained model's; `log_model` sets it) |
+| `PATCH /mlops/experiments/:id` | Update | path `id`; `name`, `description`, `status`, `tags` (replaces them), `pinned` (true pins, false unpins), `framework` (the trained model's; `log_model` sets it), `error` `{type, message, traceback}` (required with `status` `failed`, refused otherwise) |
 | `DELETE /mlops/experiments/:id` | Delete | path `id` |
 | `POST /mlops/experiments/:id/metrics` | Append metrics to the run | path `id`, `metrics` (`[{key,value,step?}]`) |
 | `POST /mlops/experiments/:id/params` | Merge params (upsert by key) | path `id`, `params` (object) |
