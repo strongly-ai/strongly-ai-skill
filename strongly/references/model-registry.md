@@ -279,6 +279,14 @@ records, actuals and the Record inputs setting are in
 `references/model-evaluation.md`; drift is `references/drift.md`; comparing
 models on live traffic is `references/ab-testing.md`.
 
+A prediction runs as long as it takes (no read deadline). Send a predict again
+only when it never reached the model: the connection did not open, or the answer
+is **503** (the model is starting, every replica is busy, or an AI Gateway replica
+was stopping before it sent the call). A **502** whose detail opens
+`Response lost:` means the call reached the model and its answer was lost; do not
+send it again, as the model may already have done the work. A model worker that
+is scaled down or replaced finishes the predictions it holds (up to 30 minutes).
+
 ---
 
 ## 6. Read, update, delete
