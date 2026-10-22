@@ -300,7 +300,10 @@ Versions: `GET·POST /workflows/:id/versions` (a commit takes a `message`; the
 platform assigns the integer `versionNumber`), `GET /workflows/:workflowId/versions/:id`
 (one version plus its full `.strongly.json` definition), and
 `POST /workflows/:workflowId/versions/:id/deploy` to roll back or promote a saved
-version as the live deployment (202; poll status).
+version as the live deployment (202; poll status), and
+`POST /workflows/:workflowId/versions/:id/restore` to make a draft's working copy that
+version's content (edits since the latest version are saved as a version first; answers
+`{restoredFrom, versionNumber}`; 409 when deployed or when there is nothing to restore).
 
 ---
 
