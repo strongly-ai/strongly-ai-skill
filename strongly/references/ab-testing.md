@@ -273,7 +273,7 @@ Report `inconclusive` as inconclusive, quoting `reason` when it is set.
 ---
 
 ## Checklist
-- [ ] Variants serve registry models (`GET /mlops/models`), deployed before the test deploys; never AI Gateway models.
+- [ ] Variants serve registry models (`GET /mlops/models`) of your own organization, deployed before the test deploys; never AI Gateway models, never a model shared from another organization (its predictions are refused).
 - [ ] Weights are 0-1 fractions; `weighted_random` weights sum to 1; keep at least 2 variants enabled.
 - [ ] `deploy` returns with the test `running` or fails with the reason; predict only through a running test.
 - [ ] Keep `prediction_id` from `predict` to record `reward` / `label`.
