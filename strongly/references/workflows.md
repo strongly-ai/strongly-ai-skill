@@ -415,7 +415,9 @@ signing header to the user, so they can actually call their workflow. For a webh
 whose `secretConfigured` is false, set `config.secret` first or callers get a 401.
 A webhook with a Respond to Webhook node answers the caller with that node's
 status, headers and body once it runs (the request waits); without one it
-answers `{success, executionId}` at once. A Sub-Workflow node's child run has
+answers `{success, executionId}` at once. A workflow has one webhook address and
+so one webhook trigger (validate and deploy refuse a second): route several kinds of
+request with a Conditional or Switch-Case node on the body. A Sub-Workflow node's child run has
 trigger `sub-workflow` and records its parent (`parentExecutionId` on
 `POST /workflows/:id/execute`).
 A generic webhook signs `X-Webhook-Signature: sha256=<hex HMAC of the raw body>`;
