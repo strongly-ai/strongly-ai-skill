@@ -171,7 +171,7 @@ Rules the build enforces (it rejects the graph with an actionable error otherwis
 - To spread a loop's items over pods, set its `config.scaling`:
   `{"enabled": true, "maxPods": 3, "targetItemsPerPod": 50, "maxWorkers": 4, "retryAttempts": 2}`.
   Pods = ceil(items / `targetItemsPerPod`), at most `maxPods` (default 10, counts
-  the workflow's own pod); `maxWorkers` is threads per worker pod (default 10);
+  the workflow's own pod); `maxWorkers` is threads per pod, the workflow's own pod included (default 10);
   `retryAttempts` is optional. Worker pods are sized to the largest resources of
   the loop body's nodes. A map runs in the workflow's pod only: its concurrency is
   its own `config.maxWorkers` (default 10), `config.inputArrayPath` is the path
