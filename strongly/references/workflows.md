@@ -325,7 +325,10 @@ curl -s -X POST "${auth[@]}" "$BASE/workflows/$WID/structure-check" | jq '.data'
 
 `POST /workflows/:id/execute` test-runs a draft (runs are for drafts: a deployed
 workflow runs only when its triggers fire, so a hand-started run of one is refused,
-409; undeploy to test a change). It waits briefly and, when
+409; undeploy to test a change). A deployed workflow whose trigger is a REST API
+trigger is called on the same route with `"triggerType": "rest-api"` in the body; a
+run past the runs it takes at once is refused `429` and not started (send it again
+once a run ends). It waits briefly and, when
 the run settles fast, returns a compact per-node `outputs` preview inline. If it is
 still `running`, poll to a terminal state before claiming anything.
 
