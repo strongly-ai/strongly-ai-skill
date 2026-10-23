@@ -46,6 +46,11 @@ sees only themselves in `GET /users`.
 | GET | `/me` | You: `_id`, `username`, `email`, `role`, `organization`, `apiKey` | (any key) |
 | PATCH | `/me` | Update your own profile (`name`) | `users:write` |
 | DELETE | `/me` | Delete your own account: revokes your API keys and login tokens, schedules data erasure; the account is archived with its memberships | `users:write` |
+| POST | `/me/api-keys` | Create one of your API keys (`name`, `scopes`, `expiresInDays?`); the secret is shown once | (any key) |
+| GET | `/me/api-keys` | Your API keys, never their secrets (`status`: `active`, `revoked`, `expired`) | (any key) |
+| POST | `/me/api-keys/:id/revoke` | Revoke one: it stops working at once and stays listed as `revoked`; 409 if already revoked | (any key) |
+| DELETE | `/me/api-keys/:id` | Delete one that no longer works (revoked or expired); 409 for a key that still works (revoke it first) | (any key) |
+| POST | `/me/api-keys/:id/rotate` | Rotate one: a new key with the same name, scopes and expiry; the old one is revoked | (any key) |
 | GET | `/users` | List users visible within your organization, each `_id`, `username`, `email`, `role` (`q`, `active`, `limit`, `cursor`, `sort`); an archived user is never listed, and `GET /users/:id` answers `404` for one | `users:read` |
 | GET | `/users/:id` | Another user in your organization: `_id`, `username`, `email`, `role` (visibility-filtered) | `users:read` |
 
@@ -69,7 +74,7 @@ these act on *other* users, not yourself):
 | POST | `/users` | Create a user (`email`, `name`, `role`); answers the user as `GET /users/:id` does plus `temporaryPassword`, shown only here | `users:admin` |
 | PATCH | `/users/:id` | Update another user | `users:admin` |
 | GET | `/users/:id/assets` | Summarize resources a user owns (impact check before archiving) | `users:admin` |
-| POST | `/users/:id/archive` | Archive a user, with the required `assetAction` (`transfer`, `transfer-to-admin` or `delete`) and `transferToUserId`; an archived user owns nothing (only the user record is kept, for FinOps and analytics), so their resources are transferred or deleted; `delete` deletes their resources under the calling administrator's authority, never as the user. Resources include Library records and agent primitives (knowledge bases, pools/Imprints, skills, rules, prompts, memories, artifacts, tasks, preferences) and their STAN sessions, conversations, memories, skills and artifacts, moved or deleted like the rest; `delete` also archives their own (single-member) organization and removes its Kubernetes namespace. Users are never deleted: their memberships (organization, app-user entries, team seats) are archived with them, so they count as no member or seat. `GET /users/:id/assets` counts them all | `users:admin` |
+| POST | `/users/:id/archive` | Archive a user, with the required `assetAction` (`transfer` to `transferToUserId`, `transfer-to-admin` to you, the administrator archiving them (multi-tenant: their organization's owner), or `delete`); a transfer moves ownership and access (the receiver leaves the share lists) and the resources stay in their organization; an archived user owns nothing (only the user record is kept, for FinOps and analytics), so their resources are transferred or deleted; `delete` deletes their resources under the calling administrator's authority, never as the user. Resources include Library records and agent primitives (knowledge bases, pools/Imprints, skills, rules, prompts, memories, artifacts, tasks, preferences) and their STAN sessions, conversations, memories, skills and artifacts, moved or deleted like the rest; `delete` also archives their own (single-member) organization and removes its Kubernetes namespace. Users are never deleted: their memberships (organization, app-user entries, team seats) are archived with them, so they count as no member or seat. `GET /users/:id/assets` counts them all | `users:admin` |
 | POST | `/users/:id/reset-password` | Reset a user's password | `users:admin` |
 
 There is no unarchive in the API (or STAN or the SDKs): an administrator unarchives a user by

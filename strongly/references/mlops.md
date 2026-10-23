@@ -260,6 +260,7 @@ Reads need `mlops:read`, changes need `mlops:write` (both in the `ml-ops` and `d
 | `POST /mlops/feature-stores/:storeId/views/:name/materialize` | Materialize a view from offline to online store (a batch view with a source table pulls the source first; `ingested` counts those rows) | `mlops:write` |
 | `POST /mlops/feature-stores/:storeId/views/:name/rows` | Write feature rows into a view's history (`rows`) | `mlops:write` |
 | `POST /mlops/feature-stores/:storeId/views/:name/events` | Push real-time events to a streaming aggregation view (`events`) | `mlops:write` |
+| `POST /mlops/feature-stores/:storeId/views/:name/forget` | Delete every row of some entities from a view (`entityRows`, each exactly the view's join keys): each version's history rows, tiles and live values; a source table keeps its rows | `mlops:write` |
 | `POST /mlops/feature-stores/:storeId/views/:name/versions/:version/deprecate` | Deprecate a view version: read-only, hidden, still resolved by services pinned to it | `mlops:write` |
 | `POST /mlops/feature-stores` | Create a store: `name`, `onlineEnabled`, `bindings` (`offline` Postgres, `online?` Redis: `[{serviceKind, serviceId}]`), `snapshotRetentionDays` (required: 1-3650 or null); 201 + the store, `pending` until ready | `mlops:write` |
 | `DELETE /mlops/feature-stores/:id` | Delete a store and everything in it (as its page does); 422 while a model, app, workspace or job uses it; add-ons kept | `mlops:write` |
