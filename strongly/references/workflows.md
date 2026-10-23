@@ -389,7 +389,7 @@ In the builder the same requests show in the **Waiting for you** panel.
 | GET | `/workflows/-/executions/:id/ai-usage` | The run's AI Gateway usage: requests and input/output/total tokens, in all and per model (the run's one token figure) |
 | POST | `/workflows/-/executions/:id/stop` | Graceful stop (only when `running`) |
 | POST | `/workflows/-/executions/:id/cancel` | Hard-cancel any non-terminal run; idempotent |
-| POST | `/workflows/-/executions/:id/resume` | Resume a failed/paused run (`trigger_data`) |
+| POST | `/workflows/-/executions/:id/resume` | Resume a failed run from its checkpoint (workflow saves checkpoints): finished nodes reused, failed node and the rest run again; no body |
 | GET · POST | `/workflows/-/executions/:id/human-requests` · `/workflows/-/executions/:executionId/human-requests/:id/respond` | Discover, then answer, what a running run waits on from a person (Wait for Input, Human Feedback, Human Checkpoint); the answer's `data` is shaped by the request type (see above) |
 | POST | `/workflows/-/executions/:executionId/human-requests/:id/notify` | Send a waiting request's notification again |
 | GET | `/workflows/:workflowId/dead-letters` | Runs that could not be submitted (dead letters) of a workflow, or of every workflow with `-`; `status` filters (`pending`, `retrying`, `resolved`, `exhausted`, `discarded`) |
