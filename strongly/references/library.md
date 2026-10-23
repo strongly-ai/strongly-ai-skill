@@ -211,7 +211,7 @@ notifications.
 | `POST /primitives/tasks` | Create | body: `description*, linkedIds* (one agent of yours + any pools), recurrence, dueAt, triggerType, notes, tags, subjectRef, assignedToAgent, createdByAgent` |
 | `GET /primitives/tasks/:id` · `PATCH /primitives/tasks/:id` · `DELETE /primitives/tasks/:id` | Fetch (with its status and scheduling fields) / update (a recurrence change recomputes `nextDueAt`) / delete | |
 | `POST /primitives/tasks/:id/complete` | Mark done; recurring advances to the next occurrence. A fire has one completion: an already-complete fire answers `alreadyComplete: true` and records nothing | body: `notes, executionId, runId` |
-| `GET /primitives/tasks/:id/fires` | The task's fires, newest first: one record per fire, every fire kept (`fireCount` counts them) | `limit, cursor, sort` |
+| `GET /primitives/tasks/:id/fires` | The task's fires, newest first: one record per fire, every fire kept (`fireCount` counts them); `workflowId` is the workflow of `executionId` | `q, sort` (one of `occurredAt`, `firedAt`, `completedAt`, `status`), `limit, cursor` |
 | `GET /primitives/tasks/:id/time-series` | Its fires over time by status (`fires` = `fired` + `noSubscriber` + `done` + `failed` + `cancelled`) | `window, granularity` |
 | `POST /primitives/tasks/:id/claim` | First-claim-wins execution lock: answers the task, or `409` when another agent holds it | body: `claimantId*` |
 | `POST /primitives/tasks/:id/cancel` | Cancel | body: `reason` |

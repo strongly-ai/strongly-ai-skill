@@ -240,7 +240,7 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/guardrails/statistics" | jq '.data'
 | `PATCH /ai-gateway/models/:id/guardrails` | `guardrails:write` | Turn enforcement on or off (`enabled`) |
 | `POST /ai-gateway/models/:id/guardrails/test` | `guardrails:write` | Dry-run rules on text (`input`, `direction`, `rules`) |
 | `GET /ai-gateway/guardrails/templates` | `guardrails:read` | Built-in rule templates |
-| `GET /ai-gateway/models/:id/guardrail-logs` | `guardrails:read` | What the model's guardrails blocked or changed (`limit`, `cursor`) |
+| `GET /ai-gateway/models/:id/guardrail-logs` | `guardrails:read` | What the model's guardrails blocked or changed (`q`, `sort` one of `timestamp`, `direction`, `outcome`, `userId`, `requestId`; `limit`, `cursor`) |
 | `GET /ai-gateway/guardrails/statistics` | `guardrails:read` | Aggregate guardrail statistics |
 
 ---
