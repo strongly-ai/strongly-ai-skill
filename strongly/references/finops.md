@@ -87,9 +87,10 @@ Choosing the right one:
   type. Use `gpuCost` from the split to quantify GPU spend.
 - **Rank the biggest spenders**: `costs/top-drivers` or `dashboard/top-drivers`.
 - **Look ahead**: `costs/forecast` (`weeks`, default 13: daily cost projected whole
-  weeks ahead by weekly-seasonal exponential smoothing; each day, week and the
-  total has `predicted` and a 95% `lowerBound`..`upperBound`; nothing with under
-  14 recorded days). Quote the interval, not just the median.
+  weeks ahead by a mean-reverting level with a weekly season; each day, week and
+  the total has `predicted` and a 95% `lowerBound`..`upperBound` calibrated by
+  back-test; `backtest.nextWeekError` is the median next-week error; nothing with
+  under 21 recorded days). Quote the interval, not just the median.
 - **Find spikes**: `costs/anomalies` (lookback `days` + `threshold`).
 - **Find waste**: `costs/savings` (rightsizing recommendations from efficiency).
 - **Per-resource utilization**: `costs/efficiency`.
