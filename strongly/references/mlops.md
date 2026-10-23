@@ -153,7 +153,7 @@ trainer writes to these automatically; you also drive them directly.
 | `POST /mlops/experiments/:id/artifacts` | Record an uploaded artifact (its size is read from storage) | path `id`; `path`, `name?`, `type?`, `description?` |
 | `GET /mlops/experiments/:id/artifacts` · `GET …/artifacts/download-url?path=` | List the run's artifacts / a one-hour download link | path `id` |
 | `GET /mlops/experiments/:id/metrics` · `GET /mlops/experiments/:experimentId/metrics/:key` | The keys the run has logged metrics under (a list) / one metric's history | |
-| `POST /mlops/experiments/:id/models` | Register the model the run logged (`log_model`) in the model registry | path `id`; `name` (new model) or `modelId` (new version); `description?`, `artifactPath?` (default `model`). The task `log_model` recorded (`problemType`) becomes the model's `training.problemType`; without one, set it with `PATCH /mlops/models/:id` `problemType` before drift |
+| `POST /mlops/experiments/:id/models` | Register the model the run logged (`log_model`) in the model registry | path `id`; `name` (new model) or `modelId` (new version); `description?`, `artifactPath?` (default `model`), `files?` (a bundle: the run's files and folders, the model folder among them, registered together as the version's artifact; every version records `sourceRun`). The task `log_model` recorded (`problemType`) becomes the model's `training.problemType`; without one, set it with `PATCH /mlops/models/:id` `problemType` before drift |
 
 ```bash
 EXP=$(curl -s "${auth[@]}" -X POST "$BASE/mlops/experiments/register" \
