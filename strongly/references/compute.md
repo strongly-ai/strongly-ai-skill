@@ -222,7 +222,9 @@ it (`sharedVolumeIds` on create, or `PUT` to change from the next start or run;
 none unless chosen; `GET $BASE/volumes/available-shared?projectId=<id>` lists
 the ones the user may choose) at `/volumes/shared/<name>`, each as
 `code/` (only when the volume has code; read-only under `/volumes/shared`) and
-`data/` (e.g. `/volumes/local/my-proj/code`, `/volumes/shared/datasets/data`). A chosen volume the user may not mount is refused
+`data/` (e.g. `/volumes/local/my-proj/code`, `/volumes/shared/datasets/data`). The volume's
+own folder is read-only (workspaces, jobs and apps, root included): a write there fails with
+`Read-only file system`, so write into `code/` or `data/`. A chosen volume the user may not mount is refused
 by name; one its owner later takes away is dropped from the choice, and the user's
 reads and writes of it are refused at once. `data/` mounts at its latest version. Another project's unshared
 volume never mounts.
