@@ -173,9 +173,9 @@ deploys from a non-running state, so to swap the served version on a live model,
 ### Stage a version (no deploy)
 
 A version's lifecycle stage is a label apart from serving: `none`, `staging`,
-`production` or `archived`. Moving it never deploys and never changes which version
+`production` or `retired`. Moving it never deploys and never changes which version
 serves (`activeVersion`). At most one version is in `production`; moving another
-there moves the old one to `archived`.
+there moves the old one to `retired` (it still exists and can still serve).
 
 ```bash
 # POST /mlops/models/:modelId/versions/:id/move -> 200, the model with each version's stage
@@ -186,20 +186,6 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 SDK: `client.model_registry.move_version(model_id, 2, "production")`. Each version in
 `GET .../versions` has `stage` (absent = none) and, when registered from an
 experiment run, `sourceRun` `{ experimentId, runId }`.
-
-### Download a version's artifact
-
-```bash
-# GET /mlops/models/:modelId/versions/:id/download-url
-# -> { version, files: [{ path, sizeBytes, url }], expiresIn: 3600 }
-curl -s "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/versions/2/download-url"
-```
-
-One file for a single model file or uploaded zip; every file (at its path) for a
-bundle registered from a run (`POST /mlops/experiments/:id/models` with `files`,
-`references/mlops.md`). Anyone who can use the model may download. `409` for a model
-in a volume (AutoML, fine-tuned); `404` for an uploaded zip removed once its image
-was built. SDK: `client.model_registry.download_version(model_id, 2, "out/")`.
 
 ### Delete a version
 
@@ -371,8 +357,7 @@ curl -s -X DELETE "${auth[@]}" "$BASE/mlops/models/$MODEL_ID"  # delete
 | POST | `/mlops/models/:id/versions` | Add a version from an uploaded artifact |
 | POST | `/mlops/models/:modelId/versions/:id/activate` | Set the active version (no deploy) |
 | POST | `/mlops/models/:modelId/versions/:id/deploy` | Set active + deploy that version |
-| POST | `/mlops/models/:modelId/versions/:id/move` | Move a version to a stage (`none`, `staging`, `production`, `archived`); no deploy |
-| GET | `/mlops/models/:modelId/versions/:id/download-url` | Download links for each file of a version's artifact |
+| POST | `/mlops/models/:modelId/versions/:id/move` | Move a version to a stage (`none`, `staging`, `production`, `retired`); no deploy |
 | POST | `/mlops/models/:id/deploy` | Deploy the model for inference |
 | PATCH | `/mlops/models/:id/serving` | Change how it is served (strategy, schedule, spot) without deploying |
 | POST | `/mlops/models/:id/stop` | Stop the serving pod |
