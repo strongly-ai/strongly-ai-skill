@@ -139,6 +139,8 @@ artifact/metrics) and which version is **deployed** (running in the pod).
 curl -s "${auth[@]}" "$BASE/mlops/models/$MODEL_ID/versions" | jq '.data'
 ```
 
+A version registered from an experiment run has `sourceRun` `{ experimentId, runId }`.
+
 ### Add a new version
 
 Upload the retrained artifact first (section 2a), then register it as a new
@@ -169,23 +171,6 @@ Use **activate** to move the pointer without touching a running pod. Use **deplo
 version** to actually roll the live pod onto that version. A running model
 deploys from a non-running state, so to swap the served version on a live model,
 `stop` it first (section 4), then `deploy` the version.
-
-### Stage a version (no deploy)
-
-A version's lifecycle stage is a label apart from serving: `none`, `staging`,
-`production` or `retired`. Moving it never deploys and never changes which version
-serves (`activeVersion`). At most one version is in `production`; moving another
-there moves the old one to `retired` (it still exists and can still serve).
-
-```bash
-# POST /mlops/models/:modelId/versions/:id/move -> 200, the model with each version's stage
-curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"stage":"production"}' "$BASE/mlops/models/$MODEL_ID/versions/2/move"
-```
-
-SDK: `client.model_registry.move_version(model_id, 2, "production")`. Each version in
-`GET .../versions` has `stage` (absent = none) and, when registered from an
-experiment run, `sourceRun` `{ experimentId, runId }`.
 
 ### Delete a version
 
@@ -357,7 +342,6 @@ curl -s -X DELETE "${auth[@]}" "$BASE/mlops/models/$MODEL_ID"  # delete
 | POST | `/mlops/models/:id/versions` | Add a version from an uploaded artifact |
 | POST | `/mlops/models/:modelId/versions/:id/activate` | Set the active version (no deploy) |
 | POST | `/mlops/models/:modelId/versions/:id/deploy` | Set active + deploy that version |
-| POST | `/mlops/models/:modelId/versions/:id/move` | Move a version to a stage (`none`, `staging`, `production`, `retired`); no deploy |
 | POST | `/mlops/models/:id/deploy` | Deploy the model for inference |
 | PATCH | `/mlops/models/:id/serving` | Change how it is served (strategy, schedule, spot) without deploying |
 | POST | `/mlops/models/:id/stop` | Stop the serving pod |
