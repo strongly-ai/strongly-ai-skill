@@ -180,14 +180,34 @@ reference, "An agent for each user").
   bases (`POST /library/knowledge-bases {cloneId}`), preferences, artifacts,
   sessions, and skills/rules/prompts linked to the clone, beside the official
   ones.
-- A clone acts as its user, and uses the base's data sources and add-ons as its
-  user. It runs as its user even when the app's owner or an admin starts or
-  redeploys it. A platform user's clone uses their own access to everything the base
+- A clone acts as its user, and uses the base's data sources as its user. It
+  runs as its user even when the app's owner or an admin starts or redeploys it.
+  A platform user's clone uses their own access to everything else the base
   uses: cloning is refused (403, naming each) when they may not use a model,
-  data source, add-on, tool workflow or MCP server the base uses; share those
-  first. It has exactly the base's features and cannot loosen them.
-- An app user's clone never adds data sources or add-ons, whatever the base
-  grants. A clone's `GET /agents/:id/config` names its base (`baseAgentName`)
+  data source, tool workflow or MCP server the base uses; share those first. It
+  has exactly the base's features and cannot loosen them.
+- Add-ons, "For each clone": the base's OWNER (only; never on a clone, never the
+  person cloning) chooses per add-on what each clone gets:
+  `GET /agents/:id/addons` (each: cloneAddonMode, availableCloneAddonModes,
+  separateSpaceRefusal, clones), `PATCH /agents/:agentId/addons/:id
+  {cloneAddonMode: "separate-space" | "new-addon" | null}`. "separate-space" =
+  A separate space in this add-on (one add-on; each clone gets its own
+  isolated database and login, made with the clone, removed with its data on
+  delete; isolated by the database's own permissions: Postgres/DuckDB db+owning
+  role, MySQL db+user, MongoDB db+readWrite user, Redis ACL user on
+  `clone_…:*` keys, Milvus 2.5+ db+role, RabbitMQ vhost+user; lower cost);
+  "new-addon" = A new add-on of the same type and size per clone. Neo4j,
+  Greenplum, SurrealDB, Kafka, MQTT and Milvus before 2.5 offer only
+  "new-addon". ASK the owner which. Unchosen: cloning is 400
+  `clone-addon-mode-required` (names the add-on); fixed while a clone holds one
+  (409 `clone-addon-mode-in-use`). A clone never gets the add-on's own login:
+  its STRONGLY_SERVICES entry carries its space's login and database,
+  `connection.key_prefix` (Redis: keep every key under it) or
+  `connection.vhost` (RabbitMQ). On a clone `GET /agents/:id/addons` shows what
+  it holds (space name/database/keyPrefix/vhost, or newAddonId). SDK
+  `agents.addons(id)`, `agents.set_clone_addon_mode(id, addon_id, mode)`.
+- An app user's clone never adds data sources or add-ons itself, whatever the
+  base grants. A clone's `GET /agents/:id/config` names its base (`baseAgentName`)
   and its sync state (`baseSyncedAt`, `baseSyncError`); on a clone,
   `GET /agents/:id/library-references` marks each item `fromBase` (official,
   read-only) or not (the user's own).
