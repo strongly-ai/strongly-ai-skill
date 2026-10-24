@@ -58,7 +58,7 @@ never on a bare origin, in both places it runs:
 | Where | Base path |
 |---|---|
 | Deployed (Apps) | `/api/proxy/<app id>/` |
-| Deployed, on a platform with an apps domain | none: the root of `https://<slug>.<apps domain>/` (`X-Forwarded-Prefix` absent, `STRONGLY_URL` empty) |
+| Deployed, on a platform with an apps domain | the same `/api/proxy/<app id>/`, on `https://<slug>.<apps domain>` (the same `X-Forwarded-Prefix`, `STRONGLY_URL` and headers: the app runs unchanged) |
 | Running in a workspace while you build it | `/api/workspace-proxy/<workspace id>/port/<port>/` |
 
 Where a deployed app opens is `address` from `GET /apps/:id`; never build it. On a
@@ -553,9 +553,10 @@ then set `window.top.location.href` to the `redirect` it answers. The page
 
 A public app (a marketing site with a waitlist form) is served to anyone without
 signing in on the platform's apps domain, never the dashboard's origin:
-`https://<slug>.<apps domain>/` (`url` from the GET; never build it).
+`https://<slug>.<apps domain>/api/proxy/<app id>/` (`url` from the GET; never build it).
 `slug` is the app's one slug, shared with branded sign-in: an app is public OR
-signs people in. It is served at the ROOT of its own host (no path prefix), as an
+signs people in. It is served at the same `/api/proxy/<app id>/` path on its own
+host as everywhere (the host's root sends a browser there), as an
 ordinary website: its own cookies (made host-only), `localStorage` and service
 workers work. A platform without an apps domain answers
 `404 public-apps-disabled`.
@@ -579,7 +580,7 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$A
   workflows, feature stores or agents. A product with a signed-in area is TWO
   apps: the public site, and a branded sign-in app it links to.
 - `paths: ["/oauth", "/webhooks"]` makes only those prefixes of a signed-in app
-  public, at `https://<slug>.<apps domain>/<path>` (`pathUrls`): OAuth
+  public, at `https://<slug>.<apps domain>/api/proxy/<app id>/<path>` (`pathUrls`): OAuth
   callbacks, webhooks, an MCP server. The caller's own `Authorization` reaches
   the app; Strongly credentials are refused. Register `pathUrls` with the other
   service; never a dashboard address.

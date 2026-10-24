@@ -125,9 +125,9 @@ If the task involves **apps**, three platform mechanics matter. Full detail is i
 `references/apps.md`; the essentials:
 
 - **The Strongly proxy.** Apps are reached only through a platform proxy at a
-  relative base path, never a bare port: `/api/proxy/<app>/` deployed (or the
-  root of `https://<slug>.<apps domain>/` on a platform with an apps domain:
-  `address` from `GET /apps/:id`), `/api/workspace-proxy/<workspace>/port/<port>/`
+  relative base path, never a bare port: `/api/proxy/<app>/` deployed (the same
+  path on `https://<slug>.<apps domain>/` on a platform with an apps domain:
+  `address` from `GET /apps/:id`; the app runs unchanged in both), `/api/workspace-proxy/<workspace>/port/<port>/`
   while running in a workspace.
   The proxy strips that prefix and sends it as `X-Forwarded-Prefix`; apps build
   every URL from it (this is the usual cause of a blank React screen) and listen
