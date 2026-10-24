@@ -362,7 +362,7 @@ Home App with `POST /apps/:id/users`, or to use only with role user.
 ### Branded sign-in, the app's own users, and usage
 
 An app can have its own public sign-in, sign-up, forgot-password and sign-out
-pages at `<platform>/sites/<slug>/`, with its logo and name, for a customer's or a
+pages at `<platform>/app/<slug>/`, with its logo and name, for a customer's or a
 team's own users. Anyone who signs up there becomes an **app user** whose home
 app is this app (they land in it full screen, never in the platform) and is
 listed in the app's permissions. Their organization follows the tenancy mode:
@@ -436,8 +436,8 @@ curl -s "${auth[@]}" "$BASE/apps/$APP_ID/paid-access"                         # 
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/paid-access/subscriptions?status=active"  # payer, plan, status, seats
 ```
 
-Users of the app pick a plan at `<platform>/sites/<slug>/plans` (Stripe Checkout)
-and manage it at `<platform>/sites/<slug>/billing` (Stripe Customer Portal; a team
+Users of the app pick a plan at `<platform>/app/<slug>/plans` (Stripe Checkout)
+and manage it at `<platform>/app/<slug>/billing` (Stripe Customer Portal; a team
 payer also runs seats, members and invites there). The proxy serves a user
 while a subscription covers them; those who manage the app (the owner, Can edit
 collaborators, app admins, platform admins and, multi-tenant, the organization's
