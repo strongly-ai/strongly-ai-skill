@@ -24,7 +24,11 @@ passing its user's `X-Strongly-User-Token` makes it that app user; a
 sub-workflow its parent's user; a schedule or webhook the deployer); who it
 runs as stays its deployer. Whatever the platform grew by for a workload (its
 share of a platform service's scale-up, the idle capacity and daemons of the
-nodes it ran on, its network and storage) is part of that workload's cost.
+nodes it ran on, its network and storage, the S3 requests it made) is part of
+that workload's cost. S3 requests (`Object storage requests (S3)`) are counted
+for a workflow's runs (its storage, its nodes, its S3 data sources) and a
+volume's reads and writes, priced at the account's own S3 request prices; a
+bucket in another AWS account is on that account's bill and is not booked.
 Shared resources are divided each hour by use, every share keeping its owner:
 app pods by viewers' request time, add-ons by the request time of the apps
 that use them, deployed workflow pods by run time. Credits are per
@@ -80,7 +84,7 @@ Choosing the right one:
   `groupBy=owner` with `orgId`, `groupBy=user` with `ownerId`,
   `groupBy=workload` with `userId`, `groupBy=component` with `workload` (its own
   pods, its network, the platform services it scaled, node idle and daemons,
-  its storage). Each level adds up to the row above. `orgId=strongly` opens
+  its storage, its S3 requests). Each level adds up to the row above. `orgId=strongly` opens
   Strongly's own costs (`groupBy=workload`, groups `strongly:<id>`).
   `groupBy=type` totals the workloads of each type (`app`, `addon`,
   `workflow`, `workspace`, `self-hosted-model`, ...); `resourceType` keeps one
