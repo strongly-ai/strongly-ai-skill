@@ -208,8 +208,8 @@ Rules the build enforces (it rejects the graph with an actionable error otherwis
   `config.target: "app"`, `appId` (the app's id) and `appPath` (or map the
   `appPath` input). It calls the app's in-cluster route as the run's owner (the
   app gets their `X-Strongly-User-Token`); no auth settings. An External URL on
-  the platform's public address under `/api/proxy/` is refused: a workflow
-  cannot sign in there (401).
+  the platform's public address under `/api/proxy/` is refused, and an app's
+  own address on an apps domain answers 401: a workflow cannot sign in there.
 - A node's resources are `config.resourcesOverride` `{cpu, memory, gpu, gpuType,
   disk}` (the Resources tab; memory/disk in Mi/Gi); unset fields use the
   definition's defaults.

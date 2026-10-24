@@ -58,7 +58,14 @@ never on a bare origin, in both places it runs:
 | Where | Base path |
 |---|---|
 | Deployed (Apps) | `/api/proxy/<app id>/` |
+| Deployed, on a platform with an apps domain | none: the root of `https://<slug>.<apps domain>/` (`X-Forwarded-Prefix` absent, `STRONGLY_URL` empty) |
 | Running in a workspace while you build it | `/api/workspace-proxy/<workspace id>/port/<port>/` |
+
+Where a deployed app opens is `address` from `GET /apps/:id`; never build it. On a
+platform with an apps domain (the admin's `APPS_DOMAIN`) every app is its own
+origin: signed-in users are signed in to it through Strongly on their first page
+load there, its own cookies, `localStorage`, IndexedDB and service workers work,
+and its pages can never use the viewer's Strongly session.
 
 Two facts drive everything, the same in both:
 
@@ -545,12 +552,12 @@ then set `window.top.location.href` to the `redirect` it answers. The page
 ### Public apps (anyone on the internet, no sign-in)
 
 A public app (a marketing site with a waitlist form) is served to anyone without
-signing in on a domain of its own, never the dashboard's:
-`https://<slug>.<public apps domain>/` (`url` from the GET; never build it).
+signing in on the platform's apps domain, never the dashboard's origin:
+`https://<slug>.<apps domain>/` (`url` from the GET; never build it).
 `slug` is the app's one slug, shared with branded sign-in: an app is public OR
 signs people in. It is served at the ROOT of its own host (no path prefix), as an
 ordinary website: its own cookies (made host-only), `localStorage` and service
-workers work. A platform whose admin has not turned public apps on answers
+workers work. A platform without an apps domain answers
 `404 public-apps-disabled`.
 
 Requests carry NO identity (no `X-Strongly-User-Token`); while it is a public
@@ -572,7 +579,7 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$A
   workflows, feature stores or agents. A product with a signed-in area is TWO
   apps: the public site, and a branded sign-in app it links to.
 - `paths: ["/oauth", "/webhooks"]` makes only those prefixes of a signed-in app
-  public, at `https://<slug>.<public apps domain>/<path>` (`pathUrls`): OAuth
+  public, at `https://<slug>.<apps domain>/<path>` (`pathUrls`): OAuth
   callbacks, webhooks, an MCP server. The caller's own `Authorization` reaches
   the app; Strongly credentials are refused. Register `pathUrls` with the other
   service; never a dashboard address.
@@ -581,10 +588,13 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$A
 
 #### Custom domains (the owner's own domain, certificate automatic or uploaded)
 
+Any app on a platform with an apps domain, public or signed-in (a signed-in app
+signs its users in through Strongly there too).
+
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/domains" -d '{ "hostname": "www.example.com" }'
 # answers dnsRecords: tell the user to set them exactly:
-#   routing:     CNAME www.example.com -> <slug>.<public apps domain>   (apex: true = root domain: ALIAS/ANAME/flattened CNAME)
+#   routing:     CNAME www.example.com -> <slug>.<apps domain>   (apex: true = root domain: ALIAS/ANAME/flattened CNAME)
 #   ownership:   TXT _strongly-verify.www.example.com "strongly-verify=<token>"  (required for a root domain or a provider that hides the CNAME)
 #   certificate: CNAME _<hash>.www.example.com -> _<hash>.acm-validations.aws  (automatic certificate; keep it, it renews with it)
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/domains"                       # status pending|active|failed, dns, certificate, lastCheckError

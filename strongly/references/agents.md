@@ -98,7 +98,7 @@ the agent names none). Its API Caller tool calls the app's in-cluster proxy
 route signed as the agent's owner (the app gets their `X-Strongly-User-Token`);
 no key or token. With `target: "url"` (the default) it calls external URLs
 (`dataSourceId` for credentials) and refuses an app's public `/api/proxy/`
-address.
+address (an app's own address on an apps domain answers 401: use the app target).
 
 Reference-agent starting points (for prefilling the wizard) are served by
 `GET /agents/templates` (and one: `GET /agents/templates/:key`, key
