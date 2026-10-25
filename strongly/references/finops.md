@@ -128,6 +128,8 @@ Notes that save a wrong call:
   session `<type>.<id>` and the buckets' access logs say who called; a run's are
   counted by the run; Requester Pays requests (RequestPayer "requester") are
   on this installation's bill and its workload's.
+- Requests to `strongly-shared` (assets) and `strongly-telemetry`
+  (instrumentation) are not FinOps costs: tracked separately, never booked.
 - There is no `compareWindow` on `top-drivers`; compare periods with
   `costs/monthly` or `trends` (its `changePercent` is on the previous period).
 - A change on the previous period (`changePercent`, `spendTrend`, a row's
