@@ -304,6 +304,12 @@ curl -s -X PUT    "${auth[@]}" -H 'Content-Type: application/json' \
 curl -s -X DELETE "${auth[@]}" "$BASE/mlops/models/$MODEL_ID"  # delete
 ```
 
+- **Delete** is refused with `409` `model-in-use` while something uses the model:
+  an A/B test that compares it, an app, workspace or job that selects it, or a
+  workflow or agent whose nodes call it. `detail` names them by kind; remove the
+  model from those (delete the A/B test) before deleting it. Never delete what
+  uses it without asking the user.
+
 - **Update** changes only the fields sent. `problemType` sets `training.problemType`
   (on the card and the active version) and keeps the rest of the training
   record; `training` replaces the whole record. A model registered without a

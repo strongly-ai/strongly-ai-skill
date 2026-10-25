@@ -271,6 +271,30 @@ schedule on for you.
 | `GET /mlops/models/:id/drift-settings` | The model's drift settings | `mlops:read` |
 | `PATCH /mlops/models/:id/drift-settings` | Change them (only the fields sent) | `mlops:write` |
 
+### Custom algorithms
+
+An organization's own algorithm is Python defining `detect_drift(reference_data,
+current_data)` (one feature's values; numpy, math, random, json and scipy.stats
+only) returning `{"score", "threshold", "status": "ok" | "warning" | "alert",
+"details"}`. A model runs it when `algorithms.enabled` names it. Test it before
+a model uses it.
+
+```bash
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' -d '{
+  "name": "mean shift", "supports": ["numerical"],
+  "code": "import numpy as np\ndef detect_drift(reference_data, current_data):\n    s = abs(float(np.mean(current_data)) - float(np.mean(reference_data)))\n    return {\"score\": s, \"threshold\": 1.0, \"status\": \"alert\" if s > 1 else \"ok\", \"details\": {}}\n"
+}' "$BASE/mlops/drift-algorithms" | jq '.data._id'
+curl -s -X POST "${auth[@]}" "$BASE/mlops/drift-algorithms/<algorithmId>/tests" | jq '.data._id'   # 202
+curl -s "${auth[@]}" "$BASE/mlops/drift-algorithms/<algorithmId>/tests/<testId>" | jq '.data | {status, passed, outcomes, errorMessage}'
+```
+
+| Method / path | Does | Scope |
+|---|---|---|
+| `GET /mlops/drift-algorithms` | List them (`q`, `limit`, `cursor`) | `mlops:read` |
+| `POST /mlops/drift-algorithms` | Create one (`name` unique: else `409`) | `mlops:write` |
+| `GET` / `PATCH` / `DELETE /mlops/drift-algorithms/:id` | Read, change (`isActive: false` keeps it out of analyses), delete (`422 resource-in-use` while a model's drift settings run it) | `mlops:read` / `mlops:write` |
+| `POST /mlops/drift-algorithms/:id/tests`, `GET .../tests/:id` | Test it; read the test (`pending`, `running`, `completed`, `failed`) | `mlops:write` / `mlops:read` |
+
 ---
 
 ## Checklist

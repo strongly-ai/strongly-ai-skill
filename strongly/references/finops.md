@@ -2,12 +2,12 @@
 
 Strongly **FinOps** tracks what the platform spends and lets you act on it. Costs
 come from Kubecost and the platform ledger; you **query** them by dimension and
-time. **Budgets** are read only over REST. **Resource groups** and **Schedules**
-are configuration you create and manage (schedules auto-stop resources off-hours
+time. **Budgets**, **Resource groups** and **Schedules** are configuration you
+create and manage (schedules auto-stop resources off-hours
 to save money).
 
 Read this when the task is: reporting spend or trends, finding cost drivers or
-anomalies, checking savings, listing budgets, organizing resources into groups
+anomalies, checking savings, managing budgets, organizing resources into groups
 for cost rollups, or scheduling resources to stop and start on a timetable.
 
 **Who a cost belongs to.** Every cost is **Strongly's** (what the platform costs
@@ -143,23 +143,36 @@ Notes that save a wrong call:
 
 ---
 
-## 2. Budgets (read only)
+## 2. Budgets
 
-Budgets are created and managed by administrators in the UI and by internal
-platform services. Over REST you can **list and read** them, nothing else. The
-backend filters the list by the caller's organization.
+The Budgets page's rule holds over REST: a platform admin manages every budget,
+an organization's owners and admins only their own organization's (another
+organization's budget is 404; anyone else is 403). Amounts are US cents.
+Confirm a new budget's scope, amount and thresholds with the user first.
 
 ```bash
 curl -s "${auth[@]}" "$BASE/finops/budgets?status=active" | jq '.data'
 curl -s "${auth[@]}" "$BASE/finops/budgets/<budgetId>" | jq '.data'
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' -d '{
+  "name": "ML team monthly", "organizationId": "<orgId>", "scope": {"level": "organization"},
+  "budget": {"amount": 150000, "currency": "USD", "type": "recurring", "period": "monthly", "resetDay": 1},
+  "thresholds": [{"percent": 80, "action": "alert"}, {"percent": 100, "action": "pause"}]
+}' "$BASE/finops/budgets" | jq '.data'
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"description": null}' "$BASE/finops/budgets/<budgetId>"     # merge patch
+curl -s -X POST "${auth[@]}" "$BASE/finops/budgets/<budgetId>/pause"   # or /resume
+curl -s -X DELETE "${auth[@]}" "$BASE/finops/budgets/<budgetId>"       # 204
 ```
 
 | Endpoint | Params | Notes |
 |---|---|---|
 | `GET /finops/budgets` | `scopeLevel`, `status`, `q`, `limit`, `cursor` | `scopeLevel` one of `platform`, `organization`, `user`, `resourceGroup`, `resource`, `resourceType`, `tag`; `status` one of `active`, `paused`, `exhausted` |
 | `GET /finops/budgets/:id` | path `id` | 404 if not in the caller's tenant |
+| `POST /finops/budgets` | `name`, `organizationId`, `scope`, `budget`, `thresholds`; `description`, `notifications`, `enabled` | 201 with the budget; unique threshold percents, at most one `pause` |
+| `PATCH /finops/budgets/:id` | any create member | JSON Merge Patch; only `description` may be `null` (removed) |
+| `POST /finops/budgets/:id/pause`, `/resume` | path `id` | the budget, `status` `paused` / `active` |
+| `DELETE /finops/budgets/:id` | path `id` | 204; its queued alerts go with it |
 
-There is no create, update, or delete for budgets on this API. Do not attempt one.
 A budget's `notifications.email` says whether it also emails its alerts (they are
 bell notifications either way); `notifications.mode` is `immediate` or `digest`.
 An alert goes to the budget's recipients (platform admins, or the org's owners and
