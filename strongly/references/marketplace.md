@@ -172,7 +172,7 @@ curl -s -X DELETE "${auth[@]}" "$BASE/marketplace/deployments/$DEPLOYMENT_ID"   
 | POST | `/marketplace/deployments/:id/cancel` | `marketplace:deploy` | Cancel an in-progress deploy; answers the deployment, `cancelling` |
 | DELETE | `/marketplace/deployments/:id` | `marketplace:deploy` | Remove a finished (complete, failed, cancelled) deployment's record; 204 |
 
-`:id` on the deployment routes is the **`deploymentId`** that `POST /marketplace/deploy` returns, not the marketplace item id or an app id.
+`:id` on the deployment routes is the deployment's **`_id`**: `POST /marketplace/deploy` answers the deployment it started (202), as `GET /marketplace/deployments/:id` shows it. It is not the marketplace item id or an app id.
 
 ---
 
@@ -401,7 +401,7 @@ Field reference:
 - [ ] Inspect `/deploy-config` and `/license` before installing; a streaming workflow offering also needs `config.sessionInitiatorRoles`.
 - [ ] Ground the deploy `config` against real `available-addons` / `available-models`, never a guessed id.
 - [ ] Deploy needs `appName` + `config` with `marketplaceItemId` and `termsAccepted: true`; it returns 202.
-- [ ] Poll `/marketplace/deployments/:id/status` (by the `deploymentId`) until `status` is `complete`; never claim success before that; read `error` on `failed`.
+- [ ] Poll `/marketplace/deployments/:id/status` (by the deployment's `_id`) until `status` is `complete`; never claim success before that; read `error` on `failed`.
 - [ ] Once complete, treat `result.appId` as a normal app and use `references/apps.md` (`/apps` routes, proxy, identity, manifest).
 - [ ] Usage events: one per use, unique `idempotencyKey`, positive `quantity`; a 200 `deduplicated:true` is success, not an error.
 - [ ] Plugins: browse `GET /plugins`, install with `POST /plugins/instances` (`pluginId`, `values` matching the plugin's `configSchema`; `marketplace:deploy`); `PATCH /plugins/instances/:id` `{enabled}` turns one on or off and `DELETE` uninstalls it; managing them needs admin (or developer in multitenant).
