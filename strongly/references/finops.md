@@ -124,6 +124,10 @@ Notes that save a wrong call:
   (internet, cross-zone, cross-region) and the load balancer traffic an app or
   workspace served; node hours and volumes are priced at the bill (Kubecost's
   list price scaled by the day's factor), and what no workload caused is Strongly's.
+- S3 requests are the workload's that made them: a workload's pods name their AWS
+  session `<type>.<id>` and the buckets' access logs say who called; a run's are
+  counted by the run; Requester Pays requests (RequestPayer "requester") are
+  on this installation's bill and its workload's.
 - There is no `compareWindow` on `top-drivers`; compare periods with
   `costs/monthly` or `trends` (its `changePercent` is on the previous period).
 - A change on the previous period (`changePercent`, `spendTrend`, a row's
