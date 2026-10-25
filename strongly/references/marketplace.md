@@ -35,6 +35,10 @@ List is paginated and filterable. Filters: `q` (matches name, description,
 tags), `vertical` (category), `type` (`app` or `agent`), `featured=true`, plus
 `limit`, `cursor`, `sort`.
 
+On a production install the catalog lists only published items, as the
+Marketplace page does: a draft is not listed, not counted in `/verticals`, and
+`GET /marketplace/items/:id` answers `404` for it.
+
 ```bash
 # List / search / filter
 curl -s "${auth[@]}" "$BASE/marketplace/items?type=app&featured=true&limit=20" | jq '.data'
