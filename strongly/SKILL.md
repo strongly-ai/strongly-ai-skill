@@ -127,9 +127,10 @@ If the task involves **apps**, three platform mechanics matter. Full detail is i
 - **The Strongly proxy.** Apps are reached only through a platform proxy at a
   relative base path, never a bare port: `/api/proxy/<app>/` deployed (the same
   path on `https://<slug>.<apps domain>/` on a platform with an apps domain:
-  `address` from `GET /apps/:id`; the app runs unchanged in both; the platform's
-  own host then serves no app, so code calls the `address` with its own
-  credential), `/api/workspace-proxy/<workspace>/port/<port>/`
+  `address` from `GET /apps/:id`; the app runs unchanged in both; a browser or a
+  script with an API key then uses the `address`, while a workload inside the
+  platform always calls `$STRONGLY_API_URL/api/proxy/<app>/`, in every mode),
+  `/api/workspace-proxy/<workspace>/port/<port>/`
   while running in a workspace.
   The proxy strips that prefix and sends it as `X-Forwarded-Prefix`; apps build
   every URL from it (this is the usual cause of a blank React screen) and listen

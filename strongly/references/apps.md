@@ -66,20 +66,23 @@ platform with an apps domain (the admin's `APPS_DOMAIN`) every app is its own
 origin: signed-in users are signed in to it through Strongly on their first page
 load there, its own cookies, `localStorage`, IndexedDB and service workers work,
 and its pages can never use the viewer's Strongly session. The platform's own
-host then serves no app content to any caller: a page load of
-`<platform>/api/proxy/<app>/...` is redirected (`303`) to the app's address, the
-same path; every other request (API key, token, cookie or none) answers `409`
-JSON naming `appUrl`; a websocket upgrade `403`.
+host then serves no app content to anything that comes through its load balancer:
+a page load of `<platform>/api/proxy/<app>/...` is redirected (`303`) to the app's
+address, the same path; every other request (API key, token, cookie or none)
+answers `409` JSON naming `appUrl`; a websocket upgrade `403`.
 
-Calling an app from code (not a browser): use its `address` with your own
-credential. A script or the SDK sends `X-API-Key`. A workload inside the
-platform (workspace, job, app) sends the request to
-`STRONGLY_SERVICES` `services.platform.apps_url` plus the address's path, with
-the header `Host: <slug>.<apps domain>` (`services.platform.apps_domain`) and no
-auth header: its auth-proxy signs it as the workload's owner. Both keys are
-present only with an apps domain; without one (no `apps_url`), a workload calls
-`$STRONGLY_API_URL/api/proxy/<app id>/...` as before. A browser's Strongly login
-cookie is never accepted at the app's address.
+Calling an app from code (not a browser):
+- A script or the SDK outside the platform uses its `address` and sends `X-API-Key`.
+- A workload inside the platform (a job, a workspace, a workflow node, an agent,
+  another app) calls `$STRONGLY_API_URL/api/proxy/<app id>/...` (the dashboard's
+  in-cluster address) with no auth header, the same on every platform, with or
+  without an apps domain: its auth-proxy signs the call as the workload's owner,
+  it never leaves the cluster, and the app is served to that owner by the app's
+  sharing (`403` for an owner it is not shared with). Never call the app's
+  `address` from a workload: that goes out through the internet and carries no
+  identity.
+
+A browser's Strongly login cookie is never accepted at the app's address.
 
 Two facts drive everything, the same in both:
 
