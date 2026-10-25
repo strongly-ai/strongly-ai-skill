@@ -116,8 +116,14 @@ Choosing the right one:
 | `GET /finops/costs/anomalies` | `days`, `threshold` | Detected anomalies for the window |
 | `GET /finops/costs/savings` | `category`, `minSavings` | Rightsizing recommendations + total potential savings |
 | `GET /finops/data-health` | (none) | Cost-collection coverage, data gaps, organization-hours not composed, hours Kubecost built only part of (not charged until whole), hours the cost refresh could not read or record, with why (not charged until recorded) |
+| `GET /finops/reconciliations` | `limit`, `cursor` | Platform admins: the installation's AWS bill day by day (its account and its cluster's cost-allocation tags only) and how it was allocated: `organizationsUsd`, `stronglyUsd`, `unallocatedUsd` (should be 0), per category `billUsd`, `pricedUsd`, `factor`, `workloadsUsd`, `stronglyUsd`, `status` (`reconciled`, `strongly`, `not-on-bill`) |
+| `GET /finops/reconciliations/:id` | `:id` = `YYYY-MM-DD` | One day with every Cost Explorer line per category (`lines`) |
 
 Notes that save a wrong call:
+- A workload's `network` cost (component `network`) is its pods' data transfer
+  (internet, cross-zone, cross-region) and the load balancer traffic an app or
+  workspace served; node hours and volumes are priced at the bill (Kubecost's
+  list price scaled by the day's factor), and what no workload caused is Strongly's.
 - There is no `compareWindow` on `top-drivers`; compare periods with
   `costs/monthly` or `trends` (its `changePercent` is on the previous period).
 - A change on the previous period (`changePercent`, `spendTrend`, a row's
