@@ -65,7 +65,21 @@ Where a deployed app opens is `address` from `GET /apps/:id`; never build it. On
 platform with an apps domain (the admin's `APPS_DOMAIN`) every app is its own
 origin: signed-in users are signed in to it through Strongly on their first page
 load there, its own cookies, `localStorage`, IndexedDB and service workers work,
-and its pages can never use the viewer's Strongly session.
+and its pages can never use the viewer's Strongly session. The platform's own
+host then serves no app content to any caller: a page load of
+`<platform>/api/proxy/<app>/...` is redirected (`303`) to the app's address, the
+same path; every other request (API key, token, cookie or none) answers `409`
+JSON naming `appUrl`; a websocket upgrade `403`.
+
+Calling an app from code (not a browser): use its `address` with your own
+credential. A script or the SDK sends `X-API-Key`. A workload inside the
+platform (workspace, job, app) sends the request to
+`STRONGLY_SERVICES` `services.platform.apps_url` plus the address's path, with
+the header `Host: <slug>.<apps domain>` (`services.platform.apps_domain`) and no
+auth header: its auth-proxy signs it as the workload's owner. Both keys are
+present only with an apps domain; without one (no `apps_url`), a workload calls
+`$STRONGLY_API_URL/api/proxy/<app id>/...` as before. A browser's Strongly login
+cookie is never accepted at the app's address.
 
 Two facts drive everything, the same in both:
 
@@ -483,7 +497,9 @@ token; refuses platform accounts `not-an-app-user`, another app's users
 the platform's account deletion, required by the App Store). Codes are
 single-use, last 10 minutes, take 5 guesses; wrong passwords and codes lock the
 address out of the app for 15 minutes. Signed in, `apps.getProxyUrl` gives the
-app's proxy URL, opened with the `meteor_login_token` cookie (the app gets the
+app's proxy URL, opened with the `meteor_login_token` cookie (with an apps
+domain it is the app's address, and the native SDK's `openApp()` signs the
+session in there through the app's sign-in handoff; the app gets the
 user as from the web, `X-Strongly-User-Token`); direct REST calls send the
 token as `X-Strongly-Login-Token` and reach only `GET /me` and `DELETE /me`
 (every other route 403 `app-user-restricted`; call the app's own API through
@@ -558,8 +574,8 @@ signing in on the platform's apps domain, never the dashboard's origin:
 signs people in. It is served at the same `/api/proxy/<app id>/` path on its own
 host as everywhere (the host's root sends a browser there), as an
 ordinary website: its own cookies (made host-only), `localStorage` and service
-workers work. A platform without an apps domain answers
-`404 public-apps-disabled`.
+workers work. A caller with a credential is served as anyone. A platform
+without an apps domain answers `404 public-apps-disabled`.
 
 Requests carry NO identity (no `X-Strongly-User-Token`); while it is a public
 site its pods have NO Strongly API access (the API refuses its token) and it
