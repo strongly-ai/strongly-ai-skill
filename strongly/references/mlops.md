@@ -66,6 +66,7 @@ object-storage data source.
 | `GET /mlops/automl-jobs/:id/status` | Lightweight lifecycle view (live-synced) | path `id` |
 | `GET /mlops/automl-jobs/:id/metrics` | Leaderboard, best model, val score | path `id` |
 | `GET /mlops/automl-jobs/:id/logs` | Trainer logs | path `id`, `lines?`, `since?` |
+| `POST /mlops/automl-jobs/:id/dataset/download` | A signed download link (5 minutes) to the dataset file the job staged (an upload, or a feature service job's entity/label file) | path `id` |
 | `POST /mlops/automl-jobs/:id/stop` | Stop a running job | path `id` |
 | `DELETE /mlops/automl-jobs/:id` | Delete a job | path `id` |
 | `POST /mlops/automl-jobs/:id/deploy` | Publish the best model of a tabular or multimodal job to the model registry (a timeseries job's is refused; so is a job that records no `trainerImage`: retrain it) | path `id`, `registryName?` |
@@ -151,7 +152,7 @@ trainer writes to these automatically; you also drive them directly.
 | `POST /mlops/experiments/:id/artifacts/uploads` | Get a link to upload one artifact file (PUT its bytes within an hour) | path `id`; `path`, `contentType?` |
 | `POST /mlops/experiments/:id/artifacts/multipart-uploads` | Start a large (over 5 GB) upload in parts; then `…/multipart-uploads/:id/complete` (`path`, `parts: [{partNumber, etag}]`) or `…/abort` | path `id`; `path`, `size`, `contentType?` |
 | `POST /mlops/experiments/:id/artifacts` | Record an uploaded artifact (its size is read from storage) | path `id`; `path`, `name?`, `type?`, `description?` |
-| `GET /mlops/experiments/:id/artifacts` · `GET …/artifacts/download-url?path=` | List the run's artifacts / a one-hour download link | path `id` |
+| `GET /mlops/experiments/:id/artifacts` · `POST …/artifacts/download` | List the run's artifacts / a signed download link (5 minutes) to one | path `id`; `path` (download) |
 | `GET /mlops/experiments/:id/metrics` · `GET /mlops/experiments/:experimentId/metrics/:key` | The keys the run has logged metrics under (a list) / one metric's history | |
 | `POST /mlops/experiments/:id/models` | Register the model the run logged (`log_model`) in the model registry | path `id`; `name` (new model) or `modelId` (new version); `description?`, `artifactPath?` (default `model`), `files?` (a bundle: the run's files and folders, the model folder among them, registered together as the version's artifact; every version records `sourceRun`). The task `log_model` recorded (`problemType`) becomes the model's `training.problemType`; without one, set it with `PATCH /mlops/models/:id` `problemType` before drift |
 

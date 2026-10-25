@@ -325,6 +325,9 @@ curl -s -X DELETE "${auth[@]}" "$BASE/mlops/models/$MODEL_ID"  # delete
   `idle`, `waking`, `stopped`, `failed`), `canServe` (predictions can be made now),
   `retrainReason` (why it must be retrained before it can be deployed or started, null
   when it can be), `activeVersion`, `versionCount` and `updatedAt`.
+- **Logs** (`GET /mlops/models/:id/logs`, `logType` build or runtime) reads their
+  lines; the current image build's whole log downloads as a file through a signed
+  download link (5 minutes): `POST /mlops/models/:id/build-logs/download`.
 - **Delete** returns clear errors, not opaque 500s: `409 model-in-use` (the
   model is connected to apps, disconnect it first) and `502 deployment-delete-failed`
   (its deployment could not be deleted, so the model is kept; the detail is the

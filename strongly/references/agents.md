@@ -446,7 +446,7 @@ problem details: read `code` and `detail`.
 - **Artifacts:** the files an agent produces are Library artifacts linked to the
   agent: `GET /library/artifacts?linkedIds=<agentId>` (metadata; filter by
   `artifactType` or `tags`), `GET /library/artifacts/:id` and
-  `GET /library/artifacts/:id/download-url` (a short-lived signed URL),
+  `POST /library/artifacts/:id/download` (a signed download link, 5 minutes),
   `POST /library/artifacts` (`title`, `content`, `linkedIds: [agentId]`),
   `DELETE /library/artifacts/:id`.
 - **Analytics:** `GET /agents/:id/analytics?days=30` (1 to 365).

@@ -321,6 +321,8 @@ APP_ID=$(curl -s "${auth[@]}" \
 # Poll the build to completed BEFORE deploying (pending|building|completed|failed).
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/build-status" | jq -r '.data.status'      # until "completed"
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/build-logs?level=error" | jq -r '.data'   # on "failed"
+# The whole build log as a file: a signed download link (5 minutes), fetched without credentials.
+curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/build-logs/download" | jq -r '.data.url' | xargs curl -s -o build.log
 
 # Deploy the built image, then poll the pod to healthy.
 curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/deploy"
@@ -805,9 +807,14 @@ the CPU and memory use itself: there is no polling interval.
 ## 5. Artifacts (the Library API)
 
 An **artifact** is a file the app produces for the user (report, export, PDF/HTML,
-document). Store it in the platform Library (S3-backed, encrypted) instead of the
-app's ephemeral disk, then hand the user a **short-lived pre-signed URL** so the
-download goes browser → S3, not streamed back through the app and proxy.
+document). Store it in the platform Library (S3-backed, encrypted, up to 100 MB)
+instead of the app's ephemeral disk, then hand the user a **signed download link**
+(`POST /library/artifacts/:id/download`) so the download goes browser → S3, not
+streamed back through the app and proxy. The platform issues the link only to a
+caller who may read the artifact, records it in the audit log, and the link works
+for **5 minutes**, saved as the artifact's title (`attachment`, never cached).
+Anyone holding the link can use it until it expires: mint it per request, for the
+signed-in user, never cache or share it.
 
 The app calls the platform API for this. **Inside Strongly the bearer is
 auto-injected** (see `SKILL.md`), the app doesn't manage a key; it calls
@@ -820,18 +827,20 @@ curl -s -X POST "$STRONGLY_API_URL/api/v1/library/artifacts" -H 'Content-Type: a
   -d '{"title":"Q3 report","artifact_type":"report","contentType":"application/pdf",
        "encoding":"base64","content":"'"$(base64 -i report.pdf)"'"}'   # -> data._id
 
-# Serve: GET $BASE/library/artifacts/:id/download-url?ttlSeconds=600  (max 900) -> pre-signed URL
+# Serve: POST $BASE/library/artifacts/:id/download  (artifacts:read)
+#   -> {url, expiresAt, expiresInSeconds: 300, fileName, sizeBytes}
 ```
 
 Serving pattern behind the proxy: the app's own endpoint (which knows the user
-from §3) mints a download URL and **302-redirects** the browser to it, the heavy
+from §3) issues a download link and **302-redirects** the browser to it, the heavy
 bytes go browser → S3 directly, only a small redirect passes through the app.
 
 ```js
 app.get('/download/:id', async (req, res) => {
   if (!req.user) return res.status(401).end();
-  const r = await fetch(`${process.env.STRONGLY_API_URL}/api/v1/library/artifacts/${req.params.id}/download-url`);
-  res.redirect(302, (await r.json()).data.url);   // bearer auto-injected in-cluster
+  const r = await fetch(`${process.env.STRONGLY_API_URL}/api/v1/library/artifacts/${req.params.id}/download`,
+    { method: 'POST' });                          // bearer auto-injected in-cluster
+  res.redirect(302, (await r.json()).data.url);
 });
 ```
 

@@ -148,7 +148,9 @@ a try waiting for its time (`pending` until then; it holds the job's one live ru
 so a Run Now in the wait is refused with 409). A try that succeeds ends the tries,
 and so do a cancel (`POST /jobs/:jobId/executions/:id/cancel`, running or
 waiting) and a refusal (governance, budget, size). A changed `retries` (`PATCH
-/jobs/:id`) applies from the next run.
+/jobs/:id`) applies from the next run. A run keeps its log's tail; its whole log
+(so far, while it runs) is shown by `GET /jobs/:jobId/executions/:id/log-url` and
+downloaded through a signed link, `POST /jobs/:jobId/executions/:id/logs/download`.
 
 ```bash
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
