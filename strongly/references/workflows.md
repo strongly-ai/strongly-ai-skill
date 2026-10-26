@@ -279,7 +279,7 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 | PATCH | `/workflows/:id` | Partial update (`name`, `description`, `status`, `tags`, `settings`, `deploymentEnvironmentId`, `environmentVariables`) |
 | DELETE | `/workflows/:id` | Delete (409 if deployed or running: undeploy and stop first). An agent's workflow is deleted as the agent (`DELETE /agents/:id`) |
 | POST | `/workflows/:id/duplicate` | Copy the workflow; returns the copy |
-| POST | `/workflows/:id/nodes` | Add one node (`nodeType` required; `label`, `config`, `position`) |
+| POST | `/workflows/:id/nodes` | Add one node (`nodeType` required; `label`, `config`, `position`). It must be of the workflow's kind: batch nodes in a batch workflow, streaming nodes in a streaming one (a node for both fits either); another is refused (400) |
 | GET | `/workflows/:id/nodes` | List nodes with inbound/outbound connection counts |
 | PATCH | `/workflows/:workflowId/nodes/:id` | Set a node's `config` / `label`: `config` keys you send replace those keys whole, a key sent as `null` is removed, the rest stay |
 | DELETE | `/workflows/:workflowId/nodes/:id` | Remove a node and its connections (`204`) |
