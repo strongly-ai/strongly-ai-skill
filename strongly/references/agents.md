@@ -319,6 +319,17 @@ curl -sN -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   "$BASE/agents/$AGENT_ID/threads/$THREAD_ID/runs"
 ```
 
+Nothing in a run is cut off. A tool call whose arguments are not a valid JSON
+object is not executed: the model gets an error naming the tool and its
+parameters and calls it again. A reply cut off at the agent's `maxTokens` is
+continued (up to three times in a row, then the context is compacted once and the
+reply tried again); one that still cannot finish ends the run with an error, never
+a partial answer. A tool result too large for the context reaches the model as a
+summary plus a `result_handle`, and the model reads any page of the full result
+with its `tool_result_read` tool. History that no longer fits the context budget is
+summarised by the agent's own model under every `contextPolicy` kind (none drops
+turns); a summary that cannot be made fails the run with that error.
+
 The stream is SSE `data:` lines terminated by `data: [DONE]`. A runtime failure
 arrives as an event `data: {"event":"error","data":{"error":"...","code":"...",
 "status":<n>}}` (for example a `session-cap-reached` 429 from the pod). The
