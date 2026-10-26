@@ -56,7 +56,7 @@ take their share out of it).
 | `GET /workspaces/stats` | `workspaces:read` | The list's counts with its filters: `{ total, byStatus[{status, total}], byEnvironment[{environment, total}] }` (the IDE), most first, not a page. |
 | `POST /workspaces` | `workspaces:write` | Create. Required: `name`, `description`, `environmentType`. |
 | `GET /workspaces/:id` | `workspaces:read` | Get one. |
-| `PATCH /workspaces/:id` | `workspaces:write` | Update `name`, `description`, its services (`addons`, `dataSources`, `aiGateways`, `mlModels`, `workflows`, `featureStores`, `agents`; each add-on's and data source's Python client is installed at start), `codingAssistants` (at most one) and `skillIds` (from the next start or restart), or `environmentVariables` (before its first start). Size, IDE and image are fixed at create. |
+| `PATCH /workspaces/:id` | `workspaces:write` | Update `name`, `description`, its services (`addons`, `dataSources`, `aiGateways`, `mlModels`, `workflows`, `featureStores`, `agents`; each add-on's and data source's Python client is installed at start), `codingAssistants` (at most one), `skillIds` and `assistantModelId` (Cline's model) (from the next start or restart), or `environmentVariables` (before its first start). Size, IDE and image are fixed at create. |
 | `DELETE /workspaces/:id` | `workspaces:write` | Delete. |
 | `POST /workspaces/:id/start` | `workspaces:write` | Start a stopped workspace. |
 | `POST /workspaces/:id/stop` | `workspaces:write` | Stop a running workspace. |
@@ -73,7 +73,11 @@ volume mounts at `/volumes/local/<name>/{code,data}`; see `references/projects.m
 `environmentVariables` (object: the workspace's own; a name the platform sets in a
 workspace, such as `WORKSPACE_ID`, `STRONGLY_SERVICES` or `STRONGLY_API_URL`, or
 `STRONGLY_API_KEY` is refused with 400), `codeSessionEnabled` (add a terminal an assistant
-can drive), `codingAssistants` (at most one) and `skillIds`, `environmentId`, `customResources`,
+can drive), `codingAssistants` (at most one: `claude-code`, `codex` or `opencode`, CLIs
+the user signs in to, Jupyter and VS Code; or `cline`, a VS Code extension for `vscode`
+workspaces only, which then needs `assistantModelId`, the id of an AI Gateway chat model
+the user may use: Cline calls it through the AI Gateway as the user, no key stored) and
+`skillIds`, `environmentId`, `customResources`,
 `customPort` (for `custom`), `cluster` (section 3), and `useSpot` (spot
 capacity: cheaper, can be reclaimed) with `spotFallback` (default true: on-demand
 when no spot is available; false waits for spot). Apps (`POST /apps`, `PATCH
