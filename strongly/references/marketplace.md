@@ -80,11 +80,13 @@ so you configure the deploy against what actually exists, never a guessed id.
 
 ```bash
 # Existing provisioned addons (running/deploying) + compatible object-store data
-# sources, grouped by type, things you can CONNECT to the offering.
-curl -s "${auth[@]}" "$BASE/marketplace/available-addons" | jq '.data'
+# sources, by type then label, things you can CONNECT to the offering. `type` keeps
+# one add-on slot's type, `q` matches the label.
+curl -s "${auth[@]}" "$BASE/marketplace/available-addons?type=postgres" | jq '.data'
 
-# AI models available to attach to the offering.
-curl -s "${auth[@]}" "$BASE/marketplace/available-models" | jq '.data'
+# AI models available to attach to the offering. `modelType` keeps a purpose's types
+# (one or several, comma-separated), `q` matches the name, provider or vendor model id.
+curl -s "${auth[@]}" "$BASE/marketplace/available-models?modelType=chat,multimodal" | jq '.data'
 ```
 
 `available-addons` lists services to connect, not a catalog of addon types to
@@ -92,8 +94,8 @@ create. To provision a new addon first, see `references/addons.md`.
 
 | Method | Path | Scope | Purpose |
 |---|---|---|---|
-| GET | `/marketplace/available-addons` | `marketplace:read` | User's connectable addons + object-store data sources, by type |
-| GET | `/marketplace/available-models` | `marketplace:read` | AI models available to attach |
+| GET | `/marketplace/available-addons` | `marketplace:read` | User's connectable addons + object-store data sources, by type (`type`, `q`) |
+| GET | `/marketplace/available-models` | `marketplace:read` | AI models available to attach (`modelType`, several comma-separated; `q`) |
 
 ---
 

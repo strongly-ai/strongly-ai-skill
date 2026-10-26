@@ -167,7 +167,7 @@ semantic search.
 
 | Endpoint | Purpose | Key params / body |
 |---|---|---|
-| `GET /library/prompts` | List | `q, type, tags, linkedIds, limit, cursor` |
+| `GET /library/prompts` | List (`platform=false`: without the platform's own prompts) | `q, type, platform, tags, linkedIds, limit, cursor` |
 | `GET /library/prompts/search` | Search by meaning and words at once (vector + text, fused), best first; each hit has a rank `score` | `q*, type, tags, limit, popularity, mmr, mmrLambda` |
 | `POST /library/prompts` | Create | body: `name*, content*, type, description, variables, tags, linkedIds, source` |
 | `GET /library/prompts/:id` · `PATCH /library/prompts/:id` · `DELETE /library/prompts/:id` | Fetch / update (new version) / delete | |

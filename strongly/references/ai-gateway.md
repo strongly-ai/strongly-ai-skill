@@ -42,6 +42,7 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/models/overview" | jq '.data'
 curl -s "${auth[@]}" "$BASE/ai-gateway/models?type=third-party&status=active" | jq '.data[] | {_id,name,provider,type,status,modelType}'
 curl -s "${auth[@]}" "$BASE/ai-gateway/models?type=self-hosted"               | jq '.data[] | {_id,name,status,deploymentConfig}'
 curl -s "${auth[@]}" "$BASE/ai-gateway/models?q=embed&modelType=embedding" | jq '.data'
+curl -s "${auth[@]}" "$BASE/ai-gateway/models?modelType=chat,multimodal,completion" | jq '.data'   # the models an agent can run on
 ```
 
 - `type` is `third-party` or `self-hosted`. That is the load-bearing

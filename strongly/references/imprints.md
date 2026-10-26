@@ -34,7 +34,7 @@ returns `403`. Responses use the standard envelope (see `SKILL.md`): `data` on s
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
-| GET | `/library/imprints` | List imprints you can see, with per-primitive content counts | `memory:read` |
+| GET | `/library/imprints` | List imprints you can see, with per-primitive content counts (`q` matches the name or description) | `memory:read` |
 | POST | `/library/imprints` | Create an imprint; `201` with the imprint | `memory:write` |
 | GET | `/library/imprints/:id` | Get one imprint with its contents (rows grouped by primitive) + counts | `memory:read` |
 | DELETE | `/library/imprints/:id` | Delete an imprint (its items are kept and lose the grouping; agents stop reading it) | `memory:write` |
