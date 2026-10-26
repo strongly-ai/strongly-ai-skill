@@ -65,6 +65,7 @@ curl -s "${auth[@]}" "$BASE/marketplace/items/$ITEM_ID/license"  | jq -r '.data'
 | Method | Path | Scope | Purpose |
 |---|---|---|---|
 | GET | `/marketplace/items` | `marketplace:read` | List/search offerings (`q` on name, description, tags, vendor; `vertical`, `type`, `featured`, `limit`, `cursor`, `sort`) |
+| GET | `/marketplace/items/stats` | `marketplace:read` | The offerings counted with the list's filters: `total`, `byType`, `byVertical`, `featured` |
 | GET | `/marketplace/verticals` | `marketplace:read` | Categories with item counts |
 | GET | `/marketplace/items/:id` | `marketplace:read` | Full detail for one offering |
 | GET | `/marketplace/items/:id/deploy-config` | `marketplace:read` | The offering's `deploy.json` |

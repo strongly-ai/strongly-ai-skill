@@ -381,7 +381,8 @@ In the builder the same requests show in the **Waiting for you** panel.
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/workflows/:id/execute` | Test-run a draft with `triggerInputs`; returns `{executionId, status, outputs, invocation?}`. A deployed workflow: 409 |
-| GET | `/workflows/-/executions` | List runs (`status`, `triggerType`, `since`, `until`, `limit`, `cursor`); one workflow's runs are `/workflows/:id/executions` |
+| GET | `/workflows/-/executions` | List runs (`q` on the trigger type, error message or an agent run's transcript; `status`, `triggerType`, `since`, `until`, `limit`, `cursor`); one workflow's runs are `/workflows/:id/executions` |
+| GET | `/workflows/:id/executions/stats` | One workflow's runs counted with the list's search and filters: `total`, `byStatus`, `byTriggerType` |
 | GET | `/workflows/-/executions/:id` | Full execution: definition + per-node `outputs` |
 | GET | `/workflows/-/executions/:id/progress` | Status + progress; **settles** the run and returns the outputs preview on completion |
 | GET | `/workflows/-/executions/:id/spans` | Per-node spans, oldest first, cursor-paged; read `error_message` here on failure (`nodeId`, `name`, `status`, `slim`, `limit`, `cursor`) |
