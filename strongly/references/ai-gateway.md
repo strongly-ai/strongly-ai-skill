@@ -59,7 +59,7 @@ vendor or model list):
 ```bash
 curl -s "${auth[@]}" "$BASE/ai-gateway/models/providers"            | jq '.data'   # distinct third-party providers + counts
 curl -s "${auth[@]}" "$BASE/ai-gateway/models/certified?provider=openai" | jq '.data' # curated third-party catalog
-curl -s "${auth[@]}" "$BASE/ai-gateway/models/prebuilt?category=llm" | jq '.data'   # self-hosted prebuilt templates
+curl -s "${auth[@]}" "$BASE/ai-gateway/models/prebuilt?category=llm" | jq '.data'   # self-hosted prebuilt templates, each with its certifiedEnvironment
 ```
 
 **Register a model.** `name`, `type`, `provider`, and `vendorModelId` are
@@ -85,7 +85,7 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gatew
 | `GET /ai-gateway/models` | List (`q`, `type`, `status`, `provider`, `modelType`, `limit`, `cursor`, `sort`) | `ai-gateway:read` |
 | `GET /ai-gateway/models/providers` | Distinct third-party providers + counts | `ai-gateway:read` |
 | `GET /ai-gateway/models/certified` | Curated third-party catalog (`provider`, `modelType`, `capability`) | `ai-gateway:read` |
-| `GET /ai-gateway/models/prebuilt` | Self-hosted prebuilt templates (`category`, `provider`) | `ai-gateway:read` |
+| `GET /ai-gateway/models/prebuilt` | Self-hosted prebuilt templates (`category`, `provider`), each with its `certifiedEnvironment` (`modelType`, `engine`, `port`, `instanceType`, `resources`, a chat model's `contextWindow`, `maxOutputTokens`, `limitsSource`): a deploy records these, never enter them | `ai-gateway:read` |
 | `POST /ai-gateway/models` | Create (`name`, `type`, `provider`, `vendorModelId`, `modelType`, `contextWindow`, `maxOutputTokens`, `apiKey` or `apiKeyId`, `cache_config`) | `ai-gateway:write` |
 | `GET /ai-gateway/models/:id` | Full model detail | `ai-gateway:read` |
 | `GET /ai-gateway/models/:id/options` | Model options (voices, languages, ...) | `ai-gateway:read` |
