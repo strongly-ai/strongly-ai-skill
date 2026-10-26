@@ -38,12 +38,16 @@ their app, and a user changed to `app` loses every key they held. An app user
 sees only themselves in `GET /users`.
 `GET /me` answers you: your `_id`,
 `username`, `email` and `role`, your `organization` (`_id`, `role`,
-`isMultiTenant`, `isSolo`: that is the org id used in sections 2 and 3) and the
-`apiKey` the call used (its `_id`, `name`, `keyPrefix`, `scopes`, `expiresAt`).
+`isMultiTenant`, `isSolo`: that is the org id used in sections 2 and 3), the
+`apiKey` the call used (its `_id`, `name`, `keyPrefix`, `scopes`, `expiresAt`) and
+`homeAppId` (an app user's Home App, else `null`). An app user's own credential
+reaches only `GET /me`, `GET /me/app-cards`, `DELETE /me/app-sign-ins/:id` and
+`DELETE /me`; everything else answers `403` `app-user-restricted`.
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
-| GET | `/me` | You: `_id`, `username`, `email`, `role`, `organization`, `apiKey` | (any key) |
+| GET | `/me` | You: `_id`, `username`, `email`, `role`, `homeAppId`, `organization`, `apiKey` | (any key) |
+| GET | `/me/app-cards` | The apps you may open, as cards, your Home App first: `_id`, `name`, `displayName`, `thumbnail` (icon data URL), `available` (opens now); nothing else of an app (`limit`, `cursor`) | (any key) |
 | PATCH | `/me` | Update your own profile (`name`) | `users:write` |
 | DELETE | `/me` | Delete your own account: revokes your API keys and login tokens, schedules data erasure; the account is archived with its memberships | `users:write` |
 | POST | `/me/api-keys` | Create one of your API keys (`name`, `scopes`, `expiresInDays?`); the secret is shown once | (any key) |

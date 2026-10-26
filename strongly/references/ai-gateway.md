@@ -167,6 +167,7 @@ poll `/status` until `active` first. Third-party models have no pod: `deploy`/
 | `PATCH /ai-gateway/models/:id/resources` | Change a deployed self-hosted model in place: `cpu`, `memory`, `disk`, `gpu`, and/or `useSpot` + `spotFallback` (moves it on or off spot); it restarts, never redeploys | `ai-gateway:write` |
 | `POST /ai-gateway/models/:id/start` | Start a stopped model | `ai-gateway:write` |
 | `POST /ai-gateway/models/:id/stop` | Stop self-hosted pod / deactivate third-party | `ai-gateway:write` |
+| `POST /ai-gateway/models/:id/restart` | Restart a running self-hosted model (its instances roll); `409` for a third-party model | `ai-gateway:write` |
 | `GET /ai-gateway/models/:id/status` | Live deployment status (self-hosted) or db status (third-party) | `ai-gateway:read` |
 | `GET /ai-gateway/models/:id/logs` | A self-hosted model's log entries (`type`: build, deployment or runtime; `lines`, `since`, `container`); a third-party model is 409 | `ai-gateway:read` |
 | `GET /ai-gateway/models/:id/metrics` | Runtime metrics | `ai-gateway:read` |
