@@ -494,9 +494,17 @@ Server URL and App ID shown in the Native apps section of the app's Permissions 
 appId: `appSignIn.app`, `appSignIn.signUp` (emails a 6-digit code),
 `appSignIn.verifyEmail`, `appSignIn.sendCode` (`verify-email` | `reset-password`),
 `appSignIn.resetPassword`, Meteor `login` with `{ appSignIn: { appId, email,
-password: { digest, algorithm: "sha-256" }, device } }` (answers the login
-token; refuses platform accounts `not-an-app-user`, another app's users
-`other-app-user`, unconfirmed `email-not-verified`, waiting `account-inactive`),
+password: { digest, algorithm: "sha-256" }, device: { name, platform, bundleId,
+installId } } }` (answers the login token; refuses platform accounts
+`not-an-app-user`, another app's users `other-app-user`, unconfirmed
+`email-not-verified`, waiting `account-inactive`; a `device` without its
+`installId` is a 400). The session is that install's own (`installId`, made once
+and kept in the Keychain): signing in never signs out the Strongly app, another
+install or a browser, and signing in again on the install replaces only its
+earlier session; it is exempt from the browser 60-minute idle timeout and
+5-session limit, and signs out after 30 days without use (renewed on each use),
+on `logout`, a password reset, or deactivation/archive. The branded web pages
+send no `device`: a browser session.
 `logout`, `appSignIn.sessions`, `appSignIn.endSession`,
 `appSignIn.signOutEverywhere`, `appSignIn.deleteAccount` (password confirmed;
 the platform's account deletion, required by the App Store). Codes are

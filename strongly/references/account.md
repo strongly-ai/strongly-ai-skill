@@ -51,6 +51,8 @@ sees only themselves in `GET /users`.
 | POST | `/me/api-keys/:id/revoke` | Revoke one: it stops working at once and stays listed as `revoked`; 409 if already revoked | (any key) |
 | DELETE | `/me/api-keys/:id` | Delete one that no longer works (revoked or expired); 409 for a key that still works (revoke it first) | (any key) |
 | POST | `/me/api-keys/:id/rotate` | Rotate one: a new key with the same name, scopes and expiry; the old one is revoked | (any key) |
+| GET | `/me/app-sign-ins` | The apps signed in as you: each install of the Strongly iPhone app and of a connected app (`_id` = the install, `clientId`, `appId`, `appName`, `deviceName`, `platform`, `signedInAt`, `lastUsedAt`, `expiresAt`); each install has its own credential, so signing in on one never signs out another; browsers are not listed (`limit`, `cursor`) | (any key) |
+| DELETE | `/me/app-sign-ins/:id` | Sign one install out: its key and sessions stop working at once, nothing else; 404 for an install with nothing signed in | (any key) |
 | GET | `/users` | List users visible within your organization, each `_id`, `username`, `email`, `role` (`q`, `active`, `limit`, `cursor`, `sort`); an archived user is never listed, and `GET /users/:id` answers `404` for one | `users:read` |
 | GET | `/users/:id` | Another user in your organization: `_id`, `username`, `email`, `role` (visibility-filtered) | `users:read` |
 
