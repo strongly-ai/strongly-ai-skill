@@ -386,7 +386,7 @@ In the builder the same requests show in the **Waiting for you** panel.
 | GET | `/workflows/-/executions/:id` | Full execution: definition + per-node `outputs` |
 | GET | `/workflows/-/executions/:id/progress` | Status + progress; **settles** the run and returns the outputs preview on completion |
 | GET | `/workflows/-/executions/:id/spans` | Per-node spans, oldest first, cursor-paged; read `error_message` here on failure (`nodeId`, `name`, `status`, `slim`, `limit`, `cursor`) |
-| GET | `/workflows/-/executions/:id/logs` | Execution logs (`level`, `limit`) |
+| GET | `/workflows/-/executions/:id/logs` | Execution logs, newest first, every line paged (`level`, `limit`, `cursor`) |
 | GET | `/workflows/-/executions/:id/ai-usage` | The run's AI Gateway usage: requests and input/output/total tokens, in all and per model (the run's one token figure) |
 | POST | `/workflows/-/executions/:id/stop` | Graceful stop (only when `running`) |
 | POST | `/workflows/-/executions/:id/cancel` | Hard-cancel any non-terminal run; idempotent |
