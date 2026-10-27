@@ -108,7 +108,10 @@ the node as source, shown in the run's Execution Metrics. `value` is a finite
 number, `unit` optional text; a bad argument fails the node. In
 `runOnceForEachItem` each item's calls count. A metric is saved only when a node
 logs it (`log_metric` in a node, `metric` in Code): the platform adds none of
-its own, and token counts are not metrics (see the run's AI usage below).
+its own, and token counts are not metrics (see the run's AI usage below). A
+metric call returns once the metric is recorded: while the platform cannot take
+it, it waits and sends it again; one the platform refuses fails the node naming
+it (never lost silently).
 
 ---
 
