@@ -86,7 +86,8 @@ the `services/*` routes above just list what is connectable as a node here.
 A custom node's packages (`functionDefinition.pipDependencies`, requirements.txt
 format) install once per worker pod for each node version, shared by every item
 running in parallel. Its code (and that of `code`, `exec`, `code-interpreter`,
-`web-agent` and `ssh`'s clients; ssh upload/download carry `content`, no local paths) runs in the pod's sandbox container (`exec` has no `cwd`; env = PATH,
+`web-agent` (its captures, full-page screenshots and downloads, come back as
+`captures[]` and are saved as Library artifacts) and `ssh`'s clients; ssh upload/download carry `content`, no local paths) runs in the pod's sandbox container (`exec` has no `cwd`; env = PATH,
 LANG, LC_ALL, TERM, TMPDIR, USER plus its `env` input): no cloud or cluster identity, none of the worker's env; platform calls
 (storage, state, metrics, connected nodes) work through the worker. `self.get_addon()`
 / `self.get_datasource()` see only the add-ons and data sources its own config names
@@ -331,7 +332,7 @@ workflow runs only when its triggers fire, so a hand-started run of one is refus
 409; undeploy to test a change). A deployed workflow whose trigger is a REST API
 trigger is called on the same route with `"triggerType": "rest-api"` in the body; a
 run past the runs it takes at once is refused `429` and not started (send it again
-once a run ends). It waits briefly and, when
+once a run ends; a run frees its place as soon as its last step completes). It waits briefly and, when
 the run settles fast, returns a compact per-node `outputs` preview inline. If it is
 still `running`, poll to a terminal state before claiming anything.
 
@@ -360,9 +361,11 @@ curl -s "${auth[@]}" "$BASE/workflows/-/executions/$EID" | jq '.data.outputs'
 curl -s "${auth[@]}" "$BASE/workflows/-/executions/$EID/spans?status=failed" | jq '.data'
 ```
 
-A workflow is capped at **3 in-flight executions**; a 4th returns `429
-concurrency-limit`. These are your disposable test runs, so cancel one
-(`POST /workflows/-/executions/:id/cancel`) and re-run the same input rather than waiting.
+A workflow runs as many executions at once as its `maxConcurrentExecutions` (default 1);
+one more returns `429 concurrency-limit` with `inFlight` (the runs holding its places). It
+was not started: retry once one ends. A run frees its place as soon as its last step
+completes, while it still writes its end. A draft test run you no longer need can be
+cancelled (`POST /workflows/-/executions/:id/cancel`).
 
 ### A run waiting for a person
 
@@ -493,7 +496,9 @@ execution_id, status, duration_ms, error_message, trigger_type}`. Drafts never
 auto-run, and a workflow's own run never restarts it. Custom events:
 `POST /workflows/events` `{event_type, event_data, source}`.
 
-To be told yourself, create an alert rule (in-app needs no credentials):
+To be told yourself, create an alert rule (in-app needs no credentials). A webhook
+channel with `execution_completed` / `execution_failed` is a run's completion webhook;
+an agent is a workflow, so its runs fire the rules of its id too:
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/workflows/alert-rules" \
