@@ -235,7 +235,11 @@ generation return an async job: poll `GET /ai-gateway/generations/:id` until it
 completes.
 
 A `503` means the call was not run (the model is starting, every replica is busy,
-or the gateway replica was stopping before it sent it): send it again. A `502`
+or the gateway replica was stopping before it sent it): send it again (the REST
+API already sends a stopping replica's "not sent" `503` again itself, up to 5
+times, so it rarely reaches you). A gateway rollout cuts no call: a stopping
+replica finishes every call and stream it holds. A stream that ends without its
+`finish_reason` and `[DONE]` was cut part way: the answer is incomplete. A `502`
 whose detail opens `Response lost:` means the call reached the model and its
 answer was lost; the model may already have run it, so nothing sends it again
 (the gateway, a workflow node, an agent): do not resend it blindly; tell the user.
