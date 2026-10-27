@@ -198,7 +198,7 @@ with the read endpoints first, then submit and poll.
 |---|---|---|
 | `GET /ai-gateway/fine-tuning-jobs/stats` | Summary stats | none |
 | `GET /ai-gateway/fine-tuning/base-models` | The one fine-tuning catalog (sizing: `loraRequirements`, `serving`) | none |
-| `GET /ai-gateway/fine-tuning/hardware` | Hardware/GPU options | none |
+| `GET /ai-gateway/fine-tuning/hardware` | The GPU machines, live, each with the most a job may set (`cpuCount`, `memoryGb`); above it a job is refused 400 naming the largest | none |
 | `GET /ai-gateway/fine-tuning/model-requirements` | VRAM/hardware needs for a base model | `baseModel`, `method?` |
 | `POST /ai-gateway/fine-tuning/recommend` | Recommend a config | `baseModel`, `useCase?`, `datasetSize?` |
 | `POST /ai-gateway/fine-tuning-jobs/validate` | Pre-flight validation | `baseModel`, `method`, `hardware?`, `methodConfig?` |
