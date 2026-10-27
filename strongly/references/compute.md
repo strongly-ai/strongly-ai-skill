@@ -58,11 +58,12 @@ take their share out of it).
 | `GET /workspaces/:id` | `workspaces:read` | Get one. |
 | `PATCH /workspaces/:id` | `workspaces:write` | Update `name`, `description`, its services (`addons`, `dataSources`, `aiGateways`, `mlModels`, `workflows`, `featureStores`, `agents`; each add-on's and data source's Python client is installed at start), `codingAssistants` (at most one), `skillIds` and `assistantModelId` (Cline's model) (from the next start or restart), or `environmentVariables` (before its first start). Size, IDE and image are fixed at create. |
 | `DELETE /workspaces/:id` | `workspaces:write` | Delete. |
-| `POST /workspaces/:id/start` | `workspaces:write` | Start a stopped workspace. |
+| `POST /workspaces/:id/start` | `workspaces:write` | Start a stopped workspace. A CPU size larger than every machine its pool may start is refused `400`, naming the largest size that runs (`GET /compute/pools`). |
 | `POST /workspaces/:id/stop` | `workspaces:write` | Stop a running workspace. |
 | `POST /workspaces/:id/restart` | `workspaces:write` | Restart. |
 | `GET /workspaces/:id/status` | `workspaces:read` | Live status (poll this until running). |
 | `GET /workspaces/:id/metrics` | `workspaces:read` | CPU / memory usage. |
+| `GET /workspaces/:id/pod` | `workspaces:read` | What runs it now: `phase`, `restartCount`, each container (`kind` `main` / `sidecar` / `init`, `ready`, `restartCount`, `state`, `lastTerminated` with `reason` such as `OOMKilled` and `exitCode`), and `pendingReasons` (the scheduler's answer, a waiting container, Warning events). `404` when stopped. Read it when a workspace is stuck starting or restarts. |
 | `GET /workspaces/:id/time-series` | `workspaces:read` | CPU and memory over time from Kubecost's hourly records (`window` `24h`, `7d`, `30d`). |
 | `GET /workspaces/:id/logs` | `workspaces:read` | Container logs. `type` is `pod` (the IDE's own log, the default) or `deploy` (its Kubernetes rollout). |
 | `POST /workspaces/:id/sync` | `workspaces:write` | (Inside a workspace, its own id is `$STRONGLY_WORKSPACE_ID`.) Save to durable storage: commit and push the project volume's code to its configured branch (a shared volume's code is read-only: its result is `skipped: read-only`), and save each changed data file, in every volume the user may write, as a new version. Stop/start/restart keep unsynced work; only delete loses it. Sync to make work durable, visible to others, and buildable (an app builds from synced code) (section 5). Answers `202` at once with the sync (`_id`, `status: running`): it runs in the background, data committed in batches. 409 while another sync of the workspace runs. |
@@ -167,7 +168,15 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 
 ## 4. Node pools (pre-warmed compute)
 
-Node pools are the platform workload pools that back the resources above. Pre-warm
+Node pools are the platform workload pools that back the resources above.
+`GET /compute/pools` (`compute:read`, any user, a plain array) shows each pool as it is now:
+what it may start (`instanceSizes`, `instanceCategories`, `capacityTypes`), `allowedSizes`
+(every machine type with `maxCpu` and `maxMemoryGib`: the most one workload can be given on
+it; size a workspace or job within them) and `capacity` (`nodes`, `spotNodes`, `allocatable`,
+what your organization's workloads `requested`, and your workloads `pending` a machine with
+the scheduler's reasons). Use it to confirm machines scaled down or why a workload waits. A
+workspace runs in `user-workspaces`, a job run in `user-jobs` (`ai` with a GPU, `general`
+on spot). Pre-warm
 a pool to keep spare nodes hot for faster scheduling, and pin a pool to a specific
 instance family and size. `workloadType` is one of: `general`, `ai`, `mcp`,
 `user-addons`, `user-workspaces`, `user-jobs`, `user-apps`.

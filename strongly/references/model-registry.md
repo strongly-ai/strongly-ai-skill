@@ -237,7 +237,14 @@ Deploy body fields, from the route:
   (it requests exactly what it is limited to).
 
 Change any of these without deploying with `PATCH /mlops/models/:id/serving` (same fields, plus
-`environmentId`): scheduling and demand scaling apply to a deployed model at once, resources and
+`environmentId`, and what the model's server is given: `environmentVariables`, and its secret
+references `addons` and `dataSources`, whose connections and credentials reach its pods in
+`STRONGLY_SERVICES`; each replaces the whole set, `null` removes it; put a site login or token in
+a data source, e.g. an `api` one, never in a variable). A version may carry its own on
+`POST /mlops/models/:id/versions`; they replace the model's when it becomes active. A model's
+own code calls the AI Gateway with no key, as its deployer: the platform sets `STRONGLY_API_URL`
+and `STRONGLY_PLATFORM_AUTH` (the SDK's `client.ai` works as is; a model's token reaches
+`/api/v1/ai-gateway/` only). Scheduling and demand scaling apply to a deployed model at once, resources and
 spot from its next deploy or start (a start renders the model from its saved settings).
 
 ```bash

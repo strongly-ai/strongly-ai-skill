@@ -152,6 +152,11 @@ waiting) and a refusal (governance, budget, size). A changed `retries` (`PATCH
 run's whole log so far (`logs`, every line); the runs list carries each run's last 64 KB.
 The whole log is also shown by `GET /jobs/:jobId/executions/:id/log-url` and
 downloaded through a signed link, `POST /jobs/:jobId/executions/:id/logs/download`.
+`GET /jobs/:jobId/executions/:id/pod` reads what runs a run now (after it
+ends, as it was at its end): its containers' `restartCount`, `state` and `lastTerminated` (`reason` `OOMKilled`, `exitCode`
+137 means it ran out of memory: give it more) and `pendingReasons` (why it waits for a machine).
+A CPU job larger than every machine its pool may start is refused `400` at create or resize,
+naming the largest size that runs (`GET /compute/pools`, `allowedSizes`).
 
 ```bash
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
