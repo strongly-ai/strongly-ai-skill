@@ -82,7 +82,7 @@ Notable optional fields on the wizard body: `description` (what the agent is
 for, shown in the agent list and on its Overview; ask the user for one),
 `personality`, `operatingPromptId`
 or `operatingPromptName`, `referenceKey` (e.g. `"atlas"`), `responseFormat`
-(`json_object` | `text`), `fallbackModelIds[]`, `contextPolicy`, `sessionPolicy`,
+(`json_object` | `text`; a `json_object` agent always answers JSON and never asks a clarifying question), `fallbackModelIds[]`, `contextPolicy`, `sessionPolicy`,
 `heartbeat` (`{ enabled, cron, timezone }` for autonomous wakeups),
 `connectors[]`, `training` (`{ memory[], rules[], skills[], tasks[] }`),
 `sharedLinkedIds[]`, `builtInTools` (`{ disabled: [...] }` over families
