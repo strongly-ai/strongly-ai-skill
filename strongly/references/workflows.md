@@ -126,7 +126,9 @@ which now feed nothing; remap them.
 An input that is also a setting (a database source's `query`, the REST API
 source's `url`, Google Sheets' `spreadsheetId`/`range`) takes its mapped value
 when `inputMappings` maps it, and the `config` value otherwise: map it to make
-the setting come from upstream data.
+the setting come from upstream data. A mapping passes an empty value as it is
+(a path to `null`, `""`, `[]` or `{}` sets the input to it); only a path that
+holds nothing leaves the input unset.
 
 ```bash
 WID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
