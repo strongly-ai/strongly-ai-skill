@@ -352,6 +352,10 @@ for event in client.agents.chat("wf_abc123", "thread_123", "Find last week's mee
         print("\n--- done ---")
 ```
 
+With `interactive=True` the run pauses before a tool that declares it deletes or sends
+(`thread.run.confirmation_required`); answer with `client.agents.approve_run(agent_id, run_id,
+tool_call_id)` or `client.agents.cancel_run(agent_id, run_id)`. Without it the run never waits.
+
 Agents answer from knowledge bases (`references/agents.md` section 8):
 
 ```python

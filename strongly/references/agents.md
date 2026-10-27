@@ -329,6 +329,23 @@ summary plus a `result_handle`, and the model reads any page of the full result
 with its `tool_result_read` tool. History that no longer fits the context budget is
 summarised by the agent's own model under every `contextPolicy` kind (none drops
 turns); a summary that cannot be made fails the run with that error.
+Inside a run the context is compacted again whenever it nears the budget, and once
+more (to a fifth) when the model reports an overflow; summaries use the headings
+Goal, State, Next, Resources. A newer read of the same thing (same tool, same
+arguments) replaces the older copy with an "outdated" note. A run has no time
+limit. Loop guards: the same non-read call with the same arguments a 3rd and 4th
+time in a row is not run (the model is warned), a 5th ends the run with its best
+answer; a tool failing 4 times in a row gets a notice, 8 disables it for the run.
+
+**Deletes and sends ask first, in an interactive chat.** Pass `"interactive": true`
+only when your client shows its user Confirm / Cancel: before a tool that declares
+it deletes or sends (`destructiveHint` / `sendsHint` annotations) the run pauses
+with `data: {"event":"thread.run.confirmation_required","data":{"run_id","tool_call_id",
+"tool","arguments","kind"}}` and the stream stays open (a `:` comment every 15 s).
+Answer with `POST /agents/:agentId/runs/:id/approve {"toolCallId"}` (the call
+runs; `thread.run.confirmed`) or `POST /agents/:agentId/runs/:id/cancel` (the run
+ends cancelled; the call never ran). Without `interactive` (scripts, STAN, apps
+that only read the stream) the run never waits: it follows the agent's rules.
 
 The stream is SSE `data:` lines terminated by `data: [DONE]`. A runtime failure
 arrives as an event `data: {"event":"error","data":{"error":"...","code":"...",
@@ -509,6 +526,8 @@ Agents can message each other. These routes are scoped by agent authorization
 | GET | `/agents/:agentId/threads/:id` | One thread with its messages (role, content, createdAt; an answer's runId, tokens, toolCalls) |
 | DELETE | `/agents/:agentId/threads/:id` | Delete a thread |
 | POST | `/agents/:agentId/threads/:id/runs` | Send a message (SSE stream) |
+| POST | `/agents/:agentId/runs/:id/approve` | Confirm the delete or send an interactive run waits on (`toolCallId`) |
+| POST | `/agents/:agentId/runs/:id/cancel` | Stop a run (a waiting delete or send never runs) |
 | GET | `/agents/:id/analytics` | Usage analytics (`days`) |
 | GET | `/agents/:id/time-series` | Its AI Gateway calls and tokens over time (`window`) |
 | GET | `/agents/:id/sessions` | Chat sessions (`state`) |
