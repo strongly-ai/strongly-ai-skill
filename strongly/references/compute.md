@@ -58,7 +58,7 @@ take their share out of it).
 | `GET /workspaces/:id` | `workspaces:read` | Get one. |
 | `PATCH /workspaces/:id` | `workspaces:write` | Update `name`, `description`, its services (`addons`, `dataSources`, `aiGateways`, `mlModels`, `workflows`, `featureStores`, `agents`; each add-on's and data source's Python client is installed at start), `codingAssistants` (at most one), `skillIds` and `assistantModelId` (Cline's model) (from the next start or restart), or `environmentVariables` (before its first start). Size, IDE and image are fixed at create. |
 | `DELETE /workspaces/:id` | `workspaces:write` | Delete. |
-| `POST /workspaces/:id/start` | `workspaces:write` | Start a stopped workspace. A CPU size larger than every machine its pool may start is refused `400`, naming the largest size that runs (`GET /compute/pools`). |
+| `POST /workspaces/:id/start` | `workspaces:write` | Start a stopped workspace. A CPU size larger than every machine its pool may start is refused `400`, naming the largest size that runs in CPU and memory (`GET /compute/pools`). |
 | `POST /workspaces/:id/stop` | `workspaces:write` | Stop a running workspace. |
 | `POST /workspaces/:id/restart` | `workspaces:write` | Restart. |
 | `GET /workspaces/:id/status` | `workspaces:read` | Live status (poll this until running). |

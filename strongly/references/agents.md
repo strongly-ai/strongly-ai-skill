@@ -384,10 +384,11 @@ After either, poll `GET /agents/:id/status` back to `healthy` (section 4).
 
 ```bash
 curl -s -X POST "${auth[@]}" "$BASE/agents/$AGENT_ID/stop"      # stop the pod (idempotent)
-curl -s -X DELETE "${auth[@]}" "$BASE/agents/$AGENT_ID"         # stop + remove agent mode + cleanup
+curl -s -X DELETE "${auth[@]}" "$BASE/agents/$AGENT_ID"         # stop, then delete the agent and its records
 ```
 
-`DELETE /agents/:id` stops the pod (confirmed with the controller), deletes the
+`DELETE /agents/:id` stops the agent (its worker deleted, nothing left to start it;
+else `409` saying why and nothing removed), deletes the
 agent's workspaces, then deletes its workflow and records. `DELETE /workflows/:id`
 on an agent's workflow does the same. Use `demote` (section 2b) instead if you
 want to keep the workflow and just turn agent mode off.
