@@ -161,6 +161,11 @@ notification; an admin's decision settles any gate). Decisions they made stand.
 Unarchiving them restores their withdrawn requests and their reviews. Their
 solutions and policies go with their other resources (transferred or deleted).
 
+Governance notifications always appear in the app (no setting turns them off). Email is
+one switch per user: `GET /me` `governanceEmail`, set with `PATCH /me {"governanceEmail":
+false}` (Profile > Preferences in the UI), on until turned off. An escalation reaches every
+active admin in the app and by email only those whose switch is on.
+
 Enforcement turns governance state into a deploy decision. Both query params are
 required:
 
