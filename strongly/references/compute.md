@@ -241,7 +241,8 @@ the ones the user may choose) at `/volumes/shared/<name>`, each as
 own folder is read-only (workspaces, jobs and apps, root included): a write there fails with
 `Read-only file system`, so write into `code/` or `data/`. A chosen volume the user may not mount is refused
 by name; one its owner later takes away is dropped from the choice, and the user's
-reads and writes of it are refused at once. `data/` mounts at its latest version. Another project's unshared
+reads and writes of it are refused at once. `data/` mounts at its latest version, before the IDE or the
+job's command starts: from their first moment it lists every file. Another project's unshared
 volume never mounts.
 
 **Sync.** The project volume's code half is plain git: in the workspace terminal
