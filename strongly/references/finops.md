@@ -72,8 +72,11 @@ curl -s "${auth[@]}" "$BASE/finops/costs/breakdown?window=30d&groupBy=component&
 # The most expensive workloads (each with every component of its cost)
 curl -s "${auth[@]}" "$BASE/finops/costs/top-drivers?window=30d&limit=5" | jq '.data'
 
-# Realtime from Kubecost
-curl -s "${auth[@]}" "$BASE/finops/costs/realtime?window=1d&aggregate=namespace" | jq '.data'
+# Each workload's cost over the newest recorded hours (ends at .recordedThrough, not the clock)
+curl -s "${auth[@]}" "$BASE/finops/costs/realtime?window=24h" | jq '.data'
+
+# Each workflow's (or agent's) cost per run
+curl -s "${auth[@]}" "$BASE/finops/costs/per-execution?window=30d" | jq '.data'
 ```
 
 Choosing the right one:
@@ -101,7 +104,7 @@ Choosing the right one:
 
 | Endpoint | Query params | Returns |
 |---|---|---|
-| `GET /finops/dashboard` | (none) | Overview: `stats`, `costTrend`, `monthlyCosts`, `topDrivers` |
+| `GET /finops/dashboard` | (none) | Overview: `stats`, `costTrend`, `monthlyCosts`, `topDrivers`; a part that failed is `null` and listed in `errors` (`part`, `code`, `status`, `detail`) |
 | `GET /finops/dashboard/stats` | `period` | Headline stats for the window |
 | `GET /finops/dashboard/top-drivers` | `limit`, `period` | Top drivers for the dashboard |
 | `GET /finops/costs/trends` | `window`, `granularity` (`hourly`\|`daily`\|`weekly`\|`monthly`), `groupBy`, `orgId`, `ownerId`, `userId`, `resourceType`, `workload` | Time series of `{ timestamp, cost }`, each point broken down by `groupBy` when given |
@@ -109,7 +112,8 @@ Choosing the right one:
 | `GET /finops/costs/daily` | `startDate`, `endDate`, `resourceType` | Daily entries + total/average/trend |
 | `GET /finops/costs/breakdown` | `window`, `groupBy` (`org`\|`owner`\|`user`\|`workload`\|`component`\|`type`\|`namespace`), `orgId`, `ownerId`, `userId`, `resourceType`, `workload`, `namespace` | Per-group `totalCost` + cpu/ram/gpu/storage/network split; the groups add up to the row they open |
 | `GET /finops/costs/top-drivers` | `window`, `limit` | The most expensive workloads, with organization, owner, GPU cost + efficiency |
-| `GET /finops/costs/realtime` | `window`, `aggregate`, `namespace` | Live Kubecost cost items |
+| `GET /finops/costs/realtime` | `window` (`1h` default, `6h`, `24h`, `7d`), `namespace` | Each workload's cost over the newest hours the ledger records, through `recordedThrough`; 409 `ledger-not-recorded` when none is |
+| `GET /finops/costs/per-execution` | `window` (default `30d`), `workflowId` | Each workflow's `totalCost`, `runs`, `costPerRun` (null with no run) |
 | `GET /finops/costs/historical` | `startDate`, `endDate`, `groupBy`, `orgId`, `ownerId`, `userId`, `resourceType`, `workload` | The breakdown over a date range |
 | `GET /finops/costs/efficiency` | `window`, `groupBy`, `orgId`, `ownerId`, `userId`, `resourceType`, `workload`, `namespace` | CPU and memory used against requested, overall and per group |
 | `GET /finops/costs/forecast` | `weeks` (1-52, default 13) | `historical`, `predictions` (days), `weeks`, `total`, each with `predicted`/`lowerBound`/`upperBound`; `interval` (0.95), `model` |
