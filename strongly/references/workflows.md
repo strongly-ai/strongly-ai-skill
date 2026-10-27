@@ -250,8 +250,13 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
   the deployment. One in-flight run per workflow unless its concurrency is raised.
 - An unscaled (sequential) loop's trace is one `LOOP` span for the whole loop;
   its control passes sit under it and each item's body spans under that item's
-  `ITERATION` span ("Iteration N", failed when the item errored). A node span
-  starts when the node does (its code load included).
+  `ITERATION` span ("Iteration N", failed when the item errored). Each body
+  step has a span per iteration with its whole input and output, naming the
+  iteration in `metadata.iteration` (0-based) and its loop in
+  `metadata.loop_node_id` (a map's items the same way). A node span starts
+  when the node does (its code load included). Which spans a run records is
+  the workflow's tracing level (`settings.spanLevel`): at `error` only failed
+  steps and the loops' own spans are recorded.
 - Loop Pod Scaling works in draft and deployed runs alike; the trace has a
   `DISTRIBUTED` span for the loop (at every tracing level but off), every body
   span is drawn under it by worker pod and item, and the accumulator collects
@@ -393,8 +398,8 @@ In the builder the same requests show in the **Waiting for you** panel.
 | GET | `/workflows/:id/executions/stats` | One workflow's runs counted with the list's search and filters: `total`, `byStatus`, `byTriggerType` |
 | GET | `/workflows/-/executions/:id` | Full execution: definition + per-node `outputs` |
 | GET | `/workflows/-/executions/:id/progress` | Status + progress; **settles** the run and returns the outputs preview on completion |
-| GET | `/workflows/-/executions/:id/spans` | Per-node spans, oldest first, cursor-paged; read `error_message` here on failure (`nodeId`, `name`, `status`, `slim`, `limit`, `cursor`) |
-| GET | `/workflows/-/executions/:id/logs` | Execution logs, newest first, every line paged (`level`, `limit`, `cursor`) |
+| GET | `/workflows/-/executions/:id/spans` | Every span, oldest first, cursor-paged (a loop step once per iteration: `metadata.iteration`); read `error_message` here on failure (`nodeId`, `name`, `status`, `slim`, `limit`, `cursor`) |
+| GET | `/workflows/-/executions/:id/logs` | The run's whole log, newest first, every line paged in one order (`level`, `limit`, `cursor`); each line's `spanId` names the step run that logged it |
 | GET | `/workflows/-/executions/:id/ai-usage` | The run's AI Gateway usage: requests and input/output/total tokens, in all and per model (the run's one token figure) |
 | POST | `/workflows/-/executions/:id/stop` | Graceful stop (only when `running`) |
 | POST | `/workflows/-/executions/:id/cancel` | Hard-cancel any non-terminal run; idempotent |
