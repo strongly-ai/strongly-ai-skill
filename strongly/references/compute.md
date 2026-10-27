@@ -283,8 +283,10 @@ which version to keep; never pick for them.
 **Job runs and apps.** Nobody Syncs a job run or an app, and both use volumes the
 same way: `code/` is mounted read-only (the code as last synced; writing there
 fails), `data/` opens at its latest version, read and write, and every file
-written there is saved as a new version shortly after it is closed (the rest when
-the run ends or the app stops). A run mounts its project's volume and the shared
+written there is saved as a new version before closing it returns (a rename or
+delete before it returns; files closed at the same time are saved together; a
+close waits through a platform restart; a file that cannot be saved, e.g. on a
+read-only share, fails its close with an I/O error). A run mounts its project's volume and the shared
 volumes; an app mounts the volumes picked for it (`volumes` on the app,
 `references/apps.md` section 4). Write results to `data/`, scratch to `/workspace`.
 
