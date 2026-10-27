@@ -263,7 +263,10 @@ build). That directory is a git clone of the volume's code. The build takes the 
 #    lowercased deployment name, not the id); from outside, find it by name with
 #    GET /workspaces?q=<name>.
 WORKSPACE_ID="${STRONGLY_WORKSPACE_ID}"
-curl -s -X POST "${auth[@]}" "$BASE/workspaces/$WORKSPACE_ID/sync"
+SYNC_ID=$(curl -s -X POST "${auth[@]}" "$BASE/workspaces/$WORKSPACE_ID/sync" | jq -r '.data._id')
+#    The sync runs in the background: wait until it is no longer running (a build
+#    started before it completes builds the old code).
+until [ "$(curl -s "${auth[@]}" "$BASE/workspaces/$WORKSPACE_ID/syncs/$SYNC_ID" | jq -r '.data.status')" != running ]; do sleep 2; done
 #    ... or from a terminal in the workspace:
 #    cd /volumes/local/my-project/code && git add -A && git commit -m "v2" && git push
 

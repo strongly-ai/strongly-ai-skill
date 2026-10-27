@@ -65,7 +65,9 @@ take their share out of it).
 | `GET /workspaces/:id/metrics` | `workspaces:read` | CPU / memory usage. |
 | `GET /workspaces/:id/time-series` | `workspaces:read` | CPU and memory over time from Kubecost's hourly records (`window` `24h`, `7d`, `30d`). |
 | `GET /workspaces/:id/logs` | `workspaces:read` | Container logs. `type` is `pod` (the IDE's own log, the default) or `deploy` (its Kubernetes rollout). |
-| `POST /workspaces/:id/sync` | `workspaces:write` | (Inside a workspace, its own id is `$STRONGLY_WORKSPACE_ID`.) Save to durable storage: commit and push the project volume's code to its configured branch (a shared volume's code is read-only: its result is `skipped: read-only`), and save each changed data file, in every volume the user may write, as a new version. Stop/start/restart keep unsynced work; only delete loses it. Sync to make work durable, visible to others, and buildable (an app builds from synced code) (section 5). |
+| `POST /workspaces/:id/sync` | `workspaces:write` | (Inside a workspace, its own id is `$STRONGLY_WORKSPACE_ID`.) Save to durable storage: commit and push the project volume's code to its configured branch (a shared volume's code is read-only: its result is `skipped: read-only`), and save each changed data file, in every volume the user may write, as a new version. Stop/start/restart keep unsynced work; only delete loses it. Sync to make work durable, visible to others, and buildable (an app builds from synced code) (section 5). Answers `202` at once with the sync (`_id`, `status: running`): it runs in the background, data committed in batches. 409 while another sync of the workspace runs. |
+| `GET /workspaces/:workspaceId/syncs/:id` | `workspaces:read` | A sync: `status` `running`, then `completed`, `cancelled` or `failed`; per volume `status`, `progress` (`filesTotal`, `bytesTotal`, `filesSaved`, `bytesSaved`) and `result` (`code`, `data` with `saved`, `changed`, `deleted`, `skipped` files a program was still writing; or `error`, such as the workspace's storage restarting). Poll until it is no longer `running` before building an app or running a job on the data. |
+| `POST /workspaces/:workspaceId/syncs/:id/cancel` | `workspaces:write` | Stop a running sync before its next batch; what it committed stays. |
 
 Optional wiring on `POST /workspaces` (all optional): `projectId` (the project's
 volume mounts at `/volumes/local/<name>/{code,data}`; see `references/projects.md`),
@@ -246,8 +248,11 @@ project volume's code to its configured branch (shared volumes' code is
 read-only) and records the changed data files of every mounted volume as new
 versions; then each `data/` shows the latest version of every file, so data others
 saved appears at each Sync (and at start), never only after a restart. Sync before
-deleting a workspace, handing work off, or deploying an app from the volume, and
-to pick up others' newer data. Others' newer code comes down with `git pull`.
+deleting a workspace, handing work off, running a job on the data, or deploying an
+app from the volume, and to pick up others' newer data. A sync runs in the
+background: wait for `GET /workspaces/:workspaceId/syncs/:id` to say `completed`
+before any of those (a cancelled or cut-off sync keeps what it committed; the next
+one carries on). Others' newer code comes down with `git pull`.
 
 **Sync conflicts (as on GitHub).** If the volume's code changed on the same lines
 since the workspace's last sync, that volume's sync result is `code.conflict: true`
