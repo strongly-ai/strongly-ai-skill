@@ -131,6 +131,12 @@ you attach one at workspace-create time with the `cluster` object on
 `POST /workspaces`. The connect string and dashboard are injected into the
 workspace as `STRONGLY_SERVICES.cluster`. The cluster is provisioned when the
 workspace deploys, deleted when it stops (no idle cost), and recreated on start.
+`POST /workspaces/:id/start` answers at once with a cluster too; poll
+`GET /workspaces/:id` until `status` is `running`, which a workspace with a
+cluster reaches only once `cluster.status` is `ready` (`provisioning` until
+then). A cluster that cannot start (one no machine fits) fails the start:
+`status` `error` with the reason in `error`, and `cluster.status` `error` with
+the same reason in `cluster.error`.
 
 `cluster` shape:
 
