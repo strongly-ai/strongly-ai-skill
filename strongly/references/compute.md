@@ -137,7 +137,7 @@ workspace deploys, deleted when it stops (no idle cost), and recreated on start.
 ```json
 {
   "engine": "ray",
-  "coordinator": { "cpu": "1", "memory": "4Gi" },
+  "coordinator": { "cpu": "2", "memory": "4Gi" },
   "worker": { "cpu": "2", "memory": "8Gi", "gpu": 0, "gpuType": "nvidia-t4" },
   "workers": 3,
   "autoscale": { "enabled": true, "maxWorkers": 8 }
@@ -159,7 +159,7 @@ the workspace's 2.1.3 shows a harmless version note.
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"name":"ray-lab","description":"distributed training","environmentType":"jupyter",
-       "cluster":{"engine":"ray","coordinator":{"cpu":"1","memory":"4Gi"},
+       "cluster":{"engine":"ray","coordinator":{"cpu":"2","memory":"4Gi"},
                   "worker":{"cpu":"2","memory":"8Gi"},"workers":3}}' \
   "$BASE/workspaces" | jq '.data'
 ```
@@ -241,8 +241,9 @@ the ones the user may choose) at `/volumes/shared/<name>`, each as
 own folder is read-only (workspaces, jobs and apps, root included): a write there fails with
 `Read-only file system`, so write into `code/` or `data/`. A chosen volume the user may not mount is refused
 by name; one its owner later takes away is dropped from the choice, and the user's
-reads and writes of it are refused at once. `data/` mounts at its latest version, before the IDE or the
-job's command starts: from their first moment it lists every file. Another project's unshared
+reads and writes of it are refused at once. `data/` mounts at its latest version, before the IDE, the
+job's command, or a compute cluster's coordinator and workers start: from their first moment it lists
+every file (a cluster is ready, and a worker joins it, only once its `data/` is mounted). Another project's unshared
 volume never mounts.
 
 **Sync.** The project volume's code half is plain git: in the workspace terminal
