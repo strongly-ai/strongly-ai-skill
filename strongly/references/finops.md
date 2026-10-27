@@ -174,7 +174,7 @@ curl -s -X DELETE "${auth[@]}" "$BASE/finops/budgets/<budgetId>"       # 204
 | `GET /finops/budgets/:id` | path `id` | 404 if not in the caller's tenant |
 | `POST /finops/budgets` | `name`, `organizationId`, `scope`, `budget`, `thresholds`; `description`, `notifications`, `enabled` | 201 with the budget; unique threshold percents, at most one `pause` |
 | `PATCH /finops/budgets/:id` | any create member | JSON Merge Patch; only `description` may be `null` (removed) |
-| `POST /finops/budgets/:id/pause`, `/resume` | path `id` | the budget, `status` `paused` / `active` |
+| `POST /finops/budgets/:id/pause`, `/resume` | path `id` | the budget, `status` `paused` / `active`; clears `stopped` |
 | `DELETE /finops/budgets/:id` | path `id` | 204; its queued alerts go with it |
 
 A budget's `notifications.email` says whether it also emails its alerts (they are
@@ -184,6 +184,12 @@ admins) and to the owner, and other tracked user, of each workload that spent in
 it this period; those see only their own workloads (`metadata.workloads`). App
 users (role `app`) are never alerted: they see only their app cards.
 AI Gateway spend is its self-hosted models' pods: a `self_hosted_model` budget.
+
+Archiving a user stops their budgets: every budget scoped to them and every budget
+of an organization archived with them is paused (`enabled` false) with `stopped`
+`{reason: "user-archived", userId, stoppedAt}` (null on any other budget): not
+evaluated, alerting, pausing or refusing anything. Unarchiving them resumes exactly
+those, unless a manager paused or resumed one since.
 
 ---
 

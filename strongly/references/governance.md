@@ -150,6 +150,17 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   "$BASE/governance/reviews/$SUB_ID/waive" | jq '.data'
 ```
 
+An archived user reviews nothing and requests nothing. Archiving a user withdraws
+their pending approval requests (the submission carries `withdrawn`
+`{reason: "submitter-archived", userId, at}`: in no reviewer's `reviews/pending`,
+deciding it answers `invalid-state`, and approval can be requested again), and a
+`user` reviewer entry naming them stops counting: each pending request they could
+review is decided again by the reviewers left (satisfied when they have all
+approved), or, when none is left, sent to the platform admins (an `escalation`
+notification; an admin's decision settles any gate). Decisions they made stand.
+Unarchiving them restores their withdrawn requests and their reviews. Their
+solutions and policies go with their other resources (transferred or deleted).
+
 Enforcement turns governance state into a deploy decision. Both query params are
 required:
 
