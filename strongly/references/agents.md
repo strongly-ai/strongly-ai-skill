@@ -326,11 +326,16 @@ continued (up to three times in a row, then the context is compacted once and th
 reply tried again); one that still cannot finish ends the run with an error, never
 a partial answer. A tool result too large for the context reaches the model as a
 summary plus a `result_handle`, and the model reads any page of the full result
-with its `tool_result_read` tool. History that no longer fits the context budget is
-summarised by the agent's own model under every `contextPolicy` kind (none drops
-turns); a summary that cannot be made fails the run with that error.
+with its `tool_result_read` tool. History that no longer fits the context budget follows
+`contextPolicy.kind`: `window` DROPS the oldest whole turns (no summary; down to the
+`keepRecent` tail, further while that alone is over the budget; the latest turn is
+never cut, even when it alone is over), `summarise` keeps one running summary
+(`contextSummary` on the thread) plus the verbatim tail, `hierarchical` keeps three
+tiers (verbatim tail, summarised middle `contextSummary`, titles-only
+`contextDeepHistory`). A kind other than these three is refused. A summary that
+cannot be made fails the run with that error.
 Inside a run the context is compacted again whenever it nears the budget, and once
-more (to a fifth) when the model reports an overflow; summaries use the headings
+more (to a fifth; `window`: half dropped) when the model reports an overflow; summaries use the headings
 Goal, State, Next, Resources. A newer read of the same thing (same tool, same
 arguments) replaces the older copy with an "outdated" note. A run has no time
 limit. Loop guards: the same non-read call with the same arguments a 3rd and 4th
