@@ -121,10 +121,10 @@ it (never lost silently).
 `config` and `inputMappings`) and every connection. Prefer it over creating an
 empty workflow and adding nodes one at a time.
 
-Every save, draft run and deploy pins each node to the latest published
-version of its catalog node. `PATCH /workflows/:id` returns
-`inputsNoLongerDeclared`: mappings to inputs a node's newer version dropped,
-which now feed nothing; remap them.
+A node's version is fixed when it is added (`POST /workflows/build`,
+`add_node`, a template): it takes the latest published version of its catalog
+node then, and saves, draft runs and deploys never change it. To move a node to
+a newer version, remove it and add it again (then redo its config and mappings).
 
 An input that is also a setting (a database source's `query`, the REST API
 source's `url`, Google Sheets' `spreadsheetId`/`range`) takes its mapped value
