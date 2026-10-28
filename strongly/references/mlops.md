@@ -192,7 +192,10 @@ that version's baseline. This has its own references:
 
 Adapt a **self-hosted HuggingFace** base model (LoRA by default). Third-party
 vendor models (gpt-4o, claude, gemini) are NOT fine-tunable here. Size the config
-with the read endpoints first, then submit and poll.
+with the read endpoints first, then submit and poll. Every training row must fit
+the job's max length (`dataset.cutoffLength`, default 2048 base-model tokens): a
+longer row is refused 400 at create naming each row, its length and the max, and
+nothing is made. Rows are never cut; shorten or split them, or raise the max.
 
 | Method + path | Does | Key params |
 |---|---|---|
