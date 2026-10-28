@@ -120,8 +120,9 @@ body within 24 h (per caller and route): the first answer again, with
 `Idempotent-Replayed: true`, nothing done twice. Same key, other body: `422
 idempotency-key-reused` (never retry; new key). First request still running:
 `409 idempotency-key-in-use` with `Retry-After`: wait, resend with the same key.
-Only a 2xx binds the key (after an error the same key runs again); a `202` carries
-`Location`. Ignored on start/stop/restart of an existing workload, read-like POSTs
+Only a 2xx binds the key (after an error the same key runs again, except that a
+workspace or workflow `execute` answers the execution or run the key already
+started); a `202` carries `Location`. Ignored on start/stop/restart of an existing workload, read-like POSTs
 (search, validate, predict) and AI Gateway inference, and never used on
 GET/PUT/PATCH/DELETE. The Python SDK sends a fresh key on every POST and reuses it
 on its retries.
