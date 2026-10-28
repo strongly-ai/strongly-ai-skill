@@ -292,7 +292,6 @@ Creating/editing catalog listings is `marketplace:admin`. Create requires
 | POST | `/marketplace/items` | `marketplace:admin` | Create a listing |
 | PATCH | `/marketplace/items/:id` | `marketplace:admin` | Update a listing |
 | DELETE | `/marketplace/items/:id` | `marketplace:admin` | Delete a listing |
-| DELETE | `/marketplace/offering-billing-configs/:id` | `marketplace:admin` | Remove an offering's billing config (Stripe credentials and plans; `:id` is the offering's `appName`); 204, or 422 `resource-in-use` while a subscription that is not canceled uses it |
 
 ### Offering subscriptions (admin only)
 
