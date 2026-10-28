@@ -335,7 +335,7 @@ never cut, even when it alone is over), `summarise` keeps one running summary
 tiers (verbatim tail, summarised middle `contextSummary`, titles-only
 `contextDeepHistory`). A kind other than these three is refused. A summary that
 cannot be made fails the run with that error.
-`tokenBudget` caps each request to the model: the agent's system prompt, the summary
+`tokenBudget` caps each request to the model: the agent's system prompt, its tool definitions, the summary
 or titles carried for older history, the kept history and the new message.
 Inside a run the context is compacted again whenever it nears the budget, and once
 more (to a fifth; `window`: half dropped) when the model reports an overflow; summaries use the headings
