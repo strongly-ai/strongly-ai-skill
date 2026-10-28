@@ -248,6 +248,8 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
   after it. A run needing more than 1 vCPU / 1 GB, or reaching data sources or
   add-ons, gets a worker started for it (allow up to a minute). Deployed runs use
   the deployment. One in-flight run per workflow unless its concurrency is raised.
+- Every scale-to-zero model a workflow selects (AI Gateway and registry models in
+  its nodes) is woken, all together, when any of its runs starts (draft or deployed).
 - An unscaled (sequential) loop's trace is one `LOOP` span for the whole loop;
   its control passes sit under it and each item's body spans under that item's
   `ITERATION` span ("Iteration N", failed when the item errored). Each body
