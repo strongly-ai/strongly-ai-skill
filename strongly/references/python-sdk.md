@@ -117,6 +117,12 @@ except RateLimitError as e:
 Others include `AuthenticationError`, `PermissionDeniedError` (map to a missing
 API-key scope), `ConflictError`, `InternalServerError`.
 
+- **Idempotency.** Every POST carries an `Idempotency-Key` (a fresh UUID per call,
+  or `idempotency_key=` on `workflows.execute` and `workspaces.execute`); the SDK's
+  retries reuse it and wait out a 409 `idempotency-key-in-use`. Pass your own key to
+  resend a call safely: the same key and body answers the first result. The same key
+  with another body raises `UnprocessableEntityError` (`idempotency-key-reused`).
+
 ---
 
 ## 3. AI Gateway and model inference

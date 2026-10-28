@@ -113,6 +113,19 @@ resource: `GET …/:id/permissions`, `POST …/:id/permissions/members`
 `PATCH …/:id/permissions { visibility }`. The full contract is served at
 `GET /api/v1/openapi.json`.
 
+**Idempotency.** A `POST` that creates something, starts work or has a one-off
+side effect takes an optional `Idempotency-Key: <uuid>` you generate before the
+first attempt; resend with the SAME key when the connection drops. Same key and
+body within 24 h (per caller and route): the first answer again, with
+`Idempotent-Replayed: true`, nothing done twice. Same key, other body: `422
+idempotency-key-reused` (never retry; new key). First request still running:
+`409 idempotency-key-in-use` with `Retry-After`: wait, resend with the same key.
+Only a 2xx binds the key (after an error the same key runs again); a `202` carries
+`Location`. Ignored on start/stop/restart of an existing workload, read-like POSTs
+(search, validate, predict) and AI Gateway inference, and never used on
+GET/PUT/PATCH/DELETE. The Python SDK sends a fresh key on every POST and reuses it
+on its retries.
+
 **Discovery.** List endpoints (`GET /api/v1/<resource>`) accept `limit`,
 `cursor`, `sort` (`-createdAt,name`), and usually `q` (free-text search). Resource ids are opaque strings
 (for example `app-dk8s1o8gwr03`, `project-vHPyNBcx3RSxs6Nsv`, `yeqemejxnqn7it66n`):
