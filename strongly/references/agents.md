@@ -344,10 +344,13 @@ arguments) replaces the older copy with an "outdated" note. A run has no time
 limit. Loop guards: the same non-read call with the same arguments a 3rd and 4th
 time in a row is not run (the model is warned), a 5th ends the run with its best
 answer; a tool failing 4 times in a row gets a notice, 8 disables it for the run.
+Every call of the reply the guard stops gets a `thread.run.tool_result`
+(`status: failed`, `output.loop_stopped: true`), so no tool card stays running.
 
 **Deletes and sends ask first, in an interactive chat.** Pass `"interactive": true`
 only when your client shows its user Confirm / Cancel: before a tool that declares
-it deletes or sends (`destructiveHint` / `sendsHint` annotations) the run pauses
+it deletes or sends (`destructiveHint` / `sendsHint` annotations; `send_message`
+to another agent is a send; a workflow tool declares what its nodes declare) the run pauses
 with `data: {"event":"thread.run.confirmation_required","data":{"run_id","tool_call_id",
 "tool","arguments","kind"}}` and the stream stays open (a `:` comment every 15 s).
 Answer with `POST /agents/:agentId/runs/:id/approve {"toolCallId"}` (the call
