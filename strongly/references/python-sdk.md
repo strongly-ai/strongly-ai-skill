@@ -328,6 +328,12 @@ project = client.projects.create(name="Churn Model")
 ws = client.workspaces.create(name="training-env", environment_type="jupyter",
                               project_id=project.id)
 client.workspaces.start(ws.id)
+# Once it is running: a command of any length, its whole output. It runs in the
+# workspace whatever happens to the connection; a dropped start is resent with the
+# same Idempotency-Key, so it never runs twice. start_execution + wait_for_execution
+# split the two.
+result = client.workspaces.execute(ws.id, "python train.py", cwd="/volumes/local/churn-model/code")
+print(result.exit_code, result.stdout)
 ```
 
 Also available: `client.volumes`, `client.finops` (`.costs`, `.budgets`),
