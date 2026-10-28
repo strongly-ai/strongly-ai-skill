@@ -91,7 +91,7 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gatew
 | `GET /ai-gateway/models/:id/options` | Model options (voices, languages, ...) | `ai-gateway:read` |
 | `PATCH /ai-gateway/models/:id` | Update name/description/parameters/`cache_config` | `ai-gateway:write` |
 | `DELETE /ai-gateway/models/:id/cache` | Clear the model's cached responses (response cache and semantic cache) | `ai-gateway:write` |
-| `DELETE /ai-gateway/models/:id` | Delete the model | `ai-gateway:write` |
+| `DELETE /ai-gateway/models/:id` | Delete the model (409 while anything uses it). A self-hosted model's build, deployment and images go with it; deleting one that is still building or deploying cancels it: the build stops and nothing is deployed | `ai-gateway:write` |
 | `GET /ai-gateway/models/:id/metrics` | Usage/latency metrics | `ai-gateway:read` |
 | `GET /ai-gateway/models/:id/time-series` | Requests, errors, tokens and mean latency over time, those you may count; `window` `24h` (hourly points) or `7d`/`30d` (daily UTC points, the default `30d`); answers `{window, granularity, start, end, points[{timestamp, …}]}`, every bucket a point, a quiet one zero | `ai-gateway:read` |
 | `GET /ai-gateway/models/:id/permissions` · `PUT .../permissions` | Read / set `isShared`, `sharedWith` | read / write |
