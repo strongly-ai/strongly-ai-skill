@@ -328,12 +328,15 @@ a partial answer. A tool result too large for the context reaches the model as a
 summary plus a `result_handle`, and the model reads any page of the full result
 with its `tool_result_read` tool. History that no longer fits the context budget follows
 `contextPolicy.kind`: `window` DROPS the oldest whole turns (no summary; down to the
-`keepRecent` tail, further while that alone is over the budget; the latest turn is
+last `keepRecent` turns, a turn being a user message and every reply to it, further
+while they alone are over the budget; the latest turn is
 never cut, even when it alone is over), `summarise` keeps one running summary
 (`contextSummary` on the thread) plus the verbatim tail, `hierarchical` keeps three
 tiers (verbatim tail, summarised middle `contextSummary`, titles-only
 `contextDeepHistory`). A kind other than these three is refused. A summary that
 cannot be made fails the run with that error.
+`tokenBudget` caps each request to the model: the agent's system prompt, the summary
+or titles carried for older history, the kept history and the new message.
 Inside a run the context is compacted again whenever it nears the budget, and once
 more (to a fifth; `window`: half dropped) when the model reports an overflow; summaries use the headings
 Goal, State, Next, Resources. A newer read of the same thing (same tool, same
