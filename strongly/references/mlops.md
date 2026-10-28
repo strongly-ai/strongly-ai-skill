@@ -216,8 +216,8 @@ with the read endpoints first, then submit and poll.
 `baseModel` must be an id from `/base-models` (e.g. `Qwen/Qwen2.5-7B-Instruct`): any other is refused (400);
 `trainingDataset` is a prepared file (JSONL from a Data Forge export, a project
 volume file path, or a URL/dataset id). Fine-tuning trains on NVIDIA GPUs only:
-`environment.gpuCount` is 1 to 8 (default 1, a T4 unless `gpuType` says
-otherwise); `0` is refused (400). Recommended flow:
+`environment.gpuCount` is 1 to 8 (default 1); `0` is refused (400). `environment.gpuType` is
+required: one of `GET /compute/gpu-options` (any other, or none, is a 400). Recommended flow:
 `recommend` -> `validate-config` -> `create` -> poll -> `deploy`.
 
 ```bash

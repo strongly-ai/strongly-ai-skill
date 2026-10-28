@@ -176,6 +176,13 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 
 ## 4. Node pools (pre-warmed compute)
 
+GPU types come from the admin Compute selection: `GET /compute/gpu-options`
+(`compute:read`, any user; STAN `list_gpu_options`, SDK `client.compute.list_gpu_options()`)
+lists `{ gpuType, gpuCount, instanceType }`. Every create, deploy and start that names a
+`gpuType` (environments, workspaces, jobs, apps, add-ons, models, fine-tuning, AutoML,
+workflows) refuses any other with `400 validation-error` naming the available ones. Read it
+before choosing a type; leave `gpuType` out (Auto) where it is optional.
+
 Node pools are the platform workload pools that back the resources above.
 `GET /compute/pools` (`compute:read`, any user, a plain array) shows each pool as it is now:
 what it may start (`instanceSizes`, `instanceCategories`, `capacityTypes`), `allowedSizes`
