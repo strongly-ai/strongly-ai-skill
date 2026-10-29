@@ -254,6 +254,16 @@ apply live; every other change, including switching to a different operating
 prompt, needs a redeploy** (section 6) to take effect on a running pod.
 `GET /agents/:id/config` returns `applyPending: true` while one is waiting.
 
+**What the agent is told about its tools.** The operating prompt is the agent's own
+text; write it about the agent's role and how it works, not about tool names. The
+runtime adds one section per built-in family in `builtInTools` that the agent has
+(when and why to use it; each tool's description says how), and only those families'
+per-message context (relevant rules, memories, skills, preferences, the persist
+reminder, the new-thread recall). An agent with no families is told about none. To
+make an agent keep facts, grant the `memory` family; do not write "call
+memory_ingest" into its prompt. If its families cannot be registered at start, the
+agent does not start and its logs say why.
+
 ---
 
 ## 4. Start it, and CONFIRM it is running
