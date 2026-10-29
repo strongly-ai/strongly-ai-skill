@@ -290,6 +290,9 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
 | GET | `/workflows/stats` | Workflow counts, templates not counted: by state (total / active / paused / draft; an agent is active while it runs) and by kind (batch / streaming / agents, adding up to total) |
 | GET | `/workflows/:id` | Full detail including all nodes and connections |
 | PATCH | `/workflows/:id` | Partial update (`name`, `description`, `status`, `tags`, `settings`, `deploymentEnvironmentId`, `environmentVariables`) |
+| GET | `/workflows/:id/secrets` | The workflow's secrets: `[{name, setAt, setBy}]`, never a value |
+| PUT | `/workflows/:id/secrets/:name` | Set or replace a secret: `{"value"}` -> `{name, setAt, setBy}` |
+| DELETE | `/workflows/:id/secrets/:name` | Remove a secret -> `{name, removed: true}` |
 | DELETE | `/workflows/:id` | Delete (409 if deployed or running: undeploy and stop first). An agent's workflow is deleted as the agent (`DELETE /agents/:id`) |
 | POST | `/workflows/:id/duplicate` | Copy the workflow; returns the copy |
 | POST | `/workflows/:id/nodes` | Add one node (`nodeType` required; `label`, `config`, `position`). It must be of the workflow's kind: batch nodes in a batch workflow, streaming nodes in a streaming one (a node for both fits either); another is refused (400) |
@@ -495,6 +498,34 @@ ones), `GET /workflows` lists omit them, and a duplicate, clone, template or
 export carries the names with empty values, never a value. `POST /workflows`
 takes `environmentVariables` too. SDK: `client.workflows.update(wid,
 environment_variables={"MYZOE_DATA_KEY": key})`.
+
+### Secrets (batch, write-only)
+
+A password or API key the workflow's code needs is a secret, not an
+environment variable (those are plain text in the workflow and its run). A
+secret is stored encrypted, NEVER returned by any call (get, list, export,
+copies, versions, logs, spans), and given to every run (draft and deployed) as
+an environment variable of the same name: `os.environ["PACER_PASSWORD"]`.
+
+```bash
+# Set or replace (editors; an app as its owner via auth-proxy too). A deployed
+# workflow's worker rolls with it, no undeploy.
+curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"value": "the-password"}' "$BASE/workflows/$WID/secrets/PACER_PASSWORD"
+# -> {"data": {"name": "PACER_PASSWORD", "setAt": "...", "setBy": "..."}}
+curl -s "${auth[@]}" "$BASE/workflows/$WID/secrets" | jq '.data'   # names only (readers too)
+curl -s -X DELETE "${auth[@]}" "$BASE/workflows/$WID/secrets/PACER_PASSWORD"
+# -> {"data": {"name": "PACER_PASSWORD", "removed": true}}
+```
+
+Names: an env var name; never `STRONGLY_*`, a sandbox name (`PATH`, `HOME`,
+`WORKFLOW_ID`, ...) or one of the workflow's `environmentVariables` (and a
+variable named as a secret is refused too) -> 400. A copy (duplicate,
+template, import via the export's `secretNames`) keeps the names with
+`setAt: null`: set them on the copy. Never print or log a secret's value in
+node code. SDK: `client.workflows.set_secret(wid, "PACER_PASSWORD", value)`,
+`list_secrets(wid)`, `delete_secret(wid, name)`. STAN: `set_workflow_secret`,
+`list_workflow_secrets`, `delete_workflow_secret`.
 
 ### Chain workflows and alert on run ends
 
