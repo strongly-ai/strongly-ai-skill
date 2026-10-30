@@ -811,7 +811,14 @@ You choose what's wired at create time by declaring ids in the `addons`,
 set (or the volumes, the environment variables or the autoscaling) with
 `PATCH /apps/:id` rolls a running app out at once with no downtime; a stopped app
 gets it when it starts. Declaring ids up front, at create or upload, is the
-one-shot path.
+one-shot path. Adding, swapping or removing a service later never needs the app
+recreated (the app page does the same on Settings, Services and Volumes, with
+the deploy page's pickers). Each service must be one the app's owner and the
+caller may use (an add-on running), or the PATCH is refused naming it with
+nothing changed. The rollout is a new app version (`GET /apps/:id/versions`)
+and is reported as any deploy is: poll `GET /apps/:id/status` until
+`rollout.status` is `complete`, or `failed` with why and the version that keeps
+serving.
 
 **Autoscaling:** `autoscaling` on `POST /apps` or `PATCH /apps/:id` is the whole
 block `{ "enabled": true, "minReplicas": 1-20, "maxReplicas": 1-50 (more than
