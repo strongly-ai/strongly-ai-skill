@@ -91,9 +91,9 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gatew
 | `GET /ai-gateway/models/certified` | Curated third-party catalog (`provider`, `modelType`, `capability`) | `ai-gateway:read` |
 | `GET /ai-gateway/models/prebuilt` | Self-hosted prebuilt templates (`category`, `provider`), each with its `certifiedEnvironment` (`modelType`, `engine`, `port`, `instanceType`, `resources`, a chat model's `contextWindow`, `maxOutputTokens` (the default a model created from it records: a quarter of the context window for vLLM), `maxOutputCeiling` (the most it may be set to: the whole context window for vLLM), `limitsSource`): a deploy records these, never enter them | `ai-gateway:read` |
 | `POST /ai-gateway/models` | Create (`name`, `type`, `provider`, `vendorModelId`, `modelType`, `contextWindow`, `maxOutputTokens`, `apiKey` or `apiKeyId`, `cache_config`) | `ai-gateway:write` |
-| `GET /ai-gateway/models/:id` | Full model detail | `ai-gateway:read` |
+| `GET /ai-gateway/models/:id` | Full model detail; a chat model's `maxOutputCeiling` is the most `maxOutputTokens` may be set to (a vLLM model's context window, a third-party model's certified cap; `null` when nothing records one) | `ai-gateway:read` |
 | `GET /ai-gateway/models/:id/options` | Model options (voices, languages, ...) | `ai-gateway:read` |
-| `PATCH /ai-gateway/models/:id` | Update name/description/parameters/`cache_config`, and `maxOutputTokens` up to the model's ceiling (a vLLM model's context window, a third-party model's certified cap) | `ai-gateway:write` |
+| `PATCH /ai-gateway/models/:id` | Update name/description/parameters/`cache_config`, and a chat model's `maxOutputTokens` up to its `maxOutputCeiling` (the model page's Settings tab sets the same) | `ai-gateway:write` |
 | `DELETE /ai-gateway/models/:id/cache` | Clear the model's cached responses (response cache and semantic cache) | `ai-gateway:write` |
 | `DELETE /ai-gateway/models/:id` | Delete the model (409 while anything uses it). A self-hosted model's build, deployment and images go with it; deleting one that is still building or deploying cancels it: the build stops and nothing is deployed | `ai-gateway:write` |
 | `GET /ai-gateway/models/:id/metrics` | Usage/latency metrics | `ai-gateway:read` |
