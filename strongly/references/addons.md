@@ -46,8 +46,8 @@ Parquet/CSV in S3; any Postgres client connects). Kafka and MQTT are also data s
 elsewhere): streaming workflow nodes and marketplace installs take either,
 so offer an add-on only when the user has no broker of their own.
 
-`GET /addons` lists existing addons and supports `q`, `type`, `status`,
-`limit`, `cursor`. Before provisioning a new store, list first and reuse when a
+`GET /addons` lists existing addons (each a summary: label, type, status, version,
+size; no connection details) and supports `q`, `type`, `status`, `limit`, `cursor`. Before provisioning a new store, list first and reuse when a
 suitable one already exists.
 
 ---
