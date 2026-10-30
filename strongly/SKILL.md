@@ -94,7 +94,9 @@ it. (In-cluster callers inherit the caller's own permissions.)
 **Response envelope.** Success is `{ "data": …, "meta": { "requestId" } }`. A list
 is `{ "data": [...], "meta": { "total", "limit", "nextCursor" } }`: pass
 `nextCursor` back as `cursor` for the next page (`null` on the last page); fixed
-catalogs (templates, base models, hardware tiers) are plain arrays. Errors
+catalogs (templates, base models, hardware tiers) are plain arrays. A list item
+is a summary (id, name, status, owner, timestamps, a few key fields); the get
+route returns the full record. Errors
 are RFC 9457 problem details (`application/problem+json`):
 `{ "type", "title", "status", "detail", "code", "requestId", "errors"? }`. Read
 `data` on success; surface `detail` (and `code`) on failure: a `400
