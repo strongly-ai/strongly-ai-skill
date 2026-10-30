@@ -781,7 +781,7 @@ const akid   = s3?.auth?.credentials?.access_key_id;
 // AI MODEL via the AI GATEWAY. Not a top-level array: one gateway holding the
 // models you connected. Call the gateway (OpenAI-compatible) at its base_url.
 const gw    = s.aigateway;
-const model = gw?.available_models?.[0];            // { vendor_model_id, provider, modelType, display_name, ... }
+const model = gw?.available_models?.[0];            // { vendor_model_id, provider, modelType, display_name, sourceAppId (an app-published model: the app serving it), ... }
 // POST `${gw.base_url}/...` with model.vendor_model_id; see references/ai-gateway.md.
 
 // WORKFLOWS you connected:
