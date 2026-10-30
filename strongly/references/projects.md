@@ -142,14 +142,15 @@ curl -s "${auth[@]}" "$BASE/projects/$PID/volumes" | jq '.data'   # the project'
 project volume's code folder, on demand (`POST /jobs/:id/run`) or on a schedule.
 `retries` (0 to 10, default 0) tries a failed run again, `retryDelaySeconds`
 (0 to 86400, default 60) after it ended; scheduled and run-now runs alike. Each try
-is its own execution (`GET /jobs/:id/executions`) with its own log and exit code:
+is its own execution (`GET /jobs/:id/executions`, each a summary) with its own log and exit code:
 `attempt` of `maxAttempts`, `firstExecutionId` on every later try, and `retryAt` on
 a try waiting for its time (`pending` until then; it holds the job's one live run,
 so a Run Now in the wait is refused with 409). A try that succeeds ends the tries,
 and so do a cancel (`POST /jobs/:jobId/executions/:id/cancel`, running or
 waiting) and a refusal (governance, budget, size). A changed `retries` (`PATCH
 /jobs/:id`) applies from the next run. `GET /jobs/:jobId/executions/:id` carries the
-run's whole log so far (`logs`, every line); the runs list carries each run's last 64 KB.
+run's whole log so far (`logs`, every line), its command and `error`; the runs list and
+the job list (`GET /jobs`) carry summaries, never logs or commands (`GET /jobs/:id` has the command).
 The whole log is also shown by `GET /jobs/:jobId/executions/:id/log-url` and
 downloaded through a signed link, `POST /jobs/:jobId/executions/:id/logs/download`.
 `GET /jobs/:jobId/executions/:id/pod` reads what runs a run now (after it
