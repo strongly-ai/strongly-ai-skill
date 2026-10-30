@@ -418,6 +418,7 @@ Field reference:
 | `aiGatewayPublish[]` | `app` offerings: models the app itself serves, added to the AI Gateway once it runs. Each `{ id, modelType, name, vendorModelId, description }`; `name` may use `{{APP_NAME}}` (the app's name). Each becomes a `custom` provider model the deployer owns (`endpoint.url` = the app's in-cluster address, `sourceAppId` = the app); deleting the app deletes them. The deploy may turn one off or rename it (`config.aiGatewayPublish`). |
 | `addons[]` | Managed stores to provision: `id` (this becomes the `configId` you match in `STRONGLY_SERVICES`), `type`, `required`, `allowExisting`, `internal` (hide from users), `defaults`/`options`, `backupConfig`. |
 | `aiGateway` | `{ required, minModels, maxModels, supportedProviders }`, AI models the app can use. |
+| `ai_models[]` | What the app uses AI models for, one wizard card per purpose: `{ purpose, modelTypes, description, optional?, multiple?, voice? }`. `modelTypes` are the model types that can serve it; `multiple: true` lets the user pick several models (e.g. VoiceStudio `tts`, `stt`), otherwise one. Deploy takes `config.aiModelsByPurpose` (`{ llm: "<id>", tts: ["<id>", "<id>"] }`, every id also in `config.aiModels`). Each model reaches the app with the purposes it was picked for: `aigateway.available_models[].purposes` (`[]` for a model picked without one). The app picks its models by `purposes`, never by guessing from `modelType`. |
 | `models[]` | ML models to deploy alongside the app (`artifact`, `framework`, `inference.endpoint`). |
 | `environmentVariables` | `{ configurable, defaults }`, non-secret config injected as env vars. |
 | `healthCheck` | `{ path, port, initialDelay, period, timeout, failureThreshold }`, the readiness path (serve it, see §1). |
@@ -471,6 +472,7 @@ uses (`/v1/audio/speech` for `text_to_speech`, `/v1/audio/transcriptions` for
 - [ ] Browse/filter with `GET /marketplace/items` (`q`, `vertical`, `type`, `featured`); read one with `/items/:id`.
 - [ ] Inspect `/deploy-config` and `/license` before installing; a streaming workflow offering also needs `config.sessionInitiatorRoles`.
 - [ ] Ground the deploy `config` against real `available-addons` / `available-models`, never a guessed id.
+- [ ] An offering's deploy.json `ai_models[]` picks go in `config.aiModelsByPurpose` (one id; a list for a `multiple` purpose); the app reads them as `available_models[].purposes`.
 - [ ] An offering's deploy.json `settings[]` picks go in `config.environmentVariables[envVar]`, one of each setting's `options[].value` (left out: its `default`).
 - [ ] An `app` offering's `config.resources.gpuType`, `config.volumes` and `config.aiGatewayPublish` come from its deploy.json `resources.options.gpu`, `volumes[]` and `aiGatewayPublish[]`; published models carry `sourceAppId` and go when the app is deleted, its volumes stay.
 - [ ] Deploy needs `appName` + `config` with `marketplaceItemId` and `termsAccepted: true`; it returns 202.
