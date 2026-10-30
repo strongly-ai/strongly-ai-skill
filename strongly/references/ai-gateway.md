@@ -57,6 +57,13 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/models?modelType=chat,multimodal,completi
   `references/marketplace.md`). Such a model is `third-party` with provider `custom`
   and `endpoint.url` the app's in-cluster address. Deleting the app deletes it,
   renaming the app renames it; it is not offered to that same app as a model.
+- A `custom` speech model (`text_to_speech` / `speech_to_text`) is any
+  OpenAI-compatible speech server: the gateway calls `/v1/audio/speech`,
+  `/v1/audio/transcriptions`, `/v1/audio/translations` on `endpoint.url`, sending the
+  model's `apiKey` (`Authorization: Bearer`, or `parameters.auth_header_name` /
+  `auth_prefix`) and `endpoint.headers` on every call. `GET /ai-gateway/models/:id/options`
+  lists its voices (`{id, name, ...}`) from the server's `/v1/options`, else its
+  `/v1/audio/voices`; pass a voice `id` as `voice`.
 
 **Discovery of what you can add** (drive pickers from these, never a hardcoded
 vendor or model list):
