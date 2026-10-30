@@ -122,7 +122,10 @@ add to the AI Gateway once it runs, and under what name (an entry left out is pu
 with its deploy.json `name`, `{{APP_NAME}}` replaced by the app's name). Each published
 model is a `custom` provider model the deployer owns whose `endpoint.url` is the app's
 in-cluster address and whose `sourceAppId` is the app: deleting the app deletes those
-models, renaming it renames them. A `streaming_workflow` offering also needs
+models, renaming it renames them. An offering that declares deploy.json `settings`
+takes each pick as `config.environmentVariables[<setting envVar>]`: one of that setting's
+`options[].value` (left out: its `default`; a value not listed, or a `required` one
+missing, is refused). A `streaming_workflow` offering also needs
 `config.sessionInitiatorRoles`: the platform roles (`admin`, `developer`, at least one)
 allowed to start sessions of the deployed workflow; start from its deploy config's
 `permissions.session_initiator_roles`. Any other offering refuses the field. A user who
@@ -141,7 +144,8 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"appName":"my-voicestudio","config":{"marketplaceItemId":"'"$ITEM_ID"'","termsAccepted":true,
        "resources":{"cpu":"4","memory":"16GB","disk":"20GB","gpuType":"nvidia-t4"},
        "volumes":[{"id":"data","size":"50GB"}],
-       "aiGatewayPublish":[{"id":"tts","enabled":true,"name":"My Voices"},{"id":"stt","enabled":false,"name":"My Transcription"}]}}' \
+       "aiGatewayPublish":[{"id":"tts","enabled":true,"name":"My Voices"},{"id":"stt","enabled":false,"name":"My Transcription"}],
+       "environmentVariables":{"VOICESTUDIO_DEFAULT_ENGINE":"omnivoice"}}}' \
   "$BASE/marketplace/deploy" | jq '.data'
 ```
 
@@ -418,6 +422,7 @@ Field reference:
 | `environmentVariables` | `{ configurable, defaults }`, non-secret config injected as env vars. |
 | `healthCheck` | `{ path, port, initialDelay, period, timeout, failureThreshold }`, the readiness path (serve it, see §1). |
 | `seedData` | Optional one-time init script run on deploy. |
+| `settings[]` | Choices the deploy wizard asks for (step `settings`), each written to the app's environment. Each `{ id, type: "select", label, description, envVar, default, required?, options: [{ value, label, description }] }`. The pick is sent as `config.environmentVariables[envVar]` (the wizard starts from `default`); a value not in `options`, or a `required` one missing, is refused before anything is created; one left out gets `default`. |
 
 An `app` offering that runs on a GPU, keeps its data on a volume and serves models to
 the AI Gateway declares the three blocks like this (VoiceStudio):
@@ -435,12 +440,20 @@ the AI Gateway declares the three blocks like this (VoiceStudio):
 ],
 "aiGatewayPublish": [
   { "id": "tts", "modelType": "text_to_speech", "name": "{{APP_NAME}} Voices",
-    "vendorModelId": "omnivoice", "description": "Text to speech with the app's voices" },
+    "vendorModelId": "tts-1", "description": "Text to speech with the app's voices" },
   { "id": "stt", "modelType": "speech_to_text", "name": "{{APP_NAME}} Transcription",
-    "vendorModelId": "<stt model id>", "description": "Speech to text" }
+    "vendorModelId": "whisper-1", "description": "Speech to text" }
+],
+"settings": [
+  { "id": "engine", "type": "select", "label": "Default voice engine",
+    "description": "The engine new projects use", "envVar": "VOICESTUDIO_DEFAULT_ENGINE",
+    "default": "omnivoice", "required": true,
+    "options": [ { "value": "omnivoice", "label": "OmniVoice", "description": "Built-in" },
+                 { "value": "gateway", "label": "AI Gateway", "description": "A gateway TTS model" } ] }
 ],
 "steps": [
   { "id": "resources" },
+  { "id": "settings" },
   { "id": "volumes" },
   { "id": "ai-gateway-publish", "title": "Publish to AI Gateway" }
 ]
@@ -458,6 +471,7 @@ uses (`/v1/audio/speech` for `text_to_speech`, `/v1/audio/transcriptions` for
 - [ ] Browse/filter with `GET /marketplace/items` (`q`, `vertical`, `type`, `featured`); read one with `/items/:id`.
 - [ ] Inspect `/deploy-config` and `/license` before installing; a streaming workflow offering also needs `config.sessionInitiatorRoles`.
 - [ ] Ground the deploy `config` against real `available-addons` / `available-models`, never a guessed id.
+- [ ] An offering's deploy.json `settings[]` picks go in `config.environmentVariables[envVar]`, one of each setting's `options[].value` (left out: its `default`).
 - [ ] An `app` offering's `config.resources.gpuType`, `config.volumes` and `config.aiGatewayPublish` come from its deploy.json `resources.options.gpu`, `volumes[]` and `aiGatewayPublish[]`; published models carry `sourceAppId` and go when the app is deleted, its volumes stay.
 - [ ] Deploy needs `appName` + `config` with `marketplaceItemId` and `termsAccepted: true`; it returns 202.
 - [ ] Poll `/marketplace/deployments/:id/status` (by the deployment's `_id`) until `status` is `complete`; never claim success before that; read `error` on `failed`.
