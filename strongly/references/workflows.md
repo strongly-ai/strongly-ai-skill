@@ -122,9 +122,15 @@ it (never lost silently).
 empty workflow and adding nodes one at a time.
 
 A node's version is fixed when it is added (`POST /workflows/build`,
-`add_node`, a template): it takes the latest published version of its catalog
-node then, and saves, draft runs and deploys never change it. To move a node to
-a newer version, remove it and add it again (then redo its config and mappings).
+`add_node`, an import, a template): the published version its `nodeVersion`
+names, older ones included, else the latest published version of its catalog
+node; saves, draft runs and deploys never change it. To pin a node to a
+specific version (e.g. to match another instance), name `nodeVersion` in
+`POST /workflows/build` or `add_node`, or set it on an existing node with
+`PATCH /workflows/:workflowId/nodes/:id` (`update_node`); a version that is
+not published is refused (400) and the error lists the published ones. An
+export carries each node's `nodeVersion` and an import pins exactly it. A
+template always takes the latest.
 
 An input that is also a setting (a database source's `query`, the REST API
 source's `url`, Google Sheets' `spreadsheetId`/`range`) takes its mapped value
