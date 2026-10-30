@@ -66,7 +66,11 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/models/prebuilt?category=llm" | jq '.data
 required. `modelType` (chat, multimodal, embedding, ...) comes from the
 certified catalog or a prebuilt template; for a model neither records, send
 it, or the create is refused. A chat model records `contextWindow` and
-`maxOutputTokens` the same way. A saved provider key is given by `apiKeyId`
+`maxOutputTokens` the same way. A self-hosted vLLM model records the context
+window its Dockerfile serves (`--max-model-len`) and a quarter of it as
+`maxOutputTokens`, leaving room for the prompt (Mistral 7B: 32768 and 8192);
+its owner may raise `maxOutputTokens` with `PATCH /ai-gateway/models/:id` up to
+the whole context window. A third-party model may be set up to its certified cap. A saved provider key is given by `apiKeyId`
 only when you may use that key (yours, or any key for a platform admin); a
 key you may not use is refused as not found. `cache_config` optionally
 enables the response, semantic and prompt caches (prompt caching on any chat
@@ -85,11 +89,11 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gatew
 | `GET /ai-gateway/models` | List (`q`, `type`, `status`, `provider`, `modelType`, `limit`, `cursor`, `sort`) | `ai-gateway:read` |
 | `GET /ai-gateway/models/providers` | Distinct third-party providers + counts | `ai-gateway:read` |
 | `GET /ai-gateway/models/certified` | Curated third-party catalog (`provider`, `modelType`, `capability`) | `ai-gateway:read` |
-| `GET /ai-gateway/models/prebuilt` | Self-hosted prebuilt templates (`category`, `provider`), each with its `certifiedEnvironment` (`modelType`, `engine`, `port`, `instanceType`, `resources`, a chat model's `contextWindow`, `maxOutputTokens`, `limitsSource`): a deploy records these, never enter them | `ai-gateway:read` |
+| `GET /ai-gateway/models/prebuilt` | Self-hosted prebuilt templates (`category`, `provider`), each with its `certifiedEnvironment` (`modelType`, `engine`, `port`, `instanceType`, `resources`, a chat model's `contextWindow`, `maxOutputTokens` (the default a model created from it records: a quarter of the context window for vLLM), `maxOutputCeiling` (the most it may be set to: the whole context window for vLLM), `limitsSource`): a deploy records these, never enter them | `ai-gateway:read` |
 | `POST /ai-gateway/models` | Create (`name`, `type`, `provider`, `vendorModelId`, `modelType`, `contextWindow`, `maxOutputTokens`, `apiKey` or `apiKeyId`, `cache_config`) | `ai-gateway:write` |
 | `GET /ai-gateway/models/:id` | Full model detail | `ai-gateway:read` |
 | `GET /ai-gateway/models/:id/options` | Model options (voices, languages, ...) | `ai-gateway:read` |
-| `PATCH /ai-gateway/models/:id` | Update name/description/parameters/`cache_config` | `ai-gateway:write` |
+| `PATCH /ai-gateway/models/:id` | Update name/description/parameters/`cache_config`, and `maxOutputTokens` up to the model's ceiling (a vLLM model's context window, a third-party model's certified cap) | `ai-gateway:write` |
 | `DELETE /ai-gateway/models/:id/cache` | Clear the model's cached responses (response cache and semantic cache) | `ai-gateway:write` |
 | `DELETE /ai-gateway/models/:id` | Delete the model (409 while anything uses it). A self-hosted model's build, deployment and images go with it; deleting one that is still building or deploying cancels it: the build stops and nothing is deployed | `ai-gateway:write` |
 | `GET /ai-gateway/models/:id/metrics` | Usage/latency metrics | `ai-gateway:read` |
