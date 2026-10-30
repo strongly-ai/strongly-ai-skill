@@ -329,8 +329,15 @@ curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/build-logs/download" | jq -r '.
 
 # Deploy the built image, then poll the pod to healthy.
 curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/deploy"
-curl -s "${auth[@]}" "$BASE/apps/$APP_ID/status" | jq -r '.data.status'            # until "running" ("error": read /logs)
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/status" | jq -r '.data.rollout.status'    # until "complete" or "failed"
 ```
+
+A deploy succeeded only when `rollout.status` is `complete` (the new version fully rolled out,
+every replica of it ready). `status` is the serving state: an update of a running app that
+fails stays `running`, because the previous version keeps serving. `rollout.status` `failed`:
+`rollout.reason` says why (a crash with its exit code and last output, an image that cannot be
+downloaded, a health check never answered), `rollout.rolledBackTo` the version still serving,
+`rollout.logTail` the crashed run's last log lines; `deployError` is the same in one sentence.
 
 ### New versions (same app id: URL, config and permissions are kept)
 

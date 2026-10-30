@@ -314,7 +314,8 @@ Full detail: `references/apps.md`, `references/addons.md`,
 # Apps
 app = client.apps.create(name="my-service", image="python:3.11", port=8000)
 client.apps.deploy(app.id)
-status = client.apps.status(app.id)          # poll until ready
+status = client.apps.status(app.id)          # poll until status.rollout.status is "complete" or "failed"
+# failed: status.rollout.reason says why, status.rollout.rolled_back_to the version still serving
 logs = client.apps.logs(app.id, lines=100)
 
 # Addons (managed Postgres/Redis/Mongo/...)
