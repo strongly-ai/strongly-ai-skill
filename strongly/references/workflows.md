@@ -372,6 +372,11 @@ curl -s "${auth[@]}" "$BASE/workflows/-/executions/$EID/progress" | jq '.data'
 #    A node that failed under continueOnError, or a loop/map whose items partly
 #    failed, ends partial_success; a loop whose items all failed ends failed.
 #    error_message names each: "Score failed: ValueError ...; loop: 6 of 12 items failed".
+#    Its node counts are the run's own (top-level nodes, as the Runs table shows
+#    them): a loop that failed items counts as a failed node. GET
+#    /workflows/-/executions/$EID names each in .data.failedNodes: the loop with
+#    failedItems/totalItems, and the node inside it that failed its items with
+#    its errorMessage and loopNodeId.
 
 # On completion, read the full per-node outputs and VERIFY they are non-empty.
 curl -s "${auth[@]}" "$BASE/workflows/-/executions/$EID" | jq '.data.outputs'
@@ -647,6 +652,9 @@ curl -s "${auth[@]}" "$BASE/workflows/$WID/export" | jq '.data' > workflow.stron
 
 # Import is two calls. FIRST (no resolvedDeps) VALIDATES and returns the
 # dependencies it needs mapped (data sources, addons, models, custom nodes).
+# It checks every node as the import does: an unknown node or a nodeVersion that
+# is not published here is refused (400) with the import's own error, which
+# lists the published versions.
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d "{\"exportData\": $(cat workflow.strongly.json)}" \
   "$BASE/workflows/import" | jq '.data'
