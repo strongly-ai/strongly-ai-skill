@@ -88,9 +88,9 @@ curl -s "${auth[@]}" "$BASE/governance/audit?action=gate_approved" | jq '.data' 
 
 | Method + path | Scope | Does |
 |---|---|---|
-| `GET /governance/policies` | `governance:read` | List policies (`category`, `severity`, `isActive`, `q`) |
+| `GET /governance/policies` | `governance:read` | List policies (`category`, `severity`, `isActive`, `q`), each a summary without its `stages` |
 | `POST /governance/policies` | `governance:write` | Create a policy, returns it (`data._id`) |
-| `GET /governance/policies/:id` | `governance:read` | Get one policy |
+| `GET /governance/policies/:id` | `governance:read` | Get one policy with its `stages` |
 | `PATCH /governance/policies/:id` | `governance:write` | Update a policy |
 | `DELETE /governance/policies/:id` | `governance:write` | Delete a policy |
 | `GET /governance/resource-types` | `governance:read` | Resource types a policy can target |
