@@ -109,7 +109,20 @@ runs in the background. Body requires `appName` (the name for the new app) and a
 offering declared (resources, addons, models, permissions) grounded from §1 and
 §2. `config.resources` is the app's `cpu`, `memory`, `disk`, `instances`, and
 `useSpot` (spot capacity) with `spotFallback` (default true: on-demand when no
-spot is available). A `streaming_workflow` offering also needs
+spot is available), and for an `app` offering `gpuType`: one GPU of that type, one of
+the offering's `resources.options.gpu` the platform offers (left out or `""`: no GPU;
+any other type is refused before anything is created). An `app` offering that declares
+`volumes` takes `config.volumes: [{id, size}]` (`size` one of that volume's
+`options.size`; a volume left out gets its `defaults.size`). Every declared volume is
+created as a shared volume the deployer owns, mounted in the app, and its data
+directory (`/volumes/shared/<volume name>/data`) set in the volume's `envVar`; deleting
+the app keeps it. An `app` offering that declares `aiGatewayPublish` takes
+`config.aiGatewayPublish: [{id, enabled, name}]`: which of the models the app serves to
+add to the AI Gateway once it runs, and under what name (an entry left out is published
+with its deploy.json `name`, `{{APP_NAME}}` replaced by the app's name). Each published
+model is a `custom` provider model the deployer owns whose `endpoint.url` is the app's
+in-cluster address and whose `sourceAppId` is the app: deleting the app deletes those
+models, renaming it renames them. A `streaming_workflow` offering also needs
 `config.sessionInitiatorRoles`: the platform roles (`admin`, `developer`, at least one)
 allowed to start sessions of the deployed workflow; start from its deploy config's
 `permissions.session_initiator_roles`. Any other offering refuses the field. A user who
@@ -121,6 +134,14 @@ workflow is shared with them. Missing `appName`/`config` is a 400, missing `mark
 # Kick off the deploy (returns 202, body echoes appName + marketplaceItemId)
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"appName":"my-resume-app","config":{"marketplaceItemId":"'"$ITEM_ID"'","termsAccepted":true}}' \
+  "$BASE/marketplace/deploy" | jq '.data'
+
+# An app offering with a GPU option, a volume and models it publishes (VoiceStudio)
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"appName":"my-voicestudio","config":{"marketplaceItemId":"'"$ITEM_ID"'","termsAccepted":true,
+       "resources":{"cpu":"4","memory":"16GB","disk":"20GB","gpuType":"nvidia-t4"},
+       "volumes":[{"id":"data","size":"50GB"}],
+       "aiGatewayPublish":[{"id":"tts","enabled":true,"name":"My Voices"},{"id":"stt","enabled":false,"name":"My Transcription"}]}}' \
   "$BASE/marketplace/deploy" | jq '.data'
 ```
 
@@ -386,9 +407,11 @@ Field reference:
 | Key | Purpose |
 |---|---|
 | `name` / `displayName` / `version` / `type` / `description` | Identity of the offering in the marketplace (`type` `"app"` here is the offering kind, not the build type; the build type is `strongly.manifest.yaml`'s). |
-| `steps[]` | The deploy-wizard steps shown to the user (`id` ∈ `permissions`, `resources`, `addons`, `ml-models`, `ai-models`), each `required` or not. |
+| `steps[]` | The deploy-wizard steps shown to the user (`id` ∈ `permissions`, `resources`, `addons`, `ml-models`, `ai-models`, `volumes`, `ai-gateway-publish`), each `required` or not. |
 | `permissions` | `allowPublic`, `allowUserSelection`, `defaultPublic`, who can reach the app. A `streaming_workflow` offering also names `session_initiator_roles` (platform roles `admin`, `developer`): the roles the wizard starts from for who may start its sessions; no other type carries it. |
-| `resources` | `defaults` + selectable `options` for `cpu`, `memory`, `disk`, `instances`. |
+| `resources` | `defaults` + selectable `options` for `cpu`, `memory`, `disk`, `instances`, and for an `app` offering `gpu`: `defaults.gpu` `"none"` (CPU) and `options.gpu` the GPU types the app can run on (`nvidia-t4`, `nvidia-l4`, `nvidia-a10g`, ...); the wizard offers those the platform runs, the deploy sends the choice as `config.resources.gpuType`. |
+| `volumes[]` | `app` offerings: persistent volumes the app keeps its data on. Each `{ id, label, description, envVar, defaults: { size }, options: { size: [...] } }`. Every one is created on deploy (`<app name>-<app id>-<id>`, a shared volume the deployer owns), mounted in the app, and `envVar` set to its data directory `/volumes/shared/<volume name>/data`. Deleting the app keeps it. The app's disk grows by the volume sizes. |
+| `aiGatewayPublish[]` | `app` offerings: models the app itself serves, added to the AI Gateway once it runs. Each `{ id, modelType, name, vendorModelId, description }`; `name` may use `{{APP_NAME}}` (the app's name). Each becomes a `custom` provider model the deployer owns (`endpoint.url` = the app's in-cluster address, `sourceAppId` = the app); deleting the app deletes them. The deploy may turn one off or rename it (`config.aiGatewayPublish`). |
 | `addons[]` | Managed stores to provision: `id` (this becomes the `configId` you match in `STRONGLY_SERVICES`), `type`, `required`, `allowExisting`, `internal` (hide from users), `defaults`/`options`, `backupConfig`. |
 | `aiGateway` | `{ required, minModels, maxModels, supportedProviders }`, AI models the app can use. |
 | `models[]` | ML models to deploy alongside the app (`artifact`, `framework`, `inference.endpoint`). |
@@ -396,12 +419,46 @@ Field reference:
 | `healthCheck` | `{ path, port, initialDelay, period, timeout, failureThreshold }`, the readiness path (serve it, see §1). |
 | `seedData` | Optional one-time init script run on deploy. |
 
+An `app` offering that runs on a GPU, keeps its data on a volume and serves models to
+the AI Gateway declares the three blocks like this (VoiceStudio):
+
+```json
+"resources": {
+  "defaults": { "cpu": "4", "memory": "16GB", "disk": "20GB", "instances": 1, "gpu": "none" },
+  "options":  { "cpu": ["2", "4", "8"], "memory": ["8GB", "16GB", "32GB"], "disk": ["20GB", "50GB"],
+                "instances": [1], "gpu": ["nvidia-t4", "nvidia-l4", "nvidia-a10g"] }
+},
+"volumes": [
+  { "id": "data", "label": "VoiceStudio data", "description": "Voices, recordings and transcripts",
+    "envVar": "VOICESTUDIO_DATA_DIR",
+    "defaults": { "size": "50GB" }, "options": { "size": ["20GB", "50GB", "100GB"] } }
+],
+"aiGatewayPublish": [
+  { "id": "tts", "modelType": "text_to_speech", "name": "{{APP_NAME}} Voices",
+    "vendorModelId": "omnivoice", "description": "Text to speech with the app's voices" },
+  { "id": "stt", "modelType": "speech_to_text", "name": "{{APP_NAME}} Transcription",
+    "vendorModelId": "<stt model id>", "description": "Speech to text" }
+],
+"steps": [
+  { "id": "resources" },
+  { "id": "volumes" },
+  { "id": "ai-gateway-publish", "title": "Publish to AI Gateway" }
+]
+```
+
+`gpu` `"none"` is CPU. The app reads its volume's data directory from the `envVar`
+(`VOICESTUDIO_DATA_DIR=/volumes/shared/<volume name>/data`). A published model is a
+`custom` provider model, so the app serves the OpenAI-shaped routes its `modelType`
+uses (`/v1/audio/speech` for `text_to_speech`, `/v1/audio/transcriptions` for
+`speech_to_text`, `/v1/chat/completions` for `chat`) on port 8080.
+
 ---
 
 ## Checklist
 - [ ] Browse/filter with `GET /marketplace/items` (`q`, `vertical`, `type`, `featured`); read one with `/items/:id`.
 - [ ] Inspect `/deploy-config` and `/license` before installing; a streaming workflow offering also needs `config.sessionInitiatorRoles`.
 - [ ] Ground the deploy `config` against real `available-addons` / `available-models`, never a guessed id.
+- [ ] An `app` offering's `config.resources.gpuType`, `config.volumes` and `config.aiGatewayPublish` come from its deploy.json `resources.options.gpu`, `volumes[]` and `aiGatewayPublish[]`; published models carry `sourceAppId` and go when the app is deleted, its volumes stay.
 - [ ] Deploy needs `appName` + `config` with `marketplaceItemId` and `termsAccepted: true`; it returns 202.
 - [ ] Poll `/marketplace/deployments/:id/status` (by the deployment's `_id`) until `status` is `complete`; never claim success before that; read `error` on `failed`.
 - [ ] Once complete, treat `result.appId` as a normal app and use `references/apps.md` (`/apps` routes, proxy, identity, manifest).
