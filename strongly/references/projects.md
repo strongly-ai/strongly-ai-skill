@@ -66,7 +66,7 @@ saying what goes.
 
 | Method | Path | Tool | Notes |
 |---|---|---|---|
-| GET | `/projects` | `list_projects` | `q`, `status` (`active` or `paused`), `category`, `tag`, `limit`, `cursor`; each project is a summary (`_id`, `name`, `status`, `owner`, `icon`, `category`, `tags`, `visibility`, `filesystemType`, `volumeId`, `createdAt`, `updatedAt`): `get_project` for the rest |
+| GET | `/projects` | `list_projects` | `q`, `status` (`active` or `paused`), `category`, `tag`, `limit`, `cursor`; each project is a summary (`_id`, `name`, `description`, `status`, `owner`, `icon`, `category`, `tags`, `visibility`, `filesystemType`, `volumeId`, `createdAt`, `updatedAt`): `get_project` for the rest |
 | POST | `/projects` | `create_project` | `name`*, `description`*, `filesystemType`, `githubConfig`, `tags` |
 | GET | `/projects/:id` | `get_project` | full project document |
 | PATCH | `/projects/:id` | `update_project` | `name`, `description`, `tags`, `category`, `icon`, `readme`, `isPublic` (any other field is refused) |
