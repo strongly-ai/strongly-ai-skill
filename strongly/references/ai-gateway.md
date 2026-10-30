@@ -75,7 +75,16 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/models/prebuilt?category=llm" | jq '.data
 ```
 
 **Register a model.** `name`, `type`, `provider`, and `vendorModelId` are
-required. `modelType` (chat, multimodal, embedding, ...) comes from the
+required. A self-hosted model is stored with its settings resolved and is not
+deployed by the create: from a prebuilt template (`vendorModelId` names one) it
+takes every setting from the template, and each setting sent (`instanceType`,
+`resources` {cpu, memory, gpu, disk}, `dockerfile`, `port`, `envVars`,
+`maxOutputTokens`, `schedulingMode`, `autoShutdownMinutes`, `scheduleRules`,
+`replicas`, `scalingMode`, `minReplicas`, `maxReplicas`, `targetConcurrency`,
+`useSpot`, `spotFallback`) is an override for that one model; a custom model
+(no template) sends `instanceType`, `resources.disk`, `dockerfile` and `port`
+(400 naming any left out). Spot is off unless `useSpot` is true. Deploy body
+fields are the same model's overrides, stored before it deploys. `modelType` (chat, multimodal, embedding, ...) comes from the
 certified catalog or a prebuilt template; for a model neither records, send
 it, or the create is refused. A chat model records `contextWindow` and
 `maxOutputTokens` the same way. A self-hosted vLLM model records the context
