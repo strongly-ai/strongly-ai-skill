@@ -96,9 +96,10 @@ only when you may use that key (yours, or any key for a platform admin); a
 key you may not use is refused as not found. `cache_config` optionally
 enables the response, semantic and prompt caches (prompt caching on any chat
 or multimodal model certified for it).
-`storePrompts` (optional, set at model setup, default `true`): with it
-`false` the AI Gateway keeps each call's usage record but stores no prompt or
-response. An app with sensitive data keeps its own sessions and history.
+`storePrompts` (optional, set once at model setup, default `true`; `PATCH`
+refuses it, create a new model to change it): with it `false` the AI Gateway
+keeps each call's usage record but stores no prompt or response. An app with
+sensitive data keeps its own sessions and history.
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gateway/models" \
