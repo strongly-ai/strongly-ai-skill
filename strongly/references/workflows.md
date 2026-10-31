@@ -136,13 +136,8 @@ An input that is also a setting (a database source's `query`, the REST API
 source's `url`, Google Sheets' `spreadsheetId`/`range`) takes its mapped value
 when `inputMappings` maps it, and the `config` value otherwise: map it to make
 the setting come from upstream data. A mapping passes an empty value as it is
-(a path to `null`, `""`, `[]` or `{}` sets the input to it). A path that holds
-nothing in the output of every node feeding it FAILS the node ("<node>: input
-'<name>' is mapped to '<path>', which names nothing in the output of <sources>";
-its `continueOnError` applies): check the arriving data's shape. Only an
-optional input (name starting with `_`, e.g. `_reviewFlag`) or a path onto a
-converging branch that did not run leaves the input unset (the node runs
-without it); an unmapped input uses its setting.
+(a path to `null`, `""`, `[]` or `{}` sets the input to it); only a path that
+holds nothing leaves the input unset.
 
 ```bash
 WID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
