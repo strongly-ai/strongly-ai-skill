@@ -363,9 +363,12 @@ an archive's passwords) goes in `secretInputs` (name -> string), never in
 (`os.environ["ARCHIVE_PASSWORDS"]`; a node setting that names a secret, like File
 Extractor's `passwordsSecret`, takes the name), for that run's processes only, in a
 draft run and in a deployed workflow's always-running worker alike (concurrent runs
-never see each other's). It is kept encrypted only while the run runs and deleted when
-it ends; never logged, in a span or returned. A name must not be a workflow variable, a workflow secret or a platform
-name (400). Such a run cannot be resumed or retried from the dead-letter queue: run
+never see each other's). It is never stored: it travels only in the request that hands
+the run to its worker, which holds it in memory until the run ends; never logged, in a
+span or returned (the run keeps the names only). The workers a loop running Across
+Workers starts are not given it (an item there that names one fails, naming it); a deployed workflow that
+runs on its schedule only refuses it (422: use a workflow secret). A name must not be a
+workflow variable, a workflow secret or a platform name (400). Such a run cannot be resumed or retried from the dead-letter queue: run
 it again with them. A value the workflow needs on every run is a workflow secret
 (`PUT /workflows/:id/secrets/:name`) instead.
 
