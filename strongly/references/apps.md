@@ -412,8 +412,37 @@ single-tenant (one user per organization) they get their OWN organization and
 namespace, and their clone of the app's base lives there; multi-tenant they
 join the APP's organization and their clone lives there (binding an existing
 user requires them to be an active member of the app's organization). Either
-way the app owner lists and manages them (`GET /apps/:id/users?type=app`) and their
+way the app's admins list and manage them (`GET /apps/:id/users?type=app`) and their
 clone uses the owner's models, tool workflows, workspace and MCP servers.
+
+How people join (set with `PATCH /apps/:id/auth`):
+
+| Mode | Settings | Who gets in |
+|---|---|---|
+| Open | `signupEnabled: true`, `access: "instant"` | anyone who signs up, once their email is confirmed |
+| Approval | `signupEnabled: true`, `access: "approval"` | anyone who signs up, after an app admin approves them |
+| Allowed domains | `allowedDomains: ["example.com"]` (with either mode) | only those email domains, for sign-ups and invitations |
+| Invitation only | `signupEnabled: false` | only people an app admin invites |
+
+**App admins.** An app admin is a user whose role in the app is `admin` (the
+`appRole` claim in `X-Strongly-User-Token`). The app's owner is always an app
+admin (`appRole: "admin"`). Make someone an app admin on the Permissions tab
+(Users, role selector), with `PATCH /apps/:id/users/:id {"role":"admin"}`, or by
+inviting them with `"role": "admin"`. The owner, app admins and platform
+admins (multi-tenant: also the admins of the app's organization) may invite,
+resend, revoke, approve waiting users, change roles, add existing users and
+reset passwords. The app reads `appRole === "admin"` for its own admin
+features; never an `ADMIN_EMAILS` env var.
+
+**Invitations.** An invitation emails the person the app's name and logo and a
+link to the app's branded page `<platform>/app/<slug>/invitation/<token>`, where
+they choose a password and are signed straight into the app: Home App = this
+app, `appRole` = the invitation's role, active at once, email confirmed. It
+works with sign-up off, needs the branded sign-in pages on, follows
+`allowedDomains` (403 `domain-not-allowed`), takes a seat like any app user and
+expires after 7 days. 409 when an account with that email already exists (add
+an existing app user with `POST /apps/:id/users {userId}`) or an invitation to
+it is pending.
 
 ```bash
 # Turn it on (only the fields sent change; enabling also enables Home App).
@@ -443,9 +472,17 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"active":
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"active":false}' \
   "$BASE/apps/$APP_ID/users/$USER_ID"                                         # signed out, cannot sign in
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"role":"admin"}' \
-  "$BASE/apps/$APP_ID/users/$USER_ID"                                         # their role in the app (appRole): admin | user; owner or platform admin only
+  "$BASE/apps/$APP_ID/users/$USER_ID"                                         # their role in the app (appRole): admin | user; the app's admins only
 curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/users/$USER_ID/reset-password" # emails a reset code (Home App users)
 curl -s -X DELETE "${auth[@]}" "$BASE/apps/$APP_ID/users/$USER_ID"                   # off the app; account kept
+
+# Invitations (the app's admins only; branded sign-in pages on)
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/users/invitations" \
+  -d '{ "email": "pat@example.com", "name": "Pat Lee", "role": "user" }'   # 201; role admin | user (default user)
+# -> { id, appId, email, name, role, status: "pending", expiresAt, invitedBy, invitedByName, createdAt, acceptedAt: null }
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/users/invitations?status=pending&limit=50"  # status pending | accepted | revoked | expired (omitted = all); next page: &cursor=<nextCursor>
+curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/users/invitations/$INVITATION_ID/resend"  # new link, fresh 7 days; the old link stops working
+curl -s -X DELETE "${auth[@]}" "$BASE/apps/$APP_ID/users/invitations/$INVITATION_ID"       # 204, revoked; its link stops working
 
 # Usage (the platform's own count of proxied requests; range 7d | 30d | 90d)
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/analytics?range=30d"          # summary, per day, session lengths, starts by weekday/hour
@@ -509,7 +546,10 @@ The iPhone app uses the `StronglyAppAuth` Swift package (iOS 17+) with the
 Server URL and App ID shown in the Native apps section of the app's Permissions tab. Over DDP it calls, all with the
 appId: `appSignIn.app`, `appSignIn.signUp` (emails a 6-digit code),
 `appSignIn.verifyEmail`, `appSignIn.sendCode` (`verify-email` | `reset-password`),
-`appSignIn.resetPassword`, Meteor `login` with `{ appSignIn: { appId, email,
+`appSignIn.resetPassword`, `appSignIn.invitation(appId, token)` (the invitation
+behind a link: `{ email, name, role }`), `appSignIn.acceptInvitation(appId, {
+token, name, password, acceptTerms })` (answers `{ status: "active", email }`;
+then sign in as below), Meteor `login` with `{ appSignIn: { appId, email,
 password: { digest, algorithm: "sha-256" }, device: { name, platform, bundleId,
 installId } } }` (answers the login token; refuses platform accounts
 `not-an-app-user`, another app's users `other-app-user`, unconfirmed
@@ -696,8 +736,10 @@ app.use('/api', (req, _res, next) => {
 
 Convenience headers also exist (`X-Strongly-User-Id/Email/Name/Roles`,
 `X-Strongly-Org-Id`); the JWT is canonical. The user claim carries two roles,
-never interchangeable: **`appRole`**, the user's role IN THIS APP (`owner`,
-`admin`, `user`, `viewer`): gate the app's features on it; and **`role`**, their
+never interchangeable: **`appRole`**, the user's role IN THIS APP (`admin`,
+`user`, `viewer`; the app's owner and its app admins are `admin`): gate the
+app's features on it, and its admin features on `appRole === "admin"` (never an
+`ADMIN_EMAILS` env var); and **`role`**, their
 PLATFORM role (`admin`, `developer`, `app`), which only the platform reads. An
 app admin who signed up through the branded page is `role: "app"`,
 `appRole: "admin"`. Never use `role` for the app's own permissions.
