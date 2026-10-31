@@ -308,6 +308,17 @@ organizations (a sharee in another org reads the code half and reads or writes t
 data half from their own workspace, with no extra credential setup); on a
 multi-tenant installation a volume is shared only within its organization.
 
+**POSIX on `data/`.** The mount keeps a file's mode (`chmod`; a folder's when it
+is not `755`), symbolic links (relative or absolute) and a file's modification
+time (`os.utime`), all versioned with the file and shown again after a restart, so
+`shutil.copy2`, `python3 -m venv` and `pip install` work on it. `chown` is accepted
+and not stored (everything is the running user's); hard links fail with `EPERM`
+(pip and git copy instead); a folder's times are not versioned; `statfs` reports
+the local storage holding unsaved writes. SQLite is never saved half-written: a
+workspace Sync leaves out a database (and its `-wal`/`-shm`/`-journal`) that is
+open, saving it once closed; a job or app saves its files at close and `fsync`, in
+order.
+
 **Data half over REST.** The data half is fully readable and writable without a
 workspace, per file: list files, read one file's version history, download a
 specific version's bytes, write or upload a file as a new version, and delete
@@ -318,8 +329,8 @@ specific version's bytes, write or upload a file as a new version, and delete
 | `GET /volumes` | `volumes:read` | List. Filters: `scope`, `projectId`, `limit`, `cursor`. |
 | `POST /volumes` | `volumes:write` | Create. A shared volume (the usual one): `name`, `scope: "shared"`, `description?`, no `code`. A project's volume is created with its project; a `local` create needs `projectId` and `code` (`{ filesystemType, repoUrl?, branch?, sshKeyId? }`). |
 | `GET /volumes/:id` | `volumes:read` | Get one. |
-| `GET /volumes/:id/data/files` | `volumes:read` | List data-half files. Each entry: `{ path, name, size, version, updatedAt, updatedBy }` (`version` is that file's head). |
-| `GET /volumes/:id/data/files/versions` | `volumes:read` | One file's version history, newest first. Query `path`. |
+| `GET /volumes/:id/data/files` | `volumes:read` | List data-half files. Each entry: `{ path, name, size, version, updatedAt, updatedBy, kind, mode, mtime, target }` (`version` is that file's head; `kind` `file` or `symlink`, folders are not listed; `mode` the permission bits; `mtime` epoch seconds or null; `target` a link's target). |
+| `GET /volumes/:id/data/files/versions` | `volumes:read` | One file's version history, newest first, each with its `kind`, `mode`, `mtime`, `target`. Query `path`. |
 | `GET /volumes/:id/data/files/content` | `volumes:read` | Download a file's bytes, base64-encoded. Query `path`, optional `version` (default latest). |
 | `POST /volumes/:id/data/files` | `volumes:write` | Write a file as a new version. Body `path`, plus `content` (text) or `contentBase64` (binary), optional `message`. |
 | `DELETE /volumes/:id/data/files` | `volumes:write` | Delete (tombstone) a file. Query `path`, optional `message`. |
