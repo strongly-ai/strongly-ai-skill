@@ -139,8 +139,9 @@ the setting come from upstream data. A mapping passes an empty value as it is
 (a path to `null`, `""`, `[]` or `{}` sets the input to it). A path that holds
 nothing in the output of every node feeding it FAILS the node ("<node>: input
 '<name>' is mapped to '<path>', which names nothing in the output of <sources>";
-its `continueOnError` applies): check the arriving data's shape. Only a path
-onto a converging branch that did not run leaves the input unset (the node runs
+its `continueOnError` applies): check the arriving data's shape. Only an
+optional input (name starting with `_`, e.g. `_reviewFlag`) or a path onto a
+converging branch that did not run leaves the input unset (the node runs
 without it); an unmapped input uses its setting.
 
 ```bash
