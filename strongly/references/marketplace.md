@@ -111,7 +111,11 @@ offering declared (resources, addons, models, permissions) grounded from §1 and
 `useSpot` (spot capacity) with `spotFallback` (default true: on-demand when no
 spot is available), and for an `app` offering `gpuType`: one GPU of that type, one of
 the offering's `resources.options.gpu` the platform offers (left out or `""`: no GPU;
-any other type is refused before anything is created). An `app` offering that declares
+any other type is refused before anything is created). An `app` offering whose deploy
+config names an `environment` runs at that environment's size (vCPU, memory, disk, GPU;
+read it with `GET /environments/{id}`): send only `instances`, `useSpot` and `spotFallback`
+(`cpu`, `memory`, `disk` or `gpuType` is refused), and the deploy is refused when the
+environment does not exist, is disabled or is not shared with the user. An `app` offering that declares
 `volumes` takes `config.volumes: [{id, size}]` (`size` one of that volume's
 `options.size`; a volume left out gets its `defaults.size`). Every declared volume is
 created as a shared volume the deployer owns, mounted in the app, and its data
@@ -414,7 +418,8 @@ Field reference:
 | `steps[]` | The deploy-wizard steps shown to the user (`id` ∈ `permissions`, `resources`, `addons`, `ml-models`, `ai-models`, `volumes`, `ai-gateway-publish`), each `required` or not. |
 | `permissions` | `allowPublic`, `allowUserSelection`, `defaultPublic`, who can reach the app. A `streaming_workflow` offering also names `session_initiator_roles` (platform roles `admin`, `developer`): the roles the wizard starts from for who may start its sessions; no other type carries it. |
 | `resources` | `defaults` + selectable `options` for `cpu`, `memory`, `disk`, `instances`, and for an `app` offering `gpu`: `defaults.gpu` `"none"` (CPU) and `options.gpu` the GPU types the app can run on (`nvidia-t4`, `nvidia-l4`, `nvidia-a10g`, ...); the wizard offers those the platform runs, the deploy sends the choice as `config.resources.gpuType`. |
-| `volumes[]` | `app` offerings: persistent volumes the app keeps its data on. Each `{ id, label, description, envVar, defaults: { size }, options: { size: [...] } }`. Every one is created on deploy (`<app name>-<app id>-<id>`, a shared volume the deployer owns), mounted in the app, and `envVar` set to its data directory `/volumes/shared/<volume name>/data`. Deleting the app keeps it. The app's disk grows by the volume sizes. |
+| `environment` | `app` offerings, optional: the id of the environment the app runs in (e.g. `seed-env-voicestudio-speech`, the VoiceStudio Speech environment every instance seeds). The app is created with that `environmentId` and sized by it exactly as an app deployed with it chosen (vCPU, memory, disk, GPU), so `resources` then gives only `instances` (a `cpu`, `memory`, `disk` or `gpu` beside it makes the deploy config invalid). The wizard's resources step shows the environment and its size. An offering that ships its own Dockerfile builds `FROM` the environment's image itself. |
+| `volumes[]` | `app` offerings: persistent volumes the app keeps its data on. Each `{ id, label, description, envVar, defaults: { size }, options: { size: [...] } }`. Every one is created on deploy (`<app name>-<app id>-<id>`, a shared volume the deployer owns), mounted in the app, and `envVar` set to its data directory `/volumes/shared/<volume name>/data`. Deleting the app keeps it. The app's disk grows by the volume sizes (an app sized by an `environment` keeps them on that environment's disk). |
 | `aiGatewayPublish[]` | `app` offerings: models the app itself serves, added to the AI Gateway once it runs. Each `{ id, modelType, name, vendorModelId, description }`; `name` may use `{{APP_NAME}}` (the app's name). Each becomes a `custom` provider model the deployer owns (`endpoint.url` = the app's in-cluster address, `sourceAppId` = the app); deleting the app deletes them. The deploy may turn one off or rename it (`config.aiGatewayPublish`). |
 | `addons[]` | Managed stores to provision: `id` (this becomes the `configId` you match in `STRONGLY_SERVICES`), `type`, `required`, `allowExisting`, `internal` (hide from users), `defaults`/`options`, `backupConfig`. |
 | `aiGateway` | `{ required, minModels, maxModels, supportedProviders }`, AI models the app can use. |
