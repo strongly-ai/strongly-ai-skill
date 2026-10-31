@@ -357,6 +357,17 @@ once a run ends; a run frees its place as soon as its last step completes). It w
 the run settles fast, returns a compact per-node `outputs` preview inline. If it is
 still `running`, poll to a terminal state before claiming anything.
 
+A value the run needs but nobody may keep (a password the user gives for this run,
+an archive's passwords) goes in `secretInputs` (name -> string), never in
+`triggerInputs`: each reaches the run's code as an environment variable of its name
+(`os.environ["ARCHIVE_PASSWORDS"]`; a node setting that names a secret, like File
+Extractor's `passwordsSecret`, takes the name), only through the run's own
+Kubernetes Secret, deleted when the run ends. It is never stored, logged, in a span
+or returned. A name must not be a workflow variable, a workflow secret or a platform
+name (400). Such a run cannot be resumed or retried from the dead-letter queue: run
+it again with them. A value the workflow needs on every run is a workflow secret
+(`PUT /workflows/:id/secrets/:name`) instead.
+
 ```bash
 # Trigger. triggerInputs matches the trigger payload; for a webhook/rest-api
 # trigger a flat body is auto-wrapped, and the payload lands under data.body.
@@ -409,7 +420,7 @@ In the builder the same requests show in the **Waiting for you** panel.
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/workflows/:id/execute` | Test-run a draft with `triggerInputs`; returns `{executionId, status, outputs, invocation?}`. A deployed workflow: 409 |
+| POST | `/workflows/:id/execute` | Test-run a draft with `triggerInputs` (and `secretInputs` for this run only); returns `{executionId, status, outputs, invocation?}`. A deployed workflow: 409 |
 | GET | `/workflows/-/executions` | List runs (`q` on the trigger type, error message or an agent run's transcript; `status`, `triggerType`, `since`, `until`, `limit`, `cursor`); one workflow's runs are `/workflows/:id/executions` |
 | GET | `/workflows/:id/executions/stats` | One workflow's runs counted with the list's search and filters: `total`, `byStatus`, `byTriggerType` |
 | GET | `/workflows/-/executions/:id` | Full execution: definition + per-node `outputs` |
