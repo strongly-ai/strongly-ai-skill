@@ -258,8 +258,10 @@ own folder is read-only (workspaces, jobs and apps, root included): a write ther
 by name; one its owner later takes away is dropped from the choice, and the user's
 reads and writes of it are refused at once. `data/` mounts at its latest version, before the IDE, the
 job's command, or a compute cluster's coordinator and workers start: from their first moment it lists
-every file (a cluster is ready, and a worker joins it, only once its `data/` is mounted). Another project's unshared
-volume never mounts.
+every file (a cluster is ready, and a worker joins it, only once its `data/` is mounted). A job run's or an app's
+`data/` then shows the files others save while it runs (another job, an app, a workspace's Sync) within about
+10 seconds of its next look at the folder: a new file appears, a newer version replaces the old, a deleted file
+goes; a workspace's `data/` shows its start and its last Sync. Another project's unshared volume never mounts.
 
 **Sync.** The project volume's code half is plain git: in the workspace terminal
 `git commit`, `git push`, and `git pull` work with no credential prompt (the
