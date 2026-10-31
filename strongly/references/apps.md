@@ -829,6 +829,13 @@ and is reported as any deploy is: poll `GET /apps/:id/status` until
 `rollout.status` is `complete`, or `failed` with why and the version that keeps
 serving.
 
+Hugging Face: every app gets its OWNER's Hugging Face token (Profile >
+Integrations > Hugging Face) as `HF_TOKEN` and `HUGGING_FACE_HUB_TOKEN`, read at
+each deploy, start, restart and environment change (as self-hosted model and
+fine-tuning pods get it). Absent when the owner has none; never set it as an app
+variable (the names are the platform's). `GET /apps/:id/platform-environment`
+lists it with the other platform variables.
+
 **Autoscaling:** `autoscaling` on `POST /apps` or `PATCH /apps/:id` is the whole
 block `{ "enabled": true, "minReplicas": 1-20, "maxReplicas": 1-50 (more than
 minReplicas), "cpuThreshold": 1-100, "memoryThreshold": 1-100 (percent of the
