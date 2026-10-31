@@ -311,9 +311,11 @@ multi-tenant installation a volume is shared only within its organization.
 **POSIX on `data/`.** The mount keeps a file's mode (`chmod`; a folder's when it
 is not `755`), symbolic links (relative or absolute) and a file's modification
 time (`os.utime`), all versioned with the file and shown again after a restart, so
-`shutil.copy2`, `python3 -m venv` and `pip install` work on it. `chown` is accepted
+`shutil.copy2`, `python3 -m venv`, `pip install` and `uv` work on it. `chown` is accepted
 and not stored (everything is the running user's); hard links fail with `EPERM`
-(pip and git copy instead); a folder's times are not versioned; `statfs` reports
+(pip and git copy instead); `renameat2(RENAME_NOREPLACE)` (`mv --no-clobber`, uv
+and lock-file saves) works, `EEXIST` when the target exists, and
+`RENAME_EXCHANGE` is `EINVAL`; a folder's times are not versioned; `statfs` reports
 the local storage holding unsaved writes. SQLite is never saved half-written: a
 workspace Sync leaves out a database (and its `-wal`/`-shm`/`-journal`) that is
 open, saving it once closed; a job or app saves its files at close and `fsync`, in
