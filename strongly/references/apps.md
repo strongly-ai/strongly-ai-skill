@@ -364,6 +364,12 @@ Rolling back deploys a version's image and settings again as a NEW current versi
 changes is recorded in the app's activity. Confirm with the user before rolling back; the
 version running now answers 409.
 
+An update that failed and was rolled back automatically (`rollout.status` `failed` with
+`rolledBackTo`) is in the history the same way: the failed version carries `failed`
+(`reason`, the same as `rollout.reason`, and `at`), and the current version is the rollback
+to `rolledBackTo` (`rollout` `rollback`, `rolledBackFrom`), deployed by the platform
+(`deployedBy` `"platform"`) with `rollbackReason`; the app's `build` is that version's again.
+
 ```bash
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/versions" \
   | jq '.data[] | {_id, versionNumber, image: .build.version, isCurrent, deployedByName}'
