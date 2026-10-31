@@ -96,6 +96,14 @@ only when you may use that key (yours, or any key for a platform admin); a
 key you may not use is refused as not found. `cache_config` optionally
 enables the response, semantic and prompt caches (prompt caching on any chat
 or multimodal model certified for it).
+`storePrompts: false` (create or `PATCH`) stops the platform storing the
+model's prompts and responses: each call keeps its usage record (tokens, cost,
+owner, user, latency) but no content in the gateway's interaction log
+(`content_stored: false`), caches, generation jobs or guardrail checks, nor in
+STAN's interaction log, learned tool usage or auto-saved memories. A
+conversation's own history (STAN chat, agent thread) is still kept, so an app
+with sensitive data (health records) keeps its sessions and history in its own
+encrypted database and sends the history with each call.
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gateway/models" \
@@ -111,10 +119,10 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gatew
 | `GET /ai-gateway/models/providers` | Distinct third-party providers + counts | `ai-gateway:read` |
 | `GET /ai-gateway/models/certified` | Curated third-party catalog (`provider`, `modelType`, `capability`) | `ai-gateway:read` |
 | `GET /ai-gateway/models/prebuilt` | Self-hosted prebuilt templates (`category`, `provider`), each with its `certifiedEnvironment` (`modelType`, `engine`, `port`, `instanceType`, `resources`, a chat model's `contextWindow`, `maxOutputTokens` (the default a model created from it records: a quarter of the context window for vLLM), `maxOutputCeiling` (the most it may be set to: the whole context window for vLLM), `limitsSource`): a deploy records these, never enter them | `ai-gateway:read` |
-| `POST /ai-gateway/models` | Create (`name`, `type`, `provider`, `vendorModelId`, `modelType`, `contextWindow`, `maxOutputTokens`, `apiKey` or `apiKeyId`, `cache_config`, `sourceAppId`: an app you may edit that serves it, deleted with it) | `ai-gateway:write` |
+| `POST /ai-gateway/models` | Create (`name`, `type`, `provider`, `vendorModelId`, `modelType`, `contextWindow`, `maxOutputTokens`, `apiKey` or `apiKeyId`, `cache_config`, `storePrompts`, `sourceAppId`: an app you may edit that serves it, deleted with it) | `ai-gateway:write` |
 | `GET /ai-gateway/models/:id` | Full model detail; a chat model's `maxOutputCeiling` is the most `maxOutputTokens` may be set to (a vLLM model's context window, a third-party model's certified cap; `null` when nothing records one) | `ai-gateway:read` |
 | `GET /ai-gateway/models/:id/options` | Model options (voices, languages, ...) | `ai-gateway:read` |
-| `PATCH /ai-gateway/models/:id` | Update name/description/parameters/`cache_config`, and a chat model's `maxOutputTokens` up to its `maxOutputCeiling` (the model page's Settings tab sets the same) | `ai-gateway:write` |
+| `PATCH /ai-gateway/models/:id` | Update name/description/parameters/`cache_config`, `storePrompts`, and a chat model's `maxOutputTokens` up to its `maxOutputCeiling` (the model page's Settings tab sets the same) | `ai-gateway:write` |
 | `DELETE /ai-gateway/models/:id/cache` | Clear the model's cached responses (response cache and semantic cache) | `ai-gateway:write` |
 | `DELETE /ai-gateway/models/:id` | Delete the model (409 while anything uses it). A self-hosted model's build, deployment and images go with it; deleting one that is still building or deploying cancels it: the build stops and nothing is deployed | `ai-gateway:write` |
 | `GET /ai-gateway/models/:id/metrics` | Usage/latency metrics | `ai-gateway:read` |
