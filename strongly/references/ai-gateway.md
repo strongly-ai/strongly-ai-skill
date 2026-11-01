@@ -52,11 +52,6 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/models?modelType=chat,multimodal,completi
 - `status` is one of `active`, `deploying`, `stopped`, `failed`, `inactive`.
 - The list omits build/deploy logs and the Dockerfile; `GET /ai-gateway/models/:id`
   returns the full detail document.
-- `sourceAppId` names the app that serves a model: a marketplace app offering
-  published it to the gateway on deploy (its deploy.json `aiGatewayPublish`,
-  `references/marketplace.md`). Such a model is `third-party` with provider `custom`
-  and `endpoint.url` the app's in-cluster address. Deleting the app deletes it,
-  renaming the app renames it; it is not offered to that same app as a model.
 - A `custom` speech model (`text_to_speech` / `speech_to_text`) is any
   OpenAI-compatible speech server: the gateway calls `/v1/audio/speech`,
   `/v1/audio/transcriptions`, `/v1/audio/translations` on `endpoint.url`, sending the
@@ -115,7 +110,7 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gatew
 | `GET /ai-gateway/models/providers` | Distinct third-party providers + counts | `ai-gateway:read` |
 | `GET /ai-gateway/models/certified` | Curated third-party catalog (`provider`, `modelType`, `capability`) | `ai-gateway:read` |
 | `GET /ai-gateway/models/prebuilt` | Self-hosted prebuilt templates (`category`, `provider`), each with its `certifiedEnvironment` (`modelType`, `engine`, `port`, `instanceType`, `resources`, a chat model's `contextWindow`, `maxOutputTokens` (the default a model created from it records: a quarter of the context window for vLLM), `maxOutputCeiling` (the most it may be set to: the whole context window for vLLM), `limitsSource`): a deploy records these, never enter them | `ai-gateway:read` |
-| `POST /ai-gateway/models` | Create (`name`, `type`, `provider`, `vendorModelId`, `modelType`, `contextWindow`, `maxOutputTokens`, `apiKey` or `apiKeyId`, `cache_config`, `storePrompts`, `sourceAppId`: an app you may edit that serves it, deleted with it) | `ai-gateway:write` |
+| `POST /ai-gateway/models` | Create (`name`, `type`, `provider`, `vendorModelId`, `modelType`, `contextWindow`, `maxOutputTokens`, `apiKey` or `apiKeyId`, `cache_config`, `storePrompts`) | `ai-gateway:write` |
 | `GET /ai-gateway/models/:id` | Full model detail; a chat model's `maxOutputCeiling` is the most `maxOutputTokens` may be set to (a vLLM model's context window, a third-party model's certified cap; `null` when nothing records one) | `ai-gateway:read` |
 | `GET /ai-gateway/models/:id/options` | Model options (voices, languages, ...) | `ai-gateway:read` |
 | `PATCH /ai-gateway/models/:id` | Update name/description/parameters/`cache_config`, and a chat model's `maxOutputTokens` up to its `maxOutputCeiling` (the model page's Settings tab sets the same) | `ai-gateway:write` |

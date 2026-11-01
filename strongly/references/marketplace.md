@@ -124,13 +124,7 @@ refused. Others use it only when the user shares it (`/environments/{id}/permiss
 `options.size`; a volume left out gets its `defaults.size`). Every declared volume is
 created as a shared volume the deployer owns, mounted in the app, and its data
 directory (`/volumes/shared/<volume name>/data`) set in the volume's `envVar`; deleting
-the app keeps it. An `app` offering that declares `aiGatewayPublish` takes
-`config.aiGatewayPublish: [{id, enabled, name}]`: which of the models the app serves to
-add to the AI Gateway once it runs, and under what name (an entry left out is published
-with its deploy.json `name`, `{{APP_NAME}}` replaced by the app's name). Each published
-model is a `custom` provider model the deployer owns whose `endpoint.url` is the app's
-in-cluster address and whose `sourceAppId` is the app: deleting the app deletes those
-models, renaming it renames them. An offering that declares deploy.json `settings`
+the app keeps it. An offering that declares deploy.json `settings`
 takes each pick as `config.environmentVariables[<setting envVar>]`: one of that setting's
 `options[].value` (left out: its `default`; a value not listed, or a `required` one
 missing, is refused). A `streaming_workflow` offering also needs
@@ -147,12 +141,11 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"appName":"my-resume-app","config":{"marketplaceItemId":"'"$ITEM_ID"'","termsAccepted":true}}' \
   "$BASE/marketplace/deploy" | jq '.data'
 
-# An app offering with a GPU option, a volume and models it publishes (VoiceStudio)
+# An app offering with a GPU option and a volume (VoiceStudio)
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"appName":"my-voicestudio","config":{"marketplaceItemId":"'"$ITEM_ID"'","termsAccepted":true,
        "resources":{"cpu":"4","memory":"16GB","disk":"20GB","gpuType":"nvidia-t4"},
        "volumes":[{"id":"data","size":"50GB"}],
-       "aiGatewayPublish":[{"id":"tts","enabled":true,"name":"My Voices"},{"id":"stt","enabled":false,"name":"My Transcription"}],
        "environmentVariables":{"VOICESTUDIO_DEFAULT_ENGINE":"omnivoice"}}}' \
   "$BASE/marketplace/deploy" | jq '.data'
 ```
@@ -419,12 +412,11 @@ Field reference:
 | Key | Purpose |
 |---|---|
 | `name` / `displayName` / `version` / `type` / `description` | Identity of the offering in the marketplace (`type` `"app"` here is the offering kind, not the build type; the build type is `strongly.manifest.yaml`'s). |
-| `steps[]` | The deploy-wizard steps shown to the user (`id` ∈ `permissions`, `resources`, `addons`, `ml-models`, `ai-models`, `volumes`, `ai-gateway-publish`), each `required` or not. |
+| `steps[]` | The deploy-wizard steps shown to the user (`id` ∈ `permissions`, `resources`, `addons`, `ml-models`, `ai-models`, `volumes`), each `required` or not. |
 | `permissions` | `allowPublic`, `allowUserSelection`, `defaultPublic`, who can reach the app. A `streaming_workflow` offering also names `session_initiator_roles` (platform roles `admin`, `developer`): the roles the wizard starts from for who may start its sessions; no other type carries it. |
 | `resources` | `defaults` + selectable `options` for `cpu`, `memory`, `disk`, `instances`, and for an `app` offering `gpu`: `defaults.gpu` `"none"` (CPU) and `options.gpu` the GPU types the app can run on (`nvidia-t4`, `nvidia-l4`, `nvidia-a10g`, ...); the wizard offers those the platform runs, the deploy sends the choice as `config.resources.gpuType`. |
 | `environment` | `app` offerings, optional: the environment the offering defines, `{ key, name, description, version, baseImage or dockerfile, vcpu, memoryGb, storageGb, gpuCount, gpuType }` (`key` stable and lower-case-hyphenated; `version` `"1.0.0"`; exactly one of a pinned `baseImage` (explicit tag or digest) or a `dockerfile` with its `FROM`; `gpuType` only with `gpuCount` above 0). Its `marketplace.json` entry carries the same block (the platform deploys from the listing; `validate-marketplace.py` checks they match). A deploy runs the app on the deployer's own environment for `key` (created or given a new version as above) and sizes it by it, so `resources` then gives only `instances` (a `cpu`, `memory`, `disk` or `gpu` beside it makes the deploy config invalid). The offering page (Requirements) and the wizard's resources step show it. An offering that ships its own Dockerfile builds `FROM` its image itself. |
 | `volumes[]` | `app` offerings: persistent volumes the app keeps its data on. Each `{ id, label, description, envVar, defaults: { size }, options: { size: [...] } }`. Every one is created on deploy (`<app name>-<app id>-<id>`, a shared volume the deployer owns), mounted in the app, and `envVar` set to its data directory `/volumes/shared/<volume name>/data`. Deleting the app keeps it. The app's disk grows by the volume sizes (an app sized by an `environment` keeps them on that environment's disk). |
-| `aiGatewayPublish[]` | `app` offerings: models the app itself serves, added to the AI Gateway once it runs. Each `{ id, modelType, name, vendorModelId, description }`; `name` may use `{{APP_NAME}}` (the app's name). Each becomes a `custom` provider model the deployer owns (`endpoint.url` = the app's in-cluster address, `sourceAppId` = the app); deleting the app deletes them. The deploy may turn one off or rename it (`config.aiGatewayPublish`). |
 | `addons[]` | Managed stores to provision: `id` (this becomes the `configId` you match in `STRONGLY_SERVICES`), `type`, `required`, `allowExisting`, `internal` (hide from users), `defaults`/`options`, `backupConfig`. |
 | `aiGateway` | `{ required, minModels, maxModels, supportedProviders }`, AI models the app can use. |
 | `ai_models[]` | What the app uses AI models for, one wizard card per purpose: `{ purpose, modelTypes, description, optional?, multiple?, voice? }`. `modelTypes` are the model types that can serve it; `multiple: true` lets the user pick several models (e.g. VoiceStudio `tts`, `stt`), otherwise one. Deploy takes `config.aiModelsByPurpose` (`{ llm: "<id>", tts: ["<id>", "<id>"] }`, every id also in `config.aiModels`). Each model reaches the app with the purposes it was picked for: `aigateway.available_models[].purposes` (`[]` for a model picked without one). The app picks its models by `purposes`, never by guessing from `modelType`. |
@@ -434,8 +426,8 @@ Field reference:
 | `seedData` | Optional one-time init script run on deploy. |
 | `settings[]` | Choices the deploy wizard asks for (step `settings`), each written to the app's environment. Each `{ id, type: "select", label, description, envVar, default, required?, options: [{ value, label, description }] }`. The pick is sent as `config.environmentVariables[envVar]` (the wizard starts from `default`); a value not in `options`, or a `required` one missing, is refused before anything is created; one left out gets `default`. |
 
-An `app` offering that runs on a GPU, keeps its data on a volume and serves models to
-the AI Gateway declares the three blocks like this (VoiceStudio):
+An `app` offering that runs on a GPU and keeps its data on a volume declares the
+blocks like this (VoiceStudio):
 
 ```json
 "resources": {
@@ -448,12 +440,6 @@ the AI Gateway declares the three blocks like this (VoiceStudio):
     "envVar": "VOICESTUDIO_DATA_DIR",
     "defaults": { "size": "50GB" }, "options": { "size": ["20GB", "50GB", "100GB"] } }
 ],
-"aiGatewayPublish": [
-  { "id": "tts", "modelType": "text_to_speech", "name": "{{APP_NAME}} Voices",
-    "vendorModelId": "tts-1", "description": "Text to speech with the app's voices" },
-  { "id": "stt", "modelType": "speech_to_text", "name": "{{APP_NAME}} Transcription",
-    "vendorModelId": "whisper-1", "description": "Speech to text" }
-],
 "settings": [
   { "id": "engine", "type": "select", "label": "Default voice engine",
     "description": "The engine new projects use", "envVar": "VOICESTUDIO_DEFAULT_ENGINE",
@@ -464,16 +450,12 @@ the AI Gateway declares the three blocks like this (VoiceStudio):
 "steps": [
   { "id": "resources" },
   { "id": "settings" },
-  { "id": "volumes" },
-  { "id": "ai-gateway-publish", "title": "Publish to AI Gateway" }
+  { "id": "volumes" }
 ]
 ```
 
 `gpu` `"none"` is CPU. The app reads its volume's data directory from the `envVar`
-(`VOICESTUDIO_DATA_DIR=/volumes/shared/<volume name>/data`). A published model is a
-`custom` provider model, so the app serves the OpenAI-shaped routes its `modelType`
-uses (`/v1/audio/speech` for `text_to_speech`, `/v1/audio/transcriptions` for
-`speech_to_text`, `/v1/chat/completions` for `chat`) on port 8080.
+(`VOICESTUDIO_DATA_DIR=/volumes/shared/<volume name>/data`).
 
 ---
 
@@ -483,7 +465,7 @@ uses (`/v1/audio/speech` for `text_to_speech`, `/v1/audio/transcriptions` for
 - [ ] Ground the deploy `config` against real `available-addons` / `available-models`, never a guessed id.
 - [ ] An offering's deploy.json `ai_models[]` picks go in `config.aiModelsByPurpose` (one id; a list for a `multiple` purpose); the app reads them as `available_models[].purposes`.
 - [ ] An offering's deploy.json `settings[]` picks go in `config.environmentVariables[envVar]`, one of each setting's `options[].value` (left out: its `default`).
-- [ ] An `app` offering's `config.resources.gpuType`, `config.volumes` and `config.aiGatewayPublish` come from its deploy.json `resources.options.gpu`, `volumes[]` and `aiGatewayPublish[]`; published models carry `sourceAppId` and go when the app is deleted, its volumes stay.
+- [ ] An `app` offering's `config.resources.gpuType` and `config.volumes` come from its deploy.json `resources.options.gpu` and `volumes[]`; its volumes stay when the app is deleted.
 - [ ] Deploy needs `appName` + `config` with `marketplaceItemId` and `termsAccepted: true`; it returns 202.
 - [ ] Poll `/marketplace/deployments/:id/status` (by the deployment's `_id`) until `status` is `complete`; never claim success before that; read `error` on `failed`.
 - [ ] Once complete, treat `result.appId` as a normal app and use `references/apps.md` (`/apps` routes, proxy, identity, manifest).
