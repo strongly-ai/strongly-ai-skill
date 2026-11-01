@@ -186,8 +186,9 @@ before choosing a type; leave `gpuType` out (Auto) where it is optional.
 Node pools are the platform workload pools that back the resources above.
 `GET /compute/pools` (`compute:read`, any user, a plain array) shows each pool as it is now:
 what it may start (`instanceSizes`, `instanceCategories`, `capacityTypes`), `allowedSizes`
-(every machine type with `maxCpu` and `maxMemoryGib`: the most one workload can be given on
-it; size a workspace or job within them) and `capacity` (`nodes`, `spotNodes`, `allocatable`,
+(every machine type with `maxCpu`, `maxMemoryGib`, `maxDiskGib` and `maxGpus`: the most one
+workload's whole size can be on it; every create, deploy and resize above the largest is
+refused 400 naming the resource and both figures) and `capacity` (`nodes`, `spotNodes`, `allocatable`,
 what your organization's workloads `requested`, and your workloads `pending` a machine with
 the scheduler's reasons). Use it to confirm machines scaled down or why a workload waits. A
 workspace runs in `user-workspaces`, a job run in `user-jobs` (`ai` with a GPU, `general`

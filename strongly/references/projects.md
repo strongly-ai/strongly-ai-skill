@@ -156,8 +156,9 @@ downloaded through a signed link, `POST /jobs/:jobId/executions/:id/logs/downloa
 `GET /jobs/:jobId/executions/:id/pod` reads what runs a run now (after it
 ends, as it was at its end): its containers' `restartCount`, `state` and `lastTerminated` (`reason` `OOMKilled`, `exitCode`
 137 means it ran out of memory: give it more) and `pendingReasons` (why it waits for a machine).
-A CPU job larger than every machine its pool may start is refused `400` at create or resize,
-naming the largest size that runs in CPU and memory (`GET /compute/pools`, `allowedSizes`).
+A job whose CPU, memory, GPU count or disk is above the largest machine its pool may start is
+refused `400` at create, resize and run, naming the resource and both figures
+(`GET /compute/pools`, `allowedSizes`).
 
 ```bash
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
