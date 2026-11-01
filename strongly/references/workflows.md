@@ -353,9 +353,9 @@ workflow runs only when its triggers fire, so a hand-started run of one is refus
 409; undeploy to test a change). A deployed workflow whose trigger is a REST API
 trigger is called on the same route with `"triggerType": "rest-api"` in the body; a
 run past the runs it takes at once is refused `429` and not started (send it again
-once a run ends; a run frees its place as soon as its last step completes). It waits briefly and, when
-the run settles fast, returns a compact per-node `outputs` preview inline. If it is
-still `running`, poll to a terminal state before claiming anything.
+once a run ends; a run frees its place as soon as its last step completes). It answers
+at once with `executionId` and `status` (it never waits for the run); read the run's
+result from its state (`/progress` below) and reach a terminal state before claiming anything.
 
 A value the run needs but nobody may keep (a password the user gives for this run,
 an archive's passwords) goes in `secretInputs` (name -> string), never in
@@ -379,8 +379,8 @@ EID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"triggerInputs":{"records":[{"id":1,"text":"hello"}]}}' \
   "$BASE/workflows/$WID/execute" | jq -r '.data.executionId')
 
-# Poll to terminal. get_execution_status SETTLES: it waits up to ~9s and on
-# completion returns the per-node outputs preview + a nextAction hint.
+# Read the run's state (it answers at once, never waits). On completion it
+# returns every node's output + a nextAction hint.
 curl -s "${auth[@]}" "$BASE/workflows/-/executions/$EID/progress" | jq '.data'
 # -> repeat while .status is "pending" or "running"; it ends completed |
 #    completed_with_gaps | partial_success | failed | stopped | cancelled.
