@@ -337,7 +337,8 @@ specific version's bytes, write or upload a file as a new version, and delete
 | `GET /volumes/:id` | `volumes:read` | Get one. |
 | `GET /volumes/:id/data/files` | `volumes:read` | List data-half files. Each entry: `{ path, name, size, version, updatedAt, updatedBy, kind, mode, mtime, target }` (`version` is that file's head; `kind` `file` or `symlink`, folders are not listed; `mode` the permission bits; `mtime` epoch seconds or null; `target` a link's target). |
 | `GET /volumes/:id/data/files/versions` | `volumes:read` | One file's version history, newest first, each with its `kind`, `mode`, `mtime`, `target`. Query `path`. |
-| `GET /volumes/:id/data/files/content` | `volumes:read` | Download a file's bytes, base64-encoded. Query `path`, optional `version` (default latest). |
+| `GET /volumes/:id/data/files/content` | `volumes:read` | Download a file of any type and size: the answer IS the file's bytes (`application/octet-stream`, streamed, with `Content-Length` and a `Content-Disposition` naming it). Query `path`, optional `version` (default latest). |
+| `GET /volumes/:id/data/files/text` | `volumes:read` | Read a TEXT file as JSON: `{ volumeId, path, version, size, content, isBinary, tooLarge }`. A binary file or one over 2 MB has `content: null` (download its bytes instead). Query `path`, optional `version`. STAN tool `read_volume_data_file`. |
 | `POST /volumes/:id/data/files` | `volumes:write` | Write a TEXT file as a new version. Body `path`, `content` (text), optional `message`. |
 | `PUT /volumes/:id/data/files/content` | `volumes:write` | Upload a file of any type and size as a new version, in one request: the body IS the file (`Content-Type: application/octet-stream`), or `multipart/form-data` with one file part (`curl -F`). Query `path`, optional `message`. Streamed and stored as it arrives (no size cap, no base64); identical chunks are stored once, so the same file again keeps its version (`changed: false`). Answers `{ volumeId, path, version, changed, sizeBytes, sha256 }`. A connection that ends early commits nothing: send it again. |
 | `DELETE /volumes/:id/data/files` | `volumes:write` | Delete (tombstone) a file. Query `path`, optional `message`. |
@@ -361,10 +362,16 @@ curl -s "${auth[@]}" -H 'Content-Type: application/octet-stream' -T train.parque
 
 # List the data-half files, each with its own head version.
 curl -s "${auth[@]}" "$BASE/volumes/$VOL/data/files" | jq '.data'
+
+# Download a file of any size to disk (streamed; one request).
+curl -s "${auth[@]}" -o train.parquet \
+  "$BASE/volumes/$VOL/data/files/content?path=datasets/train.parquet"
 ```
 
 From Python: `client.volumes.upload_file(vol_id, "train.parquet", "datasets/train.parquet")`
-streams the file the same way (`write_data_file` for text or small in-memory bytes).
+streams the file the same way (`write_data_file` for text or small in-memory bytes);
+`client.volumes.download_file(vol_id, "datasets/train.parquet", "train.parquet")` saves one
+to disk a block at a time (`read_data_file` returns a small file's bytes).
 
 ---
 
