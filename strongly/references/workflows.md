@@ -222,6 +222,12 @@ Rules the build enforces (it rejects the graph with an actionable error otherwis
   app gets their `X-Strongly-User-Token`); no auth settings. An External URL on
   an app's browser address (`<platform>/api/proxy/...`, or
   `<slug>.<apps domain>/api/proxy/...`) is refused: use the app target.
+- To fetch a binary file (image, PDF, ZIP) and store it in S3 unchanged: API
+  Caller 1.1.0+ returns a non-text response as `body` base64-encoded with
+  `bodyEncoding: "base64"`, `contentType` and `sizeBytes`; feed the Amazon S3
+  destination (`s3`, 1.2.0+) `inputMappings` `{"contentBase64": "data.body",
+  "contentType": "data.contentType"}` plus a `filename` (and `prefix`). It
+  writes the decoded bytes with that ContentType; invalid base64 fails.
 - A node's resources are `config.resourcesOverride` `{cpu, memory, gpu, gpuType,
   disk}` (the Resources tab; memory/disk in Mi/Gi); unset fields use the
   definition's defaults.
