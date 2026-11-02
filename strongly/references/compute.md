@@ -187,8 +187,7 @@ Node pools are the platform workload pools that back the resources above.
 `GET /compute/pools` (`compute:read`, any user, a plain array) shows each pool as it is now:
 what it may start (`instanceSizes`, `instanceCategories`, `capacityTypes`), `allowedSizes`
 (every machine type with `maxCpu`, `maxMemoryGib`, `maxDiskGib` and `maxGpus`: the most one
-workload's whole size can be on it; every create, deploy and resize above the largest is
-refused 400 naming the resource and both figures) and `capacity` (`nodes`, `spotNodes`, `allocatable`,
+workload can be given on it) and `capacity` (`nodes`, `spotNodes`, `allocatable`,
 what your organization's workloads `requested`, and your workloads `pending` a machine with
 the scheduler's reasons). Use it to confirm machines scaled down or why a workload waits. A
 workspace runs in `user-workspaces`, a job run in `user-jobs` (`ai` with a GPU, `general`
@@ -196,6 +195,18 @@ on spot). Pre-warm
 a pool to keep spare nodes hot for faster scheduling, and pin a pool to a specific
 instance family and size. `workloadType` is one of: `general`, `ai`, `mcp`,
 `user-addons`, `user-workspaces`, `user-jobs`, `user-apps`.
+
+**Sizes are the whole workload.** The CPU, memory, GPU count and disk set on a workspace,
+job, app, add-on, self-hosted model, fine-tuning run or workflow worker are its WHOLE size.
+Strongly's helper services beside the user's code (sign-in proxy, outbound proxy, data
+volume mounts, model cache upload, metrics) are taken OUT of that size, never added on top:
+set 4 GB and the workload uses 4 GB in total. A size too small to hold the helpers is
+refused naming them. A size bigger than the largest allowed machine gives one workload is
+refused `400 validation-error` naming the resource and both figures, and nothing is
+created, e.g. "A workspace cannot start: 100 GiB disk asked; the largest machine allowed
+gives one workload 88 GiB." This holds on every path (UI, REST, STAN, SDK). Before choosing
+a large size, read the pool's `allowedSizes` (`instanceType`, `maxCpu`, `maxMemoryGib`,
+`maxDiskGib`, `maxGpus`) and stay at or under the largest entry.
 
 | Method + path | Scope | Purpose |
 |---|---|---|
@@ -477,6 +488,7 @@ DB attached to a session-deployed app needs the connect-then-redeploy step above
 - [ ] After create / start, poll `GET /workspaces/:id/status` until running before use; never claim success on the create call.
 - [ ] Custom-image environments: poll `GET /environments/:id` for `build_status: "success"` before binding.
 - [ ] Attach a Ray / Dask / Spark cluster via the `cluster` object on `POST /workspaces`, not a separate endpoint.
+- [ ] A size is the whole workload (helpers come out of it); check `GET /compute/pools` `allowedSizes` (`maxCpu`, `maxMemoryGib`, `maxDiskGib`, `maxGpus`) before a large size, since a bigger one is refused 400.
 - [ ] Pre-warm a pool with a valid `workloadType` and `count` in 1-5.
 - [ ] Volumes: a project's volume has a git code half and a per-file versioned data half and is created with its project; a shared volume holds data only (create with `name` and `scope: "shared"`, no `code`). Code is written only in the project's own volume; shared code is read-only. Every workspace mounts its project's volume at `/volumes/local/<name>/{code,data}` and each shared volume at `/volumes/shared/<name>/data` (plus a read-only `code/` only for a shared project volume) on its next start, with nothing to attach.
 - [ ] Code sessions: send natural-language tasks (not raw shell) to the assistant terminal; login uses the user's own Claude account; deploy an app via `/code-sessions/:id/deploy` and see `references/apps.md`.
