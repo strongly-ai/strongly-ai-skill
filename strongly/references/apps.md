@@ -399,7 +399,12 @@ Can edit, user = Can use). It names other people, so only those who manage the
 app read it (owner, Can edit, app admins, administrators); anyone who only uses
 it (Can use, an app user, a Home App user) gets 403. Add a Strongly user with `POST
 /apps/:id/permissions/members` (`role` editor or user); add an app user as their
-Home App with `POST /apps/:id/users`, or to use only with role user.
+Home App with `POST /apps/:id/users`, or to use only with role user. A Home App
+is an app user's ONLY app: binding one removes them from every other app
+(`removedFromApps` in the answer), and sharing another app with an app user
+whose Home App is set (signed up, invited or bound) is refused `400`; they are
+never offered by other apps. App users without a Home App can be given any app
+(multi-tenant: any app of their org).
 
 ### Branded sign-in, the app's own users, and usage
 
@@ -466,7 +471,7 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$A
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/users?type=app&status=pending&q=&sort=-createdAt&limit=50"
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/users/$USER_ID"                       # one user; PATCH and reset-password answer it too
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' -d "{\"userId\": \"$USER_ID\"}" \
-  "$BASE/apps/$APP_ID/users"                                                  # add an app user (POST /users role app): Home App + their agent clone; 409 if another app's
+  "$BASE/apps/$APP_ID/users"                                                  # add an app user (POST /users role app): Home App (their only app: other apps removed) + their agent clone; 400 if another app's
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"active":true}' \
   "$BASE/apps/$APP_ID/users/$USER_ID"                                         # approve / re-enable
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"active":false}' \
