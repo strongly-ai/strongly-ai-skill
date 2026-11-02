@@ -338,7 +338,8 @@ specific version's bytes, write or upload a file as a new version, and delete
 | `GET /volumes/:id/data/files` | `volumes:read` | List data-half files. Each entry: `{ path, name, size, version, updatedAt, updatedBy, kind, mode, mtime, target }` (`version` is that file's head; `kind` `file` or `symlink`, folders are not listed; `mode` the permission bits; `mtime` epoch seconds or null; `target` a link's target). |
 | `GET /volumes/:id/data/files/versions` | `volumes:read` | One file's version history, newest first, each with its `kind`, `mode`, `mtime`, `target`. Query `path`. |
 | `GET /volumes/:id/data/files/content` | `volumes:read` | Download a file's bytes, base64-encoded. Query `path`, optional `version` (default latest). |
-| `POST /volumes/:id/data/files` | `volumes:write` | Write a file as a new version. Body `path`, plus `content` (text) or `contentBase64` (binary), optional `message`. |
+| `POST /volumes/:id/data/files` | `volumes:write` | Write a TEXT file as a new version. Body `path`, `content` (text), optional `message`. |
+| `PUT /volumes/:id/data/files/content` | `volumes:write` | Upload a file of any type and size as a new version, in one request: the body IS the file (`Content-Type: application/octet-stream`), or `multipart/form-data` with one file part (`curl -F`). Query `path`, optional `message`. Streamed and stored as it arrives (no size cap, no base64); identical chunks are stored once, so the same file again keeps its version (`changed: false`). Answers `{ volumeId, path, version, changed, sizeBytes, sha256 }`. A connection that ends early commits nothing: send it again. |
 | `DELETE /volumes/:id/data/files` | `volumes:write` | Delete (tombstone) a file. Query `path`, optional `message`. |
 | `DELETE /volumes/:id/data/folders` | `volumes:write` | Delete (tombstone) every file under a folder, at any depth, in one operation (e.g. an AutoML job's output `automl/<job id>`). Query `path`, optional `message`. Answers `{ path, deleted }`; 404 when the folder has no files. |
 | `GET /projects/:id/volumes` | `projects:read` | The volumes that belong to a project (its project volume). |
@@ -353,9 +354,17 @@ VOL=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 # Nothing to attach: it mounts at /volumes/shared/datasets/data the next time
 # any workspace of yours (or of anyone it is shared with) starts.
 
+# Upload a local file of any size (curl -T streams it from disk; one request).
+curl -s "${auth[@]}" -H 'Content-Type: application/octet-stream' -T train.parquet \
+  "$BASE/volumes/$VOL/data/files/content?path=datasets/train.parquet" | jq '.data'
+# A form upload works too: curl -X PUT -F "file=@train.parquet" (no Content-Type header).
+
 # List the data-half files, each with its own head version.
 curl -s "${auth[@]}" "$BASE/volumes/$VOL/data/files" | jq '.data'
 ```
+
+From Python: `client.volumes.upload_file(vol_id, "train.parquet", "datasets/train.parquet")`
+streams the file the same way (`write_data_file` for text or small in-memory bytes).
 
 ---
 
