@@ -380,6 +380,10 @@ Lifecycle: `GET /apps` · `GET /apps/stats` · `GET/PATCH /apps/:id` · `PUT /ap
 `GET/PATCH /apps/:id/permissions` + `…/permissions/members` · `POST /apps/:id/start|stop|restart` ·
 `GET /apps/:id/logs` · `GET /apps/:id/metrics` · `GET /apps/:id/time-series` · `DELETE /apps/:id`.
 
+An environment variable's name (create, `PATCH`, `PUT …/env`, a marketplace deploy) is letters,
+digits, `_`, `-` or `.`, not starting with a digit (Kubernetes' rule); any other (`QA=BAD`, `1ST`)
+is refused with `400 validation-error` naming it, and nothing changes on the app.
+
 `GET /apps/:id/time-series?window=24h|7d|30d` is the app's CPU and memory over time from
 Kubecost's hourly records (the mean used, the busiest hour, its size; null where it did not
 run), for its owner, collaborators and admins; `GET /apps/:id/metrics` measures it now.
