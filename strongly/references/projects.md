@@ -147,7 +147,12 @@ is its own execution (`GET /jobs/:id/executions`, each a summary) with its own l
 a try waiting for its time (`pending` until then; it holds the job's one live run,
 so a Run Now in the wait is refused with 409). A try that succeeds ends the tries,
 and so do a cancel (`POST /jobs/:jobId/executions/:id/cancel`, running or
-waiting) and a refusal (governance, budget, size). A changed `retries` (`PATCH
+waiting) and a refusal (governance, budget, size). A cancel answers `202` at once with
+the run `cancelling` (`cancel_job_execution`): its command is stopped, then every file it
+wrote is saved, then it is `cancelled`, or `failed` with `error` naming each unsaved file;
+poll `GET /jobs/:jobId/executions/:id` for the end (a waiting try is `cancelled` at once).
+Cancelling a run already `cancelling` (its command ignores the stop) kills the command's
+processes; its files are still saved first. A changed `retries` (`PATCH
 /jobs/:id`) applies from the next run. `GET /jobs/:jobId/executions/:id` carries the
 run's whole log so far (`logs`, every line), its command and `error`; the runs list and
 the job list (`GET /jobs`) carry summaries, never logs or commands (`GET /jobs/:id` has the command).
