@@ -133,7 +133,8 @@ allowed to start sessions of the deployed workflow; start from its deploy config
 `permissions.session_initiator_roles`. Any other offering refuses the field. A user who
 holds none of the roles is refused a session start with a **403**, even when the
 workflow is shared with them. Missing `appName`/`config` is a 400, missing `marketplaceItemId` a 400, and
-`termsAccepted` not true a 422.
+`termsAccepted` not true a 422. A size that cannot run, or a `gpuType`, volume size or settings value the
+offering does not offer, is a 400 naming it, answered before the 202: nothing is created.
 
 ```bash
 # Kick off the deploy (returns 202, body echoes appName + marketplaceItemId)
