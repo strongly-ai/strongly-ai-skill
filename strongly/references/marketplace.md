@@ -134,7 +134,7 @@ allowed to start sessions of the deployed workflow; start from its deploy config
 holds none of the roles is refused a session start with a **403**, even when the
 workflow is shared with them. Missing `appName`/`config` is a 400, missing `marketplaceItemId` a 400, and
 `termsAccepted` not true a 422. A size that cannot run, or a `gpuType`, volume size or settings value the
-offering does not offer, is a 400 naming it, answered before the 202: nothing is created.
+offering does not offer, is a 400 naming it, answered before the 202: nothing is created (no deployment record, no workload).
 
 ```bash
 # Kick off the deploy (returns 202, body echoes appName + marketplaceItemId)
@@ -164,7 +164,7 @@ curl -s "${auth[@]}" "$BASE/marketplace/deployments/$DEPLOYMENT_ID/status" | jq 
 curl -s "${auth[@]}" "$BASE/marketplace/deployments/$DEPLOYMENT_ID" | jq '.data'
 ```
 
-`status` values: `validating`, `deploying`, `governance-hold`, `cancelling`,
+`status` values: `deploying`, `governance-hold`, `cancelling`,
 `complete`, `failed`, `cancelled` (`stepMessage` carries the human-readable step).
 On `failed`, read the `error` field. Each workload an offering creates is governed
 like one the user creates; on `governance-hold` governance blocked one: `governance`
