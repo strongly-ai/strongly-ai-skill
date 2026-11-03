@@ -436,7 +436,7 @@ In the builder the same requests show in the **Waiting for you** panel.
 | GET | `/workflows/-/executions/:id` | Full execution: definition + per-node `outputs` |
 | GET | `/workflows/-/executions/:id/progress` | Status + progress; **settles** the run and returns the outputs preview on completion |
 | GET | `/workflows/-/executions/:id/spans` | Every span, oldest first, cursor-paged (a loop step once per iteration: `metadata.iteration`); read `error_message` here on failure (`nodeId`, `name`, `status`, `slim`, `limit`, `cursor`) |
-| GET | `/workflows/-/executions/:id/logs` | The run's whole log, newest first, every line paged in one order (`level`, `limit`, `cursor`); each line's `spanId` names the step run that logged it |
+| GET | `/workflows/-/executions/:id/logs` | The run's whole log, newest first, every line paged in one order (`level`, `podName`: the lines one pod wrote, `q`: text in the message or metadata, `limit`, `cursor`; any other parameter is a `400`); each line's `spanId` names the step run that logged it |
 | GET | `/workflows/-/executions/:id/ai-usage` | The run's AI Gateway usage: requests and input/output/total tokens, in all and per model (the run's one token figure) |
 | POST | `/workflows/-/executions/:id/stop` | Graceful stop (only when `running`) |
 | POST | `/workflows/-/executions/:id/cancel` | Hard-cancel any non-terminal run; idempotent |

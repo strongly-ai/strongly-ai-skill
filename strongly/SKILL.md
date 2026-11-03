@@ -93,7 +93,8 @@ it. (In-cluster callers inherit the caller's own permissions.)
 
 **Response envelope.** Success is `{ "data": …, "meta": { "requestId" } }`. A list
 is `{ "data": [...], "meta": { "total", "limit", "nextCursor" } }`: pass
-`nextCursor` back as `cursor` for the next page (`null` on the last page); fixed
+`nextCursor` back as `cursor` for the next page (`null` on the last page); `limit`
+is at most 200 (default 50; a larger one is capped, and `meta.limit` is the limit applied); fixed
 catalogs (templates, base models, hardware tiers) are plain arrays. A list item
 is a summary (id, name, status, owner, timestamps, a few key fields); the get
 route returns the full record. Errors
