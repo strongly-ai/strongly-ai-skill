@@ -410,6 +410,35 @@ whose Home App is set (signed up, invited or bound) is refused `400`; they are
 never offered by other apps. App users without a Home App can be given any app
 (multi-tenant: any app of their org).
 
+### Strongly Cloud plans (multi-tenant only)
+
+On Strongly Cloud (the shared multi-tenant platform, billing on) the
+organization's plan, the one its Stripe subscription pays for, decides what it
+may add. A Dedicated (single-tenant) install has no plan limits.
+
+| Plan | Developers | App users | Adds |
+|---|---|---|---|
+| Individual | 1 | up to 5 | |
+| Pro | 1 | unlimited | branded apps (branded sign-in), iPhone sign-in, public apps, custom domains, paid access |
+| Team | unlimited | unlimited | everything in Pro, shared projects and workspaces (project collaborators) |
+
+An organization with no live subscription has no plan: no app users, no second
+developer, none of the features. A request past the plan answers `403` with
+`code` `plan-required` and a `detail` that names the plan, e.g. "The Individual
+plan includes up to 5 app users. Upgrade to Pro." It applies to inviting,
+accepting, signing up (app sign-up and app invitations), making an app user a
+developer, reactivating or unarchiving a member, turning on branded sign-in,
+iPhone sign-in, public access or paid access, adding a custom domain or a
+paid-access plan, and adding a project collaborator. Turning a feature off is
+never refused. Pending invitations count toward the caps.
+
+Moving down a plan: to Individual is refused (`409 downgrade-blocked`) while the
+organization has more than 5 app users. When a move down takes effect, Team to
+Pro or Individual deletes every developer but the owner (their resources are
+deleted and their account archived, as an administrator deletes a user), and a
+move to Individual turns off paid access, iPhone sign-in, custom domains, public
+access and branded sign-in on every app.
+
 ### Branded sign-in, the app's own users, and usage
 
 An app can have its own public sign-in, sign-up, forgot-password and sign-out
