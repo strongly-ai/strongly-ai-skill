@@ -171,12 +171,12 @@ curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"planTier":"pro","billingInterval":"annual","endsAt":"2027-11-01T00:00:00Z"}' \
   "$BASE/organizations/$ORG_ID/plan" | jq '.data'
 
-# Platform admin: unlimited. exempt = Strongly's own teams; offering = apps Strongly bills outside the platform
+# Platform admin: unlimited (exempt) = Strongly's own teams and orgs whose apps Strongly bills outside the platform
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"billingMode":"exempt"}' \
   "$BASE/organizations/$ORG_ID" | jq '.data.billingMode'
 ```
 
-While an admin-set plan is live the owner's Stripe plan actions answer 409 `plan-managed`. `billingMode` and the plan are platform-admin only (owners get 403). An `offering` org is not charged or limited on the platform, but its apps are served only while it holds an active offering subscription.
+While an admin-set plan is live the owner's Stripe plan actions answer 409 `plan-managed`. `billingMode` and the plan are platform-admin only (owners get 403). An `exempt` org is never charged, limited or stopped and its apps are always served; its usage is still recorded for FinOps. `billingMode` takes `saas` or `exempt`.
 
 How credits work (the user guide's "How Credits Work" page says the same):
 
