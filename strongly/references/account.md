@@ -154,6 +154,8 @@ and platform admins (`organizations:read`). Amounts are integer US cents.
 | POST | `/organizations/:id/credit-grants` | Platform admin: create a grant (`label`, `amountCents`, `startsAt` UTC midnight, `period`, `periodCount` or `endsAt`, `unusedCredit`) | `organizations:write` |
 | PATCH | `/organizations/:organizationId/credit-grants/:id` | Platform admin: change the periods to come (merge patch) | `organizations:write` |
 | POST | `/organizations/:organizationId/credit-grants/:id/end` | Platform admin: stop after the current period | `organizations:write` |
+| PUT | `/organizations/:id/plan` | Platform admin, Strongly Cloud: set up or change the org's plan with no Stripe checkout (`planTier` individual/pro/team, `billingInterval` monthly/annual, optional `startsAt`, `endsAt`); counts exactly like a paid subscription, credits included; 409 `stripe-subscription` over a live Stripe one | `organizations:write` |
+| DELETE | `/organizations/:id/plan` | Platform admin: end that plan now (a subscription end: credits forfeited, workloads stop) | `organizations:write` |
 
 ```bash
 curl -s "${auth[@]}" "$BASE/organizations/$ORG_ID/credits" | jq '.data'
@@ -163,7 +165,18 @@ curl -s "${auth[@]}" "$BASE/organizations/$ORG_ID/transactions?limit=50" | jq '.
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"label":"Partner deal, year 1","amountCents":50000,"startsAt":"2026-11-01T00:00:00Z","periodCount":12}' \
   "$BASE/organizations/$ORG_ID/credit-grants" | jq '.data'
+
+# Platform admin (Strongly Cloud): a comped Pro plan for a year, no Stripe
+curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"planTier":"pro","billingInterval":"annual","endsAt":"2027-11-01T00:00:00Z"}' \
+  "$BASE/organizations/$ORG_ID/plan" | jq '.data'
+
+# Platform admin: unlimited. exempt = Strongly's own teams; offering = apps Strongly bills outside the platform
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' -d '{"billingMode":"exempt"}' \
+  "$BASE/organizations/$ORG_ID" | jq '.data.billingMode'
 ```
+
+While an admin-set plan is live the owner's Stripe plan actions answer 409 `plan-managed`. `billingMode` and the plan are platform-admin only (owners get 403). An `offering` org is not charged or limited on the platform, but its apps are served only while it holds an active offering subscription.
 
 How credits work (the user guide's "How Credits Work" page says the same):
 
