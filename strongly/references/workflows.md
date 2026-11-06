@@ -221,7 +221,7 @@ Rules the build enforces (it rejects the graph with an actionable error otherwis
   `appPath` input). It calls the app's in-cluster route as the run's owner (the
   app gets their `X-Strongly-User-Token`); no auth settings. An External URL on
   an app's browser address (`<platform>/api/proxy/...`, or
-  `<slug>.<apps domain>/api/proxy/...`) is refused: use the app target.
+  `<slug>.<apps domain>/...`) is refused: use the app target.
 - To fetch a binary file (image, PDF, ZIP) and store it in S3 unchanged: API
   Caller 1.1.0+ returns a non-text response as `body` base64-encoded with
   `bodyEncoding: "base64"`, `contentType` and `sizeBytes`; feed the Amazon S3

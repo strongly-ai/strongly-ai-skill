@@ -141,17 +141,20 @@ in the path (`/api/v1/apps/<id>`).
 If the task involves **apps**, three platform mechanics matter. Full detail is in
 `references/apps.md`; the essentials:
 
-- **The Strongly proxy.** Apps are reached only through a platform proxy at a
-  relative base path, never a bare port: `/api/proxy/<app>/` deployed (the same
-  path on `https://<slug>.<apps domain>/` on a platform with an apps domain:
-  `address` from `GET /apps/:id`; the app runs unchanged in both; a browser or a
-  script with an API key then uses the `address`, while a workload inside the
-  platform always calls `$STRONGLY_API_URL/api/proxy/<app>/`, in every mode),
-  `/api/workspace-proxy/<workspace>/port/<port>/`
-  while running in a workspace.
-  The proxy strips that prefix and sends it as `X-Forwarded-Prefix`; apps build
-  every URL from it (this is the usual cause of a blank React screen) and listen
-  on `PORT`, else 3000. The proxy is also the trust boundary.
+- **The Strongly proxy.** Apps are reached only through a platform proxy, never a
+  bare port: deployed at `/api/proxy/<app>/` on a platform without an apps domain,
+  or at the ROOT of its own host `https://<slug>.<apps domain>/` (and each custom
+  domain; paths unchanged) on one with an apps domain (`address` from
+  `GET /apps/:id`; a browser or a script with an API key uses the `address`,
+  while a workload inside the platform always calls
+  `$STRONGLY_API_URL/api/proxy/<app>/`, in every mode);
+  `/api/workspace-proxy/<workspace>/port/<port>/` while running in a workspace.
+  The proxy strips its prefix and sends it as `X-Forwarded-Prefix` (`''` at the
+  root of the app's host; `STRONGLY_URL` likewise `''` there); apps build every
+  URL from it per request or use relative URLs (this is the usual cause of a
+  blank React screen), never hard-code `/api/proxy/<app>`, treat a missing or
+  empty prefix as the root, and listen on `PORT`, else 3000. The proxy is also
+  the trust boundary.
 - **Identity via one header.** The proxy injects the signed-in user as a JWT in
   `X-Strongly-User-Token` (and convenience `X-Strongly-User-*` headers). Apps
   **decode** it (they never see the signing secret) to know who the user is, with

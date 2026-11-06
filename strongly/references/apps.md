@@ -57,8 +57,8 @@ never on a bare origin, in both places it runs:
 
 | Where | Base path |
 |---|---|
-| Deployed (Apps) | `/api/proxy/<app id>/` |
-| Deployed, on a platform with an apps domain | the same `/api/proxy/<app id>/`, on `https://<slug>.<apps domain>` (the same `X-Forwarded-Prefix`, `STRONGLY_URL` and headers: the app runs unchanged) |
+| Deployed (Apps), no apps domain | `/api/proxy/<app id>/` (`X-Forwarded-Prefix` and `STRONGLY_URL` `/api/proxy/<app id>`) |
+| Deployed, on a platform with an apps domain | the root `/` of `https://<slug>.<apps domain>/` and of each active custom domain `https://<hostname>/`; paths pass through unchanged. `X-Forwarded-Prefix` and `STRONGLY_URL` are `''`; `<base href="/">` is injected into HTML pages without a `<base>`; the platform's pages are `/_strongly/sign-out`, `/_strongly/sign-out.js`, `/_strongly/session` |
 | Running in a workspace while you build it | `/api/workspace-proxy/<workspace id>/port/<port>/` |
 
 Where a deployed app opens is `address` from `GET /apps/:id`; never build it. On a
@@ -67,8 +67,8 @@ origin: signed-in users are signed in to it through Strongly on their first page
 load there, its own cookies, `localStorage`, IndexedDB and service workers work,
 and its pages can never use the viewer's Strongly session. The platform's own
 host then serves no app content to anything that comes through its load balancer:
-a page load of `<platform>/api/proxy/<app>/...` is redirected (`303`) to the app's
-address, the same path; every other request (API key, token, cookie or none)
+a page load of `<platform>/api/proxy/<app>/x` is redirected (`303`) to
+`https://<slug>.<apps domain>/x`; every other request (API key, token, cookie or none)
 answers `409` JSON naming `appUrl`; a websocket upgrade `403`.
 
 Calling an app from code (not a browser):
@@ -82,16 +82,25 @@ Calling an app from code (not a browser):
   `address` from a workload: that goes out through the internet and carries no
   identity.
 
-A browser's Strongly login cookie is never accepted at the app's address.
+A browser's Strongly login cookie is never accepted at the app's address. On the
+app's own host, `/api/proxy/<app id>/x` still names the app path `/x`: a page load
+is redirected (`308`) to `/x`, any other request is served at `/x` (an app built
+with the old prefix keeps loading its assets until rebuilt).
 
-Two facts drive everything, the same in both:
+Never hard-code `/api/proxy/<app id>`: take the base per request from
+`X-Forwarded-Prefix` (missing or empty = the root) or from `STRONGLY_URL` (`''`
+with an apps domain), or use relative URLs. An empty `STRONGLY_URL` means "served
+at the root", not "missing": test for `undefined`, never falsy.
+
+Facts that drive everything:
 
 - The proxy **strips its prefix** before the request reaches your app: the
   browser asks for `/api/proxy/app-xyz/assets/x.js`, your app receives
-  `/assets/x.js`.
+  `/assets/x.js`. (At the root of the app's own host there is no prefix to strip.)
 - The proxy sends the prefix it stripped as the **`X-Forwarded-Prefix`** request
-  header (e.g. `/api/proxy/app-xyz`). Build every URL from it, per request; then
-  the same build works deployed and in the workspace. (A deployed app also gets
+  header (e.g. `/api/proxy/app-xyz`; `''` at the root of the app's host). Build
+  every URL from it, per request; then the same build works deployed (either
+  mode) and in the workspace. (A deployed app also gets
   `STRONGLY_URL`, `STRONGLY_HOST` and `STRONGLY_APP_ID` env vars; a workspace
   sets none of them, so don't depend on them for paths. Every workspace, job and
   app has `STRONGLY_API_URL` for API calls and `STRONGLY_BASE_URL`, the public
@@ -131,7 +140,8 @@ source of truth for the router basename, API base, and any link prefix:
 
 ```ts
 // runtimeBase.ts  (from kanban, copy it)
-// Deployed: /api/proxy/<app>. In a workspace: /api/workspace-proxy/<ws>/port/<n>.
+// Deployed: /api/proxy/<app>, or '' at the root of the app's own host (apps
+// domain). In a workspace: /api/workspace-proxy/<ws>/port/<n>.
 const PROXY_PREFIX = /^(\/api\/proxy\/[^/]+|\/api\/workspace-proxy\/[^/]+\/port\/\d+)/;
 export const getRuntimeBase = (p = location.pathname) => (p.match(PROXY_PREFIX)?.[1] ?? '');
 export const getBasename = (p = location.pathname) => getRuntimeBase(p) || '/';   // router
@@ -141,7 +151,8 @@ export const getApiBase  = (p = location.pathname) => `${getRuntimeBase(p)}/api`
 ```tsx
 <BrowserRouter basename={getBasename()}>…</BrowserRouter>
 // fetch(`${getApiBase()}/boards`)  ->  /api/proxy/app-xyz/api/boards deployed,
-//   /api/workspace-proxy/ws-1/port/3000/api/boards in a workspace, /api with no proxy
+//   /api/workspace-proxy/ws-1/port/3000/api/boards in a workspace, /api/boards at
+//   the root of the app's own host (apps domain) or with no proxy
 ```
 
 ### 1c. Server: serve assets, require the prefix, don't hand HTML to the module loader
@@ -156,9 +167,9 @@ app.use('/assets', express.static(path.join(pub, 'assets'), { maxAge: '1d', etag
 app.use(express.static(pub, { index: false }));           // favicon, etc.
 app.use('/api', apiLimiter, authMiddleware, apiRouter);   // API auth AFTER static
 
-// The prefix the proxy stripped, per request: /api/proxy/<app> deployed,
-// /api/workspace-proxy/<ws>/port/<n> in a workspace. With no proxy in front
-// (curl on the pod) there is no prefix.
+// The prefix the proxy stripped, per request: /api/proxy/<app> deployed without
+// an apps domain, '' at the root of the app's own host, /api/workspace-proxy/
+// <ws>/port/<n> in a workspace. Missing (no proxy in front) or empty = the root.
 const prefixOf = (req) => (req.get('X-Forwarded-Prefix') || '').replace(/\/$/, '');
 
 // A static-looking path that reaches the SPA fallback does NOT exist on disk.
@@ -649,12 +660,10 @@ then set `window.top.location.href` to the `redirect` it answers. The page
 ### Public apps (anyone on the internet, no sign-in)
 
 A public app (a marketing site with a waitlist form) is served to anyone without
-signing in on the platform's apps domain, never the dashboard's origin:
-`https://<slug>.<apps domain>/api/proxy/<app id>/` (`url` from the GET; never build it).
-`slug` is the app's one slug, shared with branded sign-in: an app is public OR
-signs people in. It is served at the same `/api/proxy/<app id>/` path on its own
-host as everywhere (the host's root sends a browser there), as an
-ordinary website: its own cookies (made host-only), `localStorage` and service
+signing in on the platform's apps domain, never the dashboard's origin, at the
+root of its own host: `https://<slug>.<apps domain>/` (`url` from the GET; never
+build it). `slug` is the app's one slug, shared with branded sign-in: an app is
+public OR signs people in. It is an ordinary website, paths unchanged: its own cookies (made host-only), `localStorage` and service
 workers work. A caller with a credential is served as anyone. A platform
 without an apps domain answers `404 public-apps-disabled`.
 
@@ -677,7 +686,7 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$A
   workflows, feature stores or agents. A product with a signed-in area is TWO
   apps: the public site, and a branded sign-in app it links to.
 - `paths: ["/oauth", "/webhooks"]` makes only those prefixes of a signed-in app
-  public, at `https://<slug>.<apps domain>/api/proxy/<app id>/<path>` (`pathUrls`): OAuth
+  public, at `https://<slug>.<apps domain>/<path>` (`pathUrls`): OAuth
   callbacks, webhooks, an MCP server. The caller's own `Authorization` reaches
   the app; Strongly credentials are refused. Register `pathUrls` with the other
   service; never a dashboard address.
