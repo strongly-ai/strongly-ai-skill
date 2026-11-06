@@ -318,6 +318,9 @@ APP_ID=$(curl -s "${auth[@]}" \
   "$BASE/apps/import" | jq -r '.data._id')
 ```
 
+Put every `-F` field BEFORE `-F file=@...`: the bundle streams to the build as it
+arrives, so a field after the file is refused (400).
+
 ### Then, for every source: build → deploy → running
 
 ```bash
@@ -347,7 +350,7 @@ curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/rebuild"
 # ... or switch the app to another source (it becomes the app's source):
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/rebuild" \
   -d "{\"bundleSourceType\": \"volume\", \"bundleSource\": {\"volumeId\": \"$VOLUME_ID\"}}"
-# Zip app: upload the new bundle.
+# Zip app: upload the new bundle (any -F description=... goes before the file).
 curl -s -X PUT "${auth[@]}" -F "file=@bundle.zip;type=application/zip" "$BASE/apps/$APP_ID/source"
 # All three return 202 and build asynchronously: poll build-status to completed,
 # then deploy again. The running version keeps serving until that deploy.

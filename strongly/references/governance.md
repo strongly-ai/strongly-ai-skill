@@ -124,7 +124,8 @@ curl -s "${auth[@]}" "$BASE/governance/solutions/$SOL/requirements" | jq '.data'
 # data by kind: input {"textValue"} | {"numberValue"} | {"dateValue"} | {"selectedOptions":[...]};
 # acknowledgment {"acknowledged":true}; approval {} (asks the reviewers);
 # threshold {"metricValue":0.93}; guardrail {"guardrailsVerified":true}.
-# Evidence gates take files: POST .../gates/$GATE_ID/evidence.
+# Evidence gates take files: POST .../gates/$GATE_ID/evidence with
+# -F policyId=$POLICY BEFORE -F file=@report.pdf (a field after the file is refused).
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"policyId":"'"$POLICY"'","data":{"textValue":"Reviewed by the risk team"}}' \
   "$BASE/governance/solutions/$SOL/gates/$GATE_ID/submit" | jq '.data'
