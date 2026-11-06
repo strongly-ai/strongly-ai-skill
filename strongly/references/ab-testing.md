@@ -117,7 +117,7 @@ Predict through the running test; it picks the variant by its strategy:
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"input_data":{"tenure":12,"plan":"pro"},"entityId":"cust-4821"}' \
+  -d '{"inputData":{"tenure":12,"plan":"pro"},"entityId":"cust-4821"}' \
   "$BASE/mlops/ab-tests/$ID/predict" | jq '.data'
 # the serving model's output, plus prediction_id and variant_id
 ```
@@ -129,7 +129,7 @@ experiments are kept); `start` re-deploys a stopped test.
 | Method / path | Does |
 |---|---|
 | `POST /mlops/ab-tests/:id/deploy` | Start routing (the variants' models must be deployed) |
-| `POST /mlops/ab-tests/:id/predict` | Predict through the test (`input_data`, `entityId?`) -> output + `prediction_id`, `variant_id` |
+| `POST /mlops/ab-tests/:id/predict` | Predict through the test (`inputData`, `entityId?`) -> output + `prediction_id`, `variant_id` |
 | `POST /mlops/ab-tests/:id/stop` | Stop routing |
 | `POST /mlops/ab-tests/:id/start` | Re-deploy a stopped test |
 
@@ -277,7 +277,7 @@ Report `inconclusive` as inconclusive, quoting `reason` when it is set.
 - [ ] Weights are 0-1 fractions; `weighted_random` weights sum to 1; keep at least 2 variants enabled.
 - [ ] `deploy` returns with the test `running` or fails with the reason; predict only through a running test.
 - [ ] Keep `prediction_id` from `predict` to record `reward` / `label`.
-- [ ] A `stickyRouting` test: send `entityId` with every predict. A `linucb` test: send each context feature in `input_data` as a number.
+- [ ] A `stickyRouting` test: send `entityId` with every predict. A `linucb` test: send each context feature in `inputData` as a number.
 - [ ] `feature_based` needs at least one rule; `linucb` needs numeric `contextFeatures` shared by every variant model, with Record inputs on.
 - [ ] For a canary, read `canaryConfig.lastCheck` / `rollbackReason` to explain its progress; do not move `currentPercentage` by hand.
 - [ ] Decide winners with an experiment (`primaryMetric` required), not from raw counters; report `inconclusive` honestly.

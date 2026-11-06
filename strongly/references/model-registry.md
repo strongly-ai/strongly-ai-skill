@@ -268,13 +268,12 @@ proxied to the model pod through the AI Gateway (model pods are cluster-internal
 ```bash
 # POST /mlops/models/:id/predict
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{ "input_data": { "tenure": 12, "monthly_charges": 79.9, "contract_type": "month" },
+  -d '{ "inputData": { "tenure": 12, "monthly_charges": 79.9, "contract_type": "month" },
         "entityId": "cust-4821" }' \
   "$BASE/mlops/models/$MODEL_ID/predict"
 ```
 
-- **`input_data`** (required): the feature payload (object or array). `inputData`
-  is accepted as a camelCase alias.
+- **`inputData`** (required): the feature payload (object or array).
 - **`path`**: which route on the model to call when it serves more than one (e.g.
   `"parse_text"`). Omit for the model default.
 - **`entityId`**: your id for what is predicted; actuals can be attached by it.

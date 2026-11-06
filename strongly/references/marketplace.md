@@ -24,8 +24,10 @@ to `$HOST/api/v1`; inside Strongly the bearer is auto-injected at
 `$STRONGLY_API_URL/api/v1`. Below, `$BASE` is whichever applies, and
 `auth=(-H "X-API-Key: $STRONGLY_API_KEY")` outside Strongly. Read scopes are
 `marketplace:read`; deploy and plugin install/change/uninstall
-need `marketplace:deploy`; usage needs `offering-usage:write`; the
-listing-management and subscription routes need `marketplace:admin`.
+need `marketplace:deploy`; the listing-management and subscription routes
+need `marketplace:admin`. Usage events are the exception: only the offering's own
+deployed app records them, through its platform connection (§5), never with an
+API key.
 
 ---
 
@@ -225,11 +227,18 @@ A deployed offering that is billed per use emits **one usage event** at the
 moment of use. The event is idempotent per `idempotencyKey`, so a retry never
 double-counts.
 
+Only the **offering's own deployed app** records its usage. The app calls the
+platform from inside its pod at `$STRONGLY_API_URL/api/v1` with **no API key**:
+the pod's auth-proxy signs the call with the app's own workload identity. An
+API key (even one with `offering-usage:write`), a browser session, or any other
+workload is refused with **403**, whoever holds it.
+
 ```bash
-curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+# From inside the offering's running app pod (no X-API-Key, no Authorization)
+curl -s -X POST -H 'Content-Type: application/json' \
   -d '{"offeringId":"my-resume-app","meterKey":"resumes","quantity":1,
        "idempotencyKey":"resume-8f21c-2026-09-15"}' \
-  "$BASE/marketplace/usage-events" | jq '.data'
+  "$STRONGLY_API_URL/api/v1/marketplace/usage-events" | jq '.data'
 ```
 
 Required: `offeringId` (the app's `appName`), `meterKey`, `quantity` (a positive
@@ -239,8 +248,10 @@ finite number), `idempotencyKey` (non-empty string). Optional `occurredAt`
 Responses and rules:
 - **201** `{ eventId, deduplicated: false }` on a new event; **200**
   `{ deduplicated: true }` when the same `idempotencyKey` was already recorded.
-- The org is taken from the authenticated key's context, **never** the body: an
-  app can only meter its own org (missing org context is a **403**).
+- The calling app must be a live deployment of `offeringId`; any other caller
+  is a **403** (`forbidden`).
+- The org is the calling app's organization, **never** the body: an app can
+  only meter its own org.
 - `meterKey` must be a metered item on the org's live offering subscription. No
   live subscription is a **422** (`no-subscription`); an unknown meter is a
   **422** (`unknown-meter`, and the error lists the billed meter keys).
@@ -249,7 +260,7 @@ Responses and rules:
 
 | Method | Path | Scope | Purpose |
 |---|---|---|---|
-| POST | `/marketplace/usage-events` | `offering-usage:write` | Record one metered usage event (idempotent) |
+| POST | `/marketplace/usage-events` | the offering's own app (workload identity, no API key) | Record one metered usage event (idempotent) |
 
 ---
 

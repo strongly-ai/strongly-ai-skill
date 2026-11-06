@@ -58,7 +58,7 @@ attach the actual later:
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"input_data":{"tenure":12,"plan":"pro"},"entityId":"cust-4821"}' \
+  -d '{"inputData":{"tenure":12,"plan":"pro"},"entityId":"cust-4821"}' \
   "$BASE/mlops/models/$MODEL_ID/predict" | jq '.data | {prediction, predictionId, entityId}'
 ```
 

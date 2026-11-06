@@ -109,7 +109,7 @@ Optional fields:
 | `orbColor` | `stylized_3d` orb | Hex colour (default `#22d3ee`). |
 | `orbSize` | `stylized_3d` orb | Number (default `0.6`). |
 | `config` | all | `{ resolution?, frameRate?, idleMotion? }` (defaults `512x512`, `30`, idle motion on). |
-| `resources` | `animated_portrait`, `realtime_lipsync` | The GPU pod's `{ cpu?, memory?, gpu?, gpuType?, useSpot?, spotFallback? }` (default 2 vCPU, 8Gi, one `nvidia-a10g`). A `stylized_3d` avatar renders in the browser, runs no pod and keeps no `resources`. |
+| `resources` | `animated_portrait`, `realtime_lipsync` | The GPU pod's `{ cpu, memory, gpu?, gpuType?, disk?, useSpot?, spotFallback? }`. When sent, `cpu` and `memory` are required strings (e.g. `"4"`, `"16Gi"`); `gpu`, `gpuType` and `disk` are strings; `useSpot` runs it on spot capacity (a reclaim drops a live call) and `spotFallback` (default `true`) falls back to on-demand when no spot is available. Omitted: 2 vCPU, 8Gi, one `nvidia-a10g`. A `stylized_3d` avatar renders in the browser, runs no pod and keeps no `resources`. |
 | `onDemand` | `animated_portrait`, `realtime_lipsync` | `{ schedulingMode: on_demand \| always_on, autoShutdownMinutes }`. Defaults to `on_demand` with a 5-minute idle shutdown; set `always_on` to keep it warm. |
 
 The response `data` is the created avatar, including its `_id` and initial
