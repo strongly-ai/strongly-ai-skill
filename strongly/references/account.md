@@ -147,17 +147,21 @@ and platform admins (`organizations:read`). Amounts are whole credits
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
-| GET | `/organizations/:id/credits` | `balanceCredits` = `planCreditsBalance` + `grantCreditsBalance` + `additionalCreditsBalance`; `planMonths` (this month's plan credits: `issuedCredits`, `usedCredits`, `remainingCredits`, `expiresAt`), `nextPlanMonth` (`amountCredits`), `grantPeriods`, `overdraftCredits` (what is owed), `lifetimeAddedCredits`, `lifetimeUsedCredits`, `autoPurchase` | `organizations:read` |
+| GET | `/organizations/:id/credits` | `balanceCredits` = `planCreditsBalance` + `grantCreditsBalance` + `additionalCreditsBalance`; `planMonths` (this month's plan credits: `issuedCredits`, `usedCredits`, `remainingCredits`, `expiresAt`), `nextPlanMonth` (`amountCredits`), `grantPeriods`, `overdraftCredits` (what is owed), `lifetimeAddedCredits`, `lifetimeUsedCredits`, `autoPurchase`; on Strongly Cloud `allowance` (`allowanceCredits`, `usedCredits`, `remainingCredits`, `renewsAt`, `lots`) | `organizations:read` |
 | POST | `/organizations/:id/credit-purchases` | Buy additional credits: `{ "credits": <a whole number, at least 1000> }`; returns `amountCredits`, `chargeCents` (what Stripe charges, US cents: 1,000 credits cost $10.00) and a Stripe Checkout `url` to pay at. Strongly Cloud: `paymentMethod` `checkout` (default) or `saved-card` (charged now; returns `purchaseId`, `amountCredits`, `chargeCents`, `status`, `expiresAt`; send an `Idempotency-Key` header so a retry charges once) | `organizations:write` |
 | GET | `/organizations/:id/credit-purchases` | Strongly Cloud: unexpired purchases (bought or auto-refilled), soonest-expiring first: `purchasedAt`, `expiresAt`, `issuedCredits`, `usedCredits`, `remainingCredits` (`limit`, `cursor`) | `organizations:read` |
 | GET | `/organizations/:id/credit-settings` | Strongly Cloud: `lowBalanceAlert` (`enabled`, `thresholdPercent`, `thresholdCredits`), `autoRefill` (`enabled`, `thresholdPercent`, `thresholdCredits`, `amountCredits`, `maxPerDay`, `refillsToday`, `disabledReason` `payment_failed`), `baseCredits` (the plan's monthly credits) | `organizations:read` |
 | PATCH | `/organizations/:id/credit-settings` | Strongly Cloud: change only the fields given: `lowBalanceAlert {enabled, thresholdPercent 1-100}`, `autoRefill {enabled, thresholdPercent 1-100, amountCredits (a whole number, at least 1000), maxPerDay 1-10}` (owner/admin) | `organizations:write` |
 | GET | `/organizations/:id/transactions` | Credit transaction history (`type`, `q`, `sort` one of `createdAt`, `type`, `description`, `amountCredits`, `balanceAfterCredits`; `limit`, `cursor`); each has `amountCredits`, `balanceBeforeCredits`, `balanceAfterCredits` | `organizations:read` |
-| GET | `/organizations/:id/credit-grants` | The org's credit grants, each with per-period issued/used/expired/remaining | `organizations:read` |
+| GET | `/organizations/:id/credit-grants` | The org's credit grants, each with per-month issued/used/expired/remaining | `organizations:read` |
 | GET | `/organizations/:organizationId/credit-grants/:id` | One credit grant | `organizations:read` |
-| POST | `/organizations/:id/credit-grants` | Platform admin: create a grant (`label`, `amountCredits`, `startsAt` UTC midnight, `period`, `periodCount` or `endsAt`, `unusedCredit`) | `organizations:write` |
-| PATCH | `/organizations/:organizationId/credit-grants/:id` | Platform admin: change the periods to come (merge patch) | `organizations:write` |
-| POST | `/organizations/:organizationId/credit-grants/:id/end` | Platform admin: stop after the current period | `organizations:write` |
+| POST | `/organizations/:id/credit-grants` | Platform admin: create a grant (`label`, `amountCredits`, `startsAt` UTC midnight, `periodCount` (months) or `endsAt`) | `organizations:write` |
+| PATCH | `/organizations/:organizationId/credit-grants/:id` | Platform admin: change the months to come: `label`, `amountCredits`, `startsAt`, `periodCount` (merge patch) | `organizations:write` |
+| POST | `/organizations/:organizationId/credit-grants/:id/end` | Platform admin: stop after the current month | `organizations:write` |
+| GET | `/organizations/:id/credit-resets` | Strongly Cloud: the org's allowance resets, newest first (`note`, `expiresAt`, `status` one of `available`, `applying`, `applied`, `expired`, `revoked`; once applied `restoredCredits` and `overdraftPaidCredits`); owner, org admins and platform admins | `organizations:read` |
+| POST | `/organizations/:id/credit-resets` | Platform admin: issue a reset (`note`, `expiresAt` ISO 8601 in the future) | `organizations:write` |
+| POST | `/organizations/:organizationId/credit-resets/:id/apply` | Owner or org admin: refill this month's allowance to its full amount, once; `overdraftPaidCredits` of `restoredCredits` paid an overdrawn balance first | `organizations:write` |
+| POST | `/organizations/:organizationId/credit-resets/:id/revoke` | Platform admin: revoke a reset not yet applied | `organizations:write` |
 
 ```bash
 curl -s "${auth[@]}" "$BASE/organizations/$ORG_ID/credits" | jq '.data'
@@ -173,7 +177,7 @@ How credits work (the user guide's "How Credits Work" page says the same):
 
 - Your plan's credits are added at the start of each month and expire at the end of that month. An annual plan adds each month's credits at the start of that month too (`subscription_credit`, `subscription_credit_expiry`).
 - Additional credits never expire while you have a subscription. They are forfeited with the rest of your credits when your subscription ends. You can buy any whole number of credits from 1,000 ($10.00; $1 = 100 credits) (`credit_purchase`, `auto_purchase`, `admin_allocation`; on Strongly Cloud an expired purchase is `credit_purchase_expiry`).
-- A credit grant follows its own schedule: each period's credit expires at the end of the period, unless the grant rolls unused credit over to the end of the grant (`grant_credit`, `grant_expiry`). Started periods never change; a `PATCH` applies to the periods to come.
+- A credit grant adds a set amount of credit every month for a number of months. Each month's grant credit expires at the end of that month; it never rolls over (`grant_credit`, `grant_expiry`). Started months never change; a `PATCH` applies to the months to come.
 - Plan and grant credit is used first, the soonest-expiring first. Additional credits are used only after it runs out.
 - Usage is always charged in full. If it takes your balance below zero, the next credit that arrives (plan, grant or additional) pays off what you owe first (`overdraft_payoff`, `reference.paidCredits`).
 - When your balance is zero or below, new launches are refused and running workloads are stopped. Stopped resources are deleted 30 days later unless credit is added. Credit that makes the balance positive stops the deletion clock; you restart your workloads yourself.
@@ -246,6 +250,6 @@ curl -s -X DELETE "${auth[@]}" "$BASE/me/push-devices/<apns-hex-token>" -o /dev/
 - [ ] Self-serve on your own record: `GET`/`PATCH` `/me`, and `DELETE /me` (irreversible, caller-only).
 - [ ] Treat user create/update/archive/reset-password as `users:admin`, acting on other users only; unarchive is by hand in the dashboard only.
 - [ ] Treat org update, member add/remove/role, and invite/cancel as `organizations:write` and org owner/admin.
-- [ ] Credits, transactions and credit grants are read by the org's owner and platform admins; only platform admins create, change or end a grant.
+- [ ] Credits, transactions and credit grants are read by the org's owner and platform admins; only platform admins create, change or end a grant. Allowance resets are read by the owner, org admins and platform admins, applied by the owner or an org admin, and issued or revoked only by platform admins.
 - [ ] Notifications and their single-item routes are scoped to you; ownership is enforced on `:id` read/delete.
 - [ ] Register a push device with `notifications:write`; the token is deduped, so re-registering is safe.
