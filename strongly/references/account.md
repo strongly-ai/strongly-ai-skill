@@ -147,7 +147,10 @@ and platform admins (`organizations:read`). Amounts are integer US cents.
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
 | GET | `/organizations/:id/credits` | `balance` = `planCreditsBalance` + `grantCreditsBalance` + `additionalCreditsBalance`; `planMonths` (this month's plan credits: issued, used, remaining, `expiresAt`), `nextPlanMonth`, `grantPeriods`, `overdraft` (what is owed), `autoPurchase` | `organizations:read` |
-| POST | `/organizations/:id/credit-purchases` | Buy additional credits: `{ "amount": <cents, whole dollars, at least 1000> }`; returns a Stripe Checkout `url` to pay at | `organizations:write` |
+| POST | `/organizations/:id/credit-purchases` | Buy additional credits: `{ "amount": <cents, whole dollars, at least 1000> }`; returns a Stripe Checkout `url` to pay at. Strongly Cloud: `paymentMethod` `checkout` (default) or `saved-card` (charged now; returns `purchaseId`, `amount`, `status`, `expiresAt`; send an `Idempotency-Key` header so a retry charges once) | `organizations:write` |
+| GET | `/organizations/:id/credit-purchases` | Strongly Cloud: unexpired purchases (bought or auto-refilled), soonest-expiring first: `purchasedAt`, `expiresAt`, `issuedCents`, `usedCents`, `remainingCents` (`limit`, `cursor`) | `organizations:read` |
+| GET | `/organizations/:id/credit-settings` | Strongly Cloud: `lowBalanceAlert` (`enabled`, `thresholdPercent`, `thresholdCents`), `autoRefill` (`enabled`, `thresholdPercent`, `thresholdCents`, `amountCents`, `maxPerDay`, `refillsToday`, `disabledReason` `payment_failed`), `baseCents` (the plan's monthly credits) | `organizations:read` |
+| PATCH | `/organizations/:id/credit-settings` | Strongly Cloud: change only the fields given: `lowBalanceAlert {enabled, thresholdPercent 1-100}`, `autoRefill {enabled, thresholdPercent 1-100, amountCents (whole dollars, at least 1000), maxPerDay 1-10}` (owner/admin) | `organizations:write` |
 | GET | `/organizations/:id/transactions` | Credit transaction history (`type`, `q`, `sort` one of `createdAt`, `type`, `description`, `amount`, `balanceAfter`; `limit`, `cursor`) | `organizations:read` |
 | GET | `/organizations/:id/credit-grants` | The org's credit grants, each with per-period issued/used/expired/remaining | `organizations:read` |
 | GET | `/organizations/:organizationId/credit-grants/:id` | One credit grant | `organizations:read` |
@@ -168,7 +171,7 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 How credits work (the user guide's "How Credits Work" page says the same):
 
 - Your plan's credits are added at the start of each month and expire at the end of that month. An annual plan adds each month's credits at the start of that month too (`subscription_credit`, `subscription_credit_expiry`).
-- Additional credits never expire while you have a subscription. They are forfeited with the rest of your credits when your subscription ends. You can buy additional credits in any whole-dollar amount from $10 (`credit_purchase`, `auto_purchase`, `admin_allocation`).
+- Additional credits never expire while you have a subscription. They are forfeited with the rest of your credits when your subscription ends. You can buy additional credits in any whole-dollar amount from $10 (`credit_purchase`, `auto_purchase`, `admin_allocation`; on Strongly Cloud an expired purchase is `credit_purchase_expiry`).
 - A credit grant follows its own schedule: each period's credit expires at the end of the period, unless the grant rolls unused credit over to the end of the grant (`grant_credit`, `grant_expiry`). Started periods never change; a `PATCH` applies to the periods to come.
 - Plan and grant credit is used first, the soonest-expiring first. Additional credits are used only after it runs out.
 - Usage is always charged in full. If it takes your balance below zero, the next credit that arrives (plan, grant or additional) pays off what you owe first (`overdraft_payoff`, `reference.paidCents`).
@@ -177,6 +180,17 @@ How credits work (the user guide's "How Credits Work" page says the same):
 - When your subscription ends, every credit you still have (plan, grant and additional) is forfeited. Usage up to the end is paid from it first (`credit_forfeiture`: `reference.planCents`, `grantCents`, `additionalCents`).
 - No money is refunded: not when you cancel, not when you move to a lower plan, and not for unused plan, grant or additional credits.
 - Usage is charged in credits; a usage charge carries what was charged, not how it was worked out. For what each resource cost, use FinOps.
+
+On Strongly Cloud (the credit-settings and `GET` credit-purchases routes answer `404` elsewhere):
+
+- Purchased credits expire 12 months after their purchase, each purchase on its own; an auto-refill is a purchase. Credit left at expiry is a `credit_purchase_expiry` transaction. They are forfeited with the rest of your credits when your subscription ends.
+- Plan and grant credit is used first, the soonest-expiring first. Purchased credits are used only after it runs out, the soonest-expiring purchase first.
+- The low-balance alert and auto-refill are both off by default. Thresholds are a percent of the plan's monthly credits (20% of a $50 month is $10.00).
+- The alert notifies the owner and admins once per fall to the threshold (in the app always, by email if their email setting is on), again only after the balance is back above it; with it on they are also told 14 days before a purchase expires.
+- Auto-refill charges the saved card `amountCents` when the balance falls below its threshold, at most `maxPerDay` a day. A declined card, or one that needs authentication, credits nothing and turns auto-refill off (`disabledReason: payment_failed`; owner and admins notified) until it is turned on again. Refill history: `transactions?type=auto_purchase`.
+- A saved-card purchase the bank wants confirmed answers `authentication-required` (402): use `checkout`. A declined card: `card-declined` (402). No saved card: `no-saved-card` (409).
+- Confirm the amount with the user before buying credits or turning auto-refill on.
+- Only the organization's owner or an admin buys or changes settings; other members get `403`.
 
 ---
 
