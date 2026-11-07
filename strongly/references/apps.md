@@ -906,6 +906,16 @@ app's size), "scaleUpCooldown": 30-600, "scaleDownCooldown": 60-900 (seconds) }`
 `"autoscaling": null` turns it off (the app runs `instances`). Kubernetes reads
 the CPU and memory use itself: there is no polling interval.
 
+**Scale to zero when idle:** `scaleToZero` on `POST /apps` or `PATCH /apps/:id` is
+`{ "enabled": true, "idleMinutes": 1-1440 }` (off by default; `null` turns it off,
+and a sleeping app then starts at once). The running app goes to zero instances
+(status `idle`, no compute charged) once no request or open WebSocket/SSE
+connection has reached it for `idleMinutes`; its next request wakes it. A browser
+sees a Starting page; an API, webhook or WebSocket call waits until it is ready
+(up to 3 minutes), so an app should not depend on in-memory state surviving idle
+periods. A stopped app is never woken. Keep it off for apps called by webhook
+senders that give up in under a minute.
+
 ---
 
 ## 5. Artifacts (the Library API)
