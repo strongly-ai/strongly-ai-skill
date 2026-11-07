@@ -102,7 +102,11 @@ are RFC 9457 problem details (`application/problem+json`):
 `{ "type", "title", "status", "detail", "code", "requestId", "errors"? }`. Read
 `data` on success; surface `detail` (and `code`) on failure: a `400
 validation-error` names the field and what it expected (`Expected string, got
-number in field name`). JSON fields are camelCase.
+number in field name`). A `403 plan-required` means the organization's Strongly
+Cloud plan does not include it (more developers or app users than the plan
+takes, a Pro or Team feature, a GPU workload during a trial): tell the user
+the `detail`, which names the plan to upgrade to on the Billing page; never
+retry or work around it. JSON fields are camelCase.
 
 **Design.** Paths are grouped by product area (`/apps`, `/workflows`, `/agents`,
 `/library/…`, `/primitives/…`, `/mlops/…`, `/ai-gateway/…`, `/finops/…`,
