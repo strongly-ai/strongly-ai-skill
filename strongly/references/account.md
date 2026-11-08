@@ -143,12 +143,13 @@ responses; pass them as the last `:id`.
 Credits exist only when billing is enabled (otherwise `409 billing-disabled`).
 They are held at the organization level and read by the organization's owner
 and platform admins (`organizations:read`). Amounts are whole credits
-($1 = 100 credits), and every amount field's name ends in `Credits`.
+(their dollar price is the platform's plan catalog: a purchase answers its
+`chargeCents`), and every amount field's name ends in `Credits`.
 
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
 | GET | `/organizations/:id/credits` | `balanceCredits` = `planCreditsBalance` + `grantCreditsBalance` + `additionalCreditsBalance`; `planMonths` (this month's plan credits: `issuedCredits`, `usedCredits`, `remainingCredits`, `expiresAt`), `nextPlanMonth` (`amountCredits`), `grantPeriods`, `overdraftCredits` (what is owed), `lifetimeAddedCredits`, `lifetimeUsedCredits`, `autoPurchase`; on Strongly Cloud `allowance` (`allowanceCredits`, `usedCredits`, `remainingCredits`, `renewsAt`, `lots`) | `organizations:read` |
-| POST | `/organizations/:id/credit-purchases` | Buy additional credits: `{ "credits": <a whole number, at least 1000> }`; returns `amountCredits`, `chargeCents` (what Stripe charges, US cents: 1,000 credits cost $10.00) and a Stripe Checkout `url` to pay at. Strongly Cloud: `paymentMethod` `checkout` (default) or `saved-card` (charged now; returns `purchaseId`, `amountCredits`, `chargeCents`, `status`, `expiresAt`; send an `Idempotency-Key` header so a retry charges once) | `organizations:write` |
+| POST | `/organizations/:id/credit-purchases` | Buy additional credits: `{ "credits": <a whole number, at least the minimum purchase> }`; returns `amountCredits`, `chargeCents` (what Stripe charges, US cents: 1,000 credits cost $10.00) and a Stripe Checkout `url` to pay at. Strongly Cloud: `paymentMethod` `checkout` (default) or `saved-card` (charged now; returns `purchaseId`, `amountCredits`, `chargeCents`, `status`, `expiresAt`; send an `Idempotency-Key` header so a retry charges once) | `organizations:write` |
 | GET | `/organizations/:id/credit-purchases` | Strongly Cloud: unexpired purchases (bought or auto-refilled), soonest-expiring first: `purchasedAt`, `expiresAt`, `issuedCredits`, `usedCredits`, `remainingCredits` (`limit`, `cursor`) | `organizations:read` |
 | GET | `/organizations/:id/credit-settings` | Strongly Cloud: `lowBalanceAlert` (`enabled`, `thresholdPercent`, `thresholdCredits`), `autoRefill` (`enabled`, `thresholdPercent`, `thresholdCredits`, `amountCredits`, `maxPerDay`, `refillsToday`, `disabledReason` `payment_failed`), `baseCredits` (the plan's monthly credits) | `organizations:read` |
 | PATCH | `/organizations/:id/credit-settings` | Strongly Cloud: change only the fields given: `lowBalanceAlert {enabled, thresholdPercent 1-100}`, `autoRefill {enabled, thresholdPercent 1-100, amountCredits (a whole number, at least 1000), maxPerDay 1-10}` (owner/admin) | `organizations:write` |
@@ -176,7 +177,7 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 How credits work (the user guide's "How Credits Work" page says the same):
 
 - Your plan's credits are added at the start of each month and expire at the end of that month. An annual plan adds each month's credits at the start of that month too (`subscription_credit`, `subscription_credit_expiry`).
-- Additional credits never expire while you have a subscription. They are forfeited with the rest of your credits when your subscription ends. You can buy any whole number of credits from 1,000 ($10.00; $1 = 100 credits) (`credit_purchase`, `auto_purchase`, `admin_allocation`; on Strongly Cloud an expired purchase is `credit_purchase_expiry`).
+- On Strongly Cloud purchased credits expire 12 months after their purchase, each purchase on its own (`credit_purchase`, `auto_purchase`; an expired purchase is `credit_purchase_expiry`); credit a platform admin adds (`admin_allocation`) never expires. All of it is forfeited with the rest of your credits when your subscription ends. You can buy any whole number of credits from the platform's minimum purchase; the purchase answer's `chargeCents` is what it costs.
 - A credit grant adds a set amount of credit every month for a number of months. Each month's grant credit expires at the end of that month; it never rolls over (`grant_credit`, `grant_expiry`). Started months never change; a `PATCH` applies to the months to come.
 - Plan and grant credit is used first, the soonest-expiring first. Additional credits are used only after it runs out.
 - Usage is always charged in full. If it takes your balance below zero, the next credit that arrives (plan, grant or additional) pays off what you owe first (`overdraft_payoff`, `reference.paidCredits`).
