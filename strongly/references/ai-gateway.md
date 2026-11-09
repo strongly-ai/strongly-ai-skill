@@ -91,10 +91,14 @@ only when you may use that key (yours, or any key for a platform admin); a
 key you may not use is refused as not found. `cache_config` optionally
 enables the response, semantic and prompt caches (prompt caching on any chat
 or multimodal model certified for it).
-`storePrompts` (optional, set once at model setup, default `true`; `PATCH`
-refuses it, create a new model to change it): with it `false` the AI Gateway
-keeps each call's usage record but stores no prompt or response. An app with
-sensitive data keeps its own sessions and history.
+`promptStorage` (optional, default `stored`; change it later with `PATCH`,
+the next call follows it): `stored` keeps each call's prompt and response;
+`encrypted` stores them encrypted with the key of the person who made the
+call, so only that person can read them back (usage, cost, latency and errors
+stay readable); `none` keeps only usage, no prompt or response. Any other
+value is refused (`promptStorage: must be one of stored, encrypted, none`).
+`GET` always returns it. An app with sensitive data keeps its own sessions and
+history.
 
 ```bash
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gateway/models" \
@@ -110,7 +114,7 @@ curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/ai-gatew
 | `GET /ai-gateway/models/providers` | Distinct third-party providers + counts | `ai-gateway:read` |
 | `GET /ai-gateway/models/certified` | Curated third-party catalog (`provider`, `modelType`, `capability`) | `ai-gateway:read` |
 | `GET /ai-gateway/models/prebuilt` | Self-hosted prebuilt templates (`category`, `provider`), each with its `certifiedEnvironment` (`modelType`, `engine`, `port`, `instanceType`, `resources`, a chat model's `contextWindow`, `maxOutputTokens` (the default a model created from it records: a quarter of the context window for vLLM), `maxOutputCeiling` (the most it may be set to: the whole context window for vLLM), `limitsSource`): a deploy records these, never enter them | `ai-gateway:read` |
-| `POST /ai-gateway/models` | Create (`name`, `type`, `provider`, `vendorModelId`, `modelType`, `contextWindow`, `maxOutputTokens`, `apiKey` or `apiKeyId`, `cache_config`, `storePrompts`) | `ai-gateway:write` |
+| `POST /ai-gateway/models` | Create (`name`, `type`, `provider`, `vendorModelId`, `modelType`, `contextWindow`, `maxOutputTokens`, `apiKey` or `apiKeyId`, `cache_config`, `promptStorage`) | `ai-gateway:write` |
 | `GET /ai-gateway/models/:id` | Full model detail; a chat model's `maxOutputCeiling` is the most `maxOutputTokens` may be set to (a vLLM model's context window, a third-party model's certified cap; `null` when nothing records one) | `ai-gateway:read` |
 | `GET /ai-gateway/models/:id/options` | Model options (voices, languages, ...) | `ai-gateway:read` |
 | `PATCH /ai-gateway/models/:id` | Update name/description/parameters/`cache_config`, and a chat model's `maxOutputTokens` up to its `maxOutputCeiling` (the model page's Settings tab sets the same) | `ai-gateway:write` |
