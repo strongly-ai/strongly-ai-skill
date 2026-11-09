@@ -169,7 +169,7 @@ semantic search.
 |---|---|---|
 | `GET /library/prompts` | List (`platform=false`: without the platform's own prompts) | `q, type, platform, tags, linkedIds, limit, cursor` |
 | `GET /library/prompts/search` | Search by meaning and words at once (vector + text, fused), best first; each hit has a rank `score` | `q*, type, tags, limit, popularity, mmr, mmrLambda` |
-| `POST /library/prompts` | Create | body: `name*, content*, type, description, variables, tags, linkedIds, source` |
+| `POST /library/prompts` | Create | body: `name*, content*, type, description, variables, tags, linkedIds, source, encrypted` (`encrypted: true`: content private to the owner, never shared or public, fixed once created) |
 | `GET /library/prompts/:id` · `PATCH /library/prompts/:id` · `DELETE /library/prompts/:id` | Fetch / update (new version) / delete | |
 | `GET /library/prompts/:id/versions` · `POST /library/prompts/:promptId/versions/:version/restore` | Versions (each with its full `content`) + restore | |
 | `POST /library/prompts/:id/duplicate` | Copy to a new prompt | |
@@ -268,7 +268,7 @@ with hybrid relevance retrieval, versions, and a quality assessor.
 | Endpoint | Purpose | Key params / body |
 |---|---|---|
 | `GET /library/skills` | List | `q, tags, linkedIds, category, limit, cursor` |
-| `POST /library/skills` | Create (deduped: response `action` is `created`, `superseded`, or `unchanged`). `name` is kebab-case (`unit-converter`, up to 64 chars); any other name is refused | body: `name*, content*, description, category, tags, linkedIds, mcpTools, variables, source` |
+| `POST /library/skills` | Create (deduped: response `action` is `created`, `superseded`, or `unchanged`). `name` is kebab-case (`unit-converter`, up to 64 chars); any other name is refused | body: `name*, content*, description, category, tags, linkedIds, mcpTools, variables, source, encrypted` (`encrypted: true`: content private to the owner, never shared or public, fixed once created) |
 | `GET /library/skills/:id` | Read full content | |
 | `GET /library/skills/:id/files` · `GET /library/skills/:id/contents?path=` | List bundled files (paths + sizes) / read one file | |
 | `PATCH /library/skills/:id` · `DELETE /library/skills/:id` | Update / delete | |

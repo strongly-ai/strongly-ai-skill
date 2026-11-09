@@ -940,6 +940,7 @@ auto-injected** (see `SKILL.md`), the app doesn't manage a key; it calls
 curl -s -X POST "$STRONGLY_API_URL/api/v1/library/artifacts" -H 'Content-Type: application/json' \
   -d '{"title":"Q3 report","artifact_type":"report","contentType":"application/pdf",
        "encoding":"base64","content":"'"$(base64 -i report.pdf)"'"}'   # -> data._id
+# Optional "encrypted":true keeps it private to the owner (fixed; can never be shared or public)
 
 # Serve: POST $BASE/library/artifacts/:id/download  (artifacts:read)
 #   -> {url, expiresAt, expiresInSeconds: 300, fileName, sizeBytes}

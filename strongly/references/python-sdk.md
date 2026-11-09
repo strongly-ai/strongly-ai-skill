@@ -372,7 +372,7 @@ tool_call_id)` or `client.agents.cancel_run(agent_id, run_id)`. Without it the r
 Agents answer from knowledge bases (`references/agents.md` section 8):
 
 ```python
-kb = client.knowledge.create(name="Meeting notes", index_model_id=chat_model_id)
+kb = client.knowledge.create(name="Meeting notes", index_model_id=chat_model_id)  # encrypted=True: private to you
 client.knowledge.add_document(kb.id, filename="rooms.md", content="# Rooms\n\n...")  # or file=...
 client.knowledge.import_artifacts(kb.id, artifact_ids=[artifact_id])
 print([(d.name, d.status) for d in client.knowledge.retrieve(kb.id).documents])  # wait for "ready"

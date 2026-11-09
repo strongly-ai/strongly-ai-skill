@@ -425,7 +425,8 @@ base holds, finds sections by keyword or by a document's outline, and reads the 
 1. `POST /library/knowledge-bases` `{ "name", "description", "indexModelId" }` creates one and
    returns it (`data._id`). `indexModelId` is an AI Gateway **chat** model that writes each
    section's summary while a document is indexed (billed to whoever adds the document); ask
-   the user which of their chat models to use.
+   the user which of their chat models to use. Add `"encrypted": true` to keep its content
+   private to the owner (fixed once created; it can never be shared or made public).
 2. Add documents:
    - `POST /library/knowledge-bases/:id/documents` `{ "filename": "notes.md", "content": "..." }`
      for text (Markdown headings become sections), or `{ "filename", "fileBase64",
