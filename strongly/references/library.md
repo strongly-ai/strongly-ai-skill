@@ -78,7 +78,7 @@ Durable facts and episodes an agent recalls. Bitemporal (`validFrom`/`validUntil
 | Endpoint | Purpose | Key params / body |
 |---|---|---|
 | `GET /primitives/memories` | List | `kind, tags, linkedIds, q, asOf, includeInvalidated, limit, cursor` |
-| `POST /primitives/memories` | Create | body: `kind*, content*, summary, tags, category, importance, confidence, links, linkedIds, source, eventTime, validFrom, validUntil` |
+| `POST /primitives/memories` | Create | body: `kind*, content*, summary, tags, category, importance, confidence, links, linkedIds, source, eventTime, validFrom, validUntil, encrypted`; `encrypted: true` makes it readable only by you and your agents, unshareable, fixed once created |
 | `GET /primitives/memories/:id` · `PATCH /primitives/memories/:id` · `DELETE /primitives/memories/:id` | Fetch / update (content change appends a version) / delete | update body adds `changeNote` |
 | `POST /primitives/memories/search` | Hybrid BM25 + dense-vector search with RRF fusion and temporal-decay re-rank; returns `contextBlock` | body: `q*, limit, kind, tags, linkedIds, weights, rrfK, decayHalfLifeDaysOverride, asOf` |
 | `POST /primitives/memories/ingest` | Mem0-style judge for an agent: the agent's own model decides ADD/UPDATE/DELETE/NOOP against its similar memories; the memory joins the agent (no `agentId`: 400; not yours: 403) | body: `content*, kind*, agentId*, tags, candidateK, linkedIds` |
@@ -121,7 +121,7 @@ ordered (`system > org > user > agent`), enforceable at the tool boundary, versi
 | Endpoint | Purpose | Key params / body |
 |---|---|---|
 | `GET /primitives/rules` | List | `category, severity, hierarchyScope, enabled, tags, linkedIds, q, limit, cursor` |
-| `POST /primitives/rules` | Create | body: `description*, content*, category, severity, hierarchyScope, triggers, enabled, enforcementMode, tags, source, linkedIds` |
+| `POST /primitives/rules` | Create | body: `description*, content*, category, severity, hierarchyScope, triggers, enabled, enforcementMode, tags, source, linkedIds, encrypted`; `encrypted: true` makes it readable only by you and your agents, unshareable, fixed once created |
 | `GET /primitives/rules/:id` · `PATCH /primitives/rules/:id` · `DELETE /primitives/rules/:id` | Fetch / update (new version) / delete | |
 | `POST /primitives/rules/search` | Enabled rules matching turn/tool/scope, hierarchy-sorted; returns `contextBlock` | body: `userTurn, toolName, linkedIds` |
 | `POST /primitives/rules/check` | Deterministic pre-tool-call gate; returns `refused` + the blocking rule | body: `toolName*, args, userTurn, linkedIds` |
@@ -208,7 +208,7 @@ notifications.
 |---|---|---|
 | `GET /primitives/tasks` | List, latest changed first; each names its agent (`agentId`, `agentName`) | `kind, status, tags, linkedIds, includeCompleted, q, dueOnly, triggerType, sort (-updatedAt default, dueAt soonest due first with undated last, -dueAt, createdAt, -createdAt, updatedAt), limit, cursor` |
 | `GET /primitives/tasks/stats` | The list's counts: `{ total, byStatus, byTriggerType, fires, failing }` (rows `{ <field>, total }`, most first; failing = latest failed fire unfixed) | the list's filters |
-| `POST /primitives/tasks` | Create | body: `description*, linkedIds* (one agent of yours + any pools), recurrence, dueAt, triggerType, notes, tags, subjectRef, subjectId, assignedToAgent, createdByAgent`. `subjectId` is an app's own id for whom the task is about: `DELETE /apps/:appId/agent-subjects/:id` deletes every task tagged with it on the app's agents (with its fires), as it does the tagged threads and messages; an agent's `task_create` in a chat run the app tagged carries it |
+| `POST /primitives/tasks` | Create | body: `description*, linkedIds* (one agent of yours + any pools), recurrence, dueAt, triggerType, notes, tags, subjectRef, subjectId, assignedToAgent, createdByAgent, encrypted`; `encrypted: true` makes it readable only by you and your agents, unshareable, fixed once created. `subjectId` is an app's own id for whom the task is about: `DELETE /apps/:appId/agent-subjects/:id` deletes every task tagged with it on the app's agents (with its fires), as it does the tagged threads and messages; an agent's `task_create` in a chat run the app tagged carries it |
 | `GET /primitives/tasks/:id` · `PATCH /primitives/tasks/:id` · `DELETE /primitives/tasks/:id` | Fetch (with its status and scheduling fields) / update (a recurrence change recomputes `nextDueAt`) / delete | |
 | `POST /primitives/tasks/:id/complete` | Mark done; recurring advances to the next occurrence. A fire has one completion: an already-complete fire answers `alreadyComplete: true` and records nothing | body: `notes, executionId, runId` |
 | `GET /primitives/tasks/:id/fires` | The task's fires, newest first: one record per fire, every fire kept (`fireCount` counts them); `workflowId` is the workflow of `executionId` | `q, sort` (one of `occurredAt`, `firedAt`, `completedAt`, `status`), `limit, cursor` |
@@ -313,7 +313,7 @@ supersession.
 | Endpoint | Purpose | Key params / body |
 |---|---|---|
 | `GET /primitives/preferences` | List | `q, category, preferenceSource, tags, linkedIds, includeSuperseded, limit, cursor` |
-| `POST /primitives/preferences` | Set (idempotent upsert on `(owner, key)`) | body: `key*, value*, category, preferenceSource, confidence, evidence, tags, linkedIds` |
+| `POST /primitives/preferences` | Set (idempotent upsert on `(owner, key)`) | body: `key*, value*, category, preferenceSource, confidence, evidence, tags, linkedIds, encrypted`; `encrypted: true` makes it readable only by you and your agents and unshareable, chosen when the key is first set (later values keep it) |
 | `GET /primitives/preferences/:id` | Read one by id | |
 | `GET /primitives/preferences/by-key/:key` | Look up the active value for a key (null if unset) | `touch` |
 | `PATCH /primitives/preferences/:id` | Update only supplied fields; a new `value` supersedes (old value kept as history) and returns the new row, with a new id | body: `value, category, preferenceSource, confidence, evidence, tags, linkedIds` |
