@@ -438,14 +438,16 @@ user requires them to be an active member of the app's organization). Either
 way the app's admins list and manage them (`GET /apps/:id/users?type=app`) and their
 clone uses the owner's models, tool workflows, workspace and MCP servers.
 
-How people join (set with `PATCH /apps/:id/auth`):
+How people join (set with `PATCH /apps/:id/auth`). Sign-up is OFF by default: a newly enabled
+sign-in page is invitation only until `signupEnabled: true` is sent, and an address that is not
+already a user of the app cannot register. Turn sign-up on only when the user asks for public sign-up.
 
 | Mode | Settings | Who gets in |
 |---|---|---|
 | Open | `signupEnabled: true`, `access: "instant"` | anyone who signs up, once their email is confirmed |
 | Approval | `signupEnabled: true`, `access: "approval"` | anyone who signs up, after an app admin approves them |
 | Allowed domains | `allowedDomains: ["example.com"]` (with either mode) | only those email domains, for sign-ups and invitations |
-| Invitation only | `signupEnabled: false` | only people an app admin invites |
+| Invitation only (the default) | `signupEnabled: false` | only people an app admin invites |
 
 **App admins.** An app admin is a user whose role in the app is `admin` (the
 `appRole` claim in `X-Strongly-User-Token`). The app's owner is always an app
@@ -471,6 +473,7 @@ it is pending.
 # Turn it on (only the fields sent change; enabling also enables Home App).
 # Every new account confirms its email with a 6-digit code first. access:
 # "instant" (usable once confirmed) or "approval" (then an app admin activates it).
+# signupEnabled is false unless sent: leave it out for an invitation-only app.
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/auth" -d '{
   "enabled": true, "slug": "client-portal", "signupEnabled": true,
   "access": "approval", "allowedDomains": ["example.com"] }'
