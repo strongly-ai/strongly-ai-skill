@@ -644,7 +644,8 @@ the server URL, `sub` = user id, `client_id`, `scope`). Verify it with
 enforce the scopes in every tool, read only `sub`'s data, never take a user id
 as a tool argument. The app shows a user their own connections with
 `GET /me/mcp-connections` and `DELETE /me/mcp-connections/:id` (called with the
-user's token, only that app's). Turning it off disconnects everyone; every
+user's token, only that app's; an API key needs `credentials:read` /
+`credentials:write`). Turning it off disconnects everyone; every
 authorization, token, refresh, revocation and tool call is audited.
 
 **Sign-out inside a home app.** A home app fills the screen with no platform

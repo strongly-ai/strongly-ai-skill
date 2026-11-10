@@ -44,19 +44,24 @@ sees only themselves in `GET /users`.
 reaches only `GET /me`, `GET /me/app-cards`, `DELETE /me/app-sign-ins/:id` and
 `DELETE /me`; everything else answers `403` `app-user-restricted`.
 
+Your own API keys and app sign-ins need `credentials:read` (list) or
+`credentials:write` (create, rotate, revoke, delete, sign out). No bundle but
+`developer` includes them (`read-only` does not), so a key made for one job
+cannot list or change your other keys unless you name these scopes on it.
+
 | Method | Path | Purpose | Scope |
 |---|---|---|---|
 | GET | `/me` | You: `_id`, `username`, `email`, `role`, `homeAppId`, `organization`, `apiKey` | (any key) |
 | GET | `/me/app-cards` | The apps you may open, as cards, your Home App first: `_id`, `name`, `displayName`, `thumbnail` (icon data URL), `available` (opens now); nothing else of an app (`limit`, `cursor`) | (any key) |
 | PATCH | `/me` | Update your own profile (`name`) | `users:write` |
 | DELETE | `/me` | Delete your own account: revokes your API keys and login tokens, schedules data erasure; the account is archived with its memberships | `users:write` |
-| POST | `/me/api-keys` | Create one of your API keys (`name`, `scopes`, `expiresInDays?`); the secret is shown once | (any key) |
-| GET | `/me/api-keys` | Your API keys, never their secrets (`status`: `active`, `revoked`, `expired`) | (any key) |
-| POST | `/me/api-keys/:id/revoke` | Revoke one: it stops working at once and stays listed as `revoked`; 409 if already revoked | (any key) |
-| DELETE | `/me/api-keys/:id` | Delete one that no longer works (revoked or expired); 409 for a key that still works (revoke it first) | (any key) |
-| POST | `/me/api-keys/:id/rotate` | Rotate one: a new key with the same name, scopes and expiry; the old one is revoked | (any key) |
-| GET | `/me/app-sign-ins` | The apps signed in as you: each install of the Strongly iPhone app and of a connected app (`_id` = the install, `clientId`, `appId`, `appName`, `deviceName`, `platform`, `signedInAt`, `lastUsedAt`, `expiresAt`); each install has its own credential, so signing in on one never signs out another; browsers are not listed (`limit`, `cursor`) | (any key) |
-| DELETE | `/me/app-sign-ins/:id` | Sign one install out: its key and sessions stop working at once, nothing else; 404 for an install with nothing signed in | (any key) |
+| POST | `/me/api-keys` | Create one of your API keys (`name`, `scopes`, `expiresInDays?`); the secret is shown once | `credentials:write` |
+| GET | `/me/api-keys` | Your API keys, never their secrets (`status`: `active`, `revoked`, `expired`) | `credentials:read` |
+| POST | `/me/api-keys/:id/revoke` | Revoke one: it stops working at once and stays listed as `revoked`; 409 if already revoked | `credentials:write` |
+| DELETE | `/me/api-keys/:id` | Delete one that no longer works (revoked or expired); 409 for a key that still works (revoke it first) | `credentials:write` |
+| POST | `/me/api-keys/:id/rotate` | Rotate one: a new key with the same name, scopes and expiry; the old one is revoked | `credentials:write` |
+| GET | `/me/app-sign-ins` | The apps signed in as you: each install of the Strongly iPhone app and of a connected app (`_id` = the install, `clientId`, `appId`, `appName`, `deviceName`, `platform`, `signedInAt`, `lastUsedAt`, `expiresAt`); each install has its own credential, so signing in on one never signs out another; browsers are not listed (`limit`, `cursor`) | `credentials:read` |
+| DELETE | `/me/app-sign-ins/:id` | Sign one install out: its key and sessions stop working at once, nothing else; 404 for an install with nothing signed in | `credentials:write` |
 | GET | `/users` | List users visible within your organization, each `_id`, `username`, `email`, `role` (`q`, `active`, `limit`, `cursor`, `sort`); an archived user is never listed, and `GET /users/:id` answers `404` for one | `users:read` |
 | GET | `/users/:id` | Another user in your organization: `_id`, `username`, `email`, `role` (visibility-filtered) | `users:read` |
 
