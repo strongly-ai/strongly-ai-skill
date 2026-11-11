@@ -206,11 +206,11 @@ nothing is made. Rows are never cut; shorten or split them, or raise the max.
 | `POST /ai-gateway/fine-tuning/recommend` | Recommend a config | `baseModel`, `useCase?`, `datasetSize?` |
 | `POST /ai-gateway/fine-tuning-jobs/validate` | Pre-flight validation | `baseModel`, `method`, `hardware?`, `methodConfig?` |
 | `GET /ai-gateway/fine-tuning-jobs` | List jobs | `q`, `status`, `baseModel`, `limit`, `cursor`, `sort` |
-| `POST /ai-gateway/fine-tuning-jobs` | Create a job | `name`, `baseModel`, `trainingDataset`, `description?` |
+| `POST /ai-gateway/fine-tuning-jobs` | Create a job. `trainingDataset` is a file in a volume (`volumeId` + `volumeFilePath`), or an `hf://org/dataset` id or https URL with `volumeId` (required: the writable volume the dataset is saved to; a Hugging Face dataset lands under `datasets/huggingface/` there as the job starts). Rows are never cut: a row over `dataset.cutoffLength` (2048) stops the job as `validation_failed`, the rows named in its validation logs | `name`, `baseModel`, `trainingDataset`, `volumeId?`, `volumeFilePath?`, `outputVolumeId` or `outputVolumeName`, `environment.gpuType`, `dataset?`, `description?` |
 | `GET /ai-gateway/fine-tuning-jobs/:id` | Full job (live-synced) | path `id` |
 | `GET /ai-gateway/fine-tuning-jobs/:id/status` | Lifecycle view (live-synced) | path `id` |
 | `GET /ai-gateway/fine-tuning-jobs/:id/metrics` | Training metrics | path `id` |
-| `GET /ai-gateway/fine-tuning-jobs/:id/logs` | Job logs | path `id`, `lines?`, `since?` |
+| `GET /ai-gateway/fine-tuning-jobs/:id/logs` | Job logs from one source (`validation` = the dataset checks before training) | path `id`, `logType?` (`build`, `validation`, `training`, `deploy`, `all`) |
 | `POST /ai-gateway/fine-tuning-jobs/:id/stop` | Stop a running job | path `id` |
 | `POST /ai-gateway/fine-tuning-jobs/:id/restart` | Restart a job | path `id` |
 | `DELETE /ai-gateway/fine-tuning-jobs/:id` | Delete a job | path `id` |
