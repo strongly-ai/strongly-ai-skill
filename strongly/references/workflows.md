@@ -438,6 +438,10 @@ In the builder the same requests show in the **Waiting for you** panel.
 | GET | `/workflows/-/executions/:id/spans` | Every span, oldest first, cursor-paged (a loop step once per iteration: `metadata.iteration`); read `error_message` here on failure (`nodeId`, `name`, `status`, `slim`, `limit`, `cursor`) |
 | GET | `/workflows/-/executions/:id/logs` | The run's whole log, newest first, every line paged in one order (`level`, `podName`: the lines one pod wrote, `q`: text in the message or metadata, `limit`, `cursor`; any other parameter is a `400`); each line's `spanId` names the step run that logged it |
 | GET | `/workflows/-/executions/:id/ai-usage` | The run's AI Gateway usage: requests and input/output/total tokens, in all and per model (the run's one token figure) |
+| GET | `/workflows/-/executions/:id/browser-sessions` | The run's browser sessions, oldest first: one per item a Web Agent ran (`nodeId`, `item`, `task`, `status` running/ended/failed, and once ended `steps`, `scriptSteps`, `withheldSteps`, `hasFinalScreenshot`) |
+| GET | `/workflows/-/executions/:executionId/browser-sessions/:id` | One session |
+| GET | `/workflows/-/executions/:executionId/browser-sessions/:id/script` | An ended session's script (`strongly.web-agent.script/1`): each step that ran to its end, its code and the page it left; the run's folder as `{{ output_dir }}`, secrets only by name (`os.environ["NAME"]`) |
+| GET | `/workflows/-/executions/:executionId/browser-sessions/:id/screenshot` | PNG bytes: the window after the newest step while the agent works (`which=latest`, default), or after its last step (`which=final`) |
 | POST | `/workflows/-/executions/:id/stop` | Graceful stop (only when `running`) |
 | POST | `/workflows/-/executions/:id/cancel` | Hard-cancel any non-terminal run; idempotent |
 | POST | `/workflows/-/executions/:id/resume` | Resume a failed run from its checkpoint (workflow saves checkpoints): finished nodes reused, failed node and the rest run again; no body |
