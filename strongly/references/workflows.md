@@ -438,7 +438,7 @@ In the builder the same requests show in the **Waiting for you** panel.
 | GET | `/workflows/-/executions/:id/spans` | Every span, oldest first, cursor-paged (a loop step once per iteration: `metadata.iteration`); read `error_message` here on failure (`nodeId`, `name`, `status`, `slim`, `limit`, `cursor`) |
 | GET | `/workflows/-/executions/:id/logs` | The run's whole log, newest first, every line paged in one order (`level`, `podName`: the lines one pod wrote, `q`: text in the message or metadata, `limit`, `cursor`; any other parameter is a `400`); each line's `spanId` names the step run that logged it |
 | GET | `/workflows/-/executions/:id/ai-usage` | The run's AI Gateway usage: requests and input/output/total tokens, in all and per model (the run's one token figure) |
-| GET | `/workflows/-/executions/:id/browser-sessions` | The run's browser sessions, oldest first: one per item a Web Agent ran (`nodeId`, `item`, `task`, `status` running/ended/failed, and once ended `steps`, `scriptSteps`, `withheldSteps`, `hasFinalScreenshot`) |
+| GET | `/workflows/-/executions/:id/browser-sessions` | The run's browser sessions, oldest first: one per item a Web Agent ran (`nodeId`, `item`, `task`, `status` running/ended/failed, and once ended `steps`, `scriptSteps`, `withheldSteps`, `hasFinalScreenshot`; a replay's `replay`: `fromSession`, `scriptSteps`, `replayedSteps`, `repairedFromStep`, `reason`). An agent's run is an execution too: its `web_agent` calls' sessions are listed under its execution id |
 | GET | `/workflows/-/executions/:executionId/browser-sessions/:id` | One session |
 | GET | `/workflows/-/executions/:executionId/browser-sessions/:id/script` | An ended session's script (`strongly.web-agent.script/1`): each step that ran to its end, its code and the page it left; the run's folder as `{{ output_dir }}`, secrets only by name (`os.environ["NAME"]`) |
 | GET | `/workflows/-/executions/:executionId/browser-sessions/:id/screenshot` | PNG bytes: the window after the newest step while the agent works (`which=latest`, default), or after its last step (`which=final`) |
@@ -449,6 +449,8 @@ In the builder the same requests show in the **Waiting for you** panel.
 | POST | `/workflows/-/executions/:executionId/human-requests/:id/notify` | Send a waiting request's notification again |
 | GET | `/workflows/:workflowId/dead-letters` | Runs that could not be submitted (dead letters) of a workflow, or of every workflow with `-`; `status` filters (`pending`, `retrying`, `resolved`, `exhausted`, `discarded`) |
 | GET · POST | `/workflows/-/dead-letters/:id` · `…/:id/retry` · `…/:id/discard` | One dead letter; retry it now as you, or give up on it (`notes`) |
+
+Replay: give the Web Agent node (or an agent's `web_agent` call) `replaySession` = `{executionId, sessionId}` (the `browserSession` a run returned) or `replayScript` = a script: its steps run again without the model, each checked against its recording (ran to its end, left the page where it did); the model then answers from what they read. The first step that no longer does what it did hands the task to the model from there; the session records it (`replay.repairedFromStep`, `replay.reason`) and keeps the repaired script.
 
 ---
 
