@@ -349,6 +349,9 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/analytics/usage?dateRange=30d"           
 curl -s "${auth[@]}" "$BASE/ai-gateway/analytics/performance?dateRange=30d&modelId=$ID"       | jq '.data'
 curl -s "${auth[@]}" "$BASE/ai-gateway/analytics/time-series?dateRange=7d&granularity=daily"  | jq '.data'
 curl -s "${auth[@]}" "$BASE/ai-gateway/analytics/providers?dateRange=90d"                     | jq '.data'
+# Per user (paged), and one user's detail; appId: only the calls made through your app, every user's:
+curl -s "${auth[@]}" "$BASE/ai-gateway/analytics/users?dateRange=30d&appId=$APP_ID"           | jq '.data'
+curl -s "${auth[@]}" "$BASE/ai-gateway/analytics/users/$USER_ID?dateRange=30d&appId=$APP_ID"  | jq '.data'
 # One model's use by day (window 24h hourly, 7d or 30d daily), the requests you may count:
 curl -s "${auth[@]}" "$BASE/ai-gateway/models/$ID/time-series?window=30d"                    | jq '.data.points'
 ```
@@ -359,8 +362,15 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/models/$ID/time-series?window=30d"       
 | `GET /ai-gateway/analytics/performance` | Latency per model (avg, min, max, p95, p99) | `dateRange`, `modelId` |
 | `GET /ai-gateway/analytics/time-series` | Requests, tokens, latency, errors per provider per period | `dateRange`, `granularity` (required: `hourly` with `24h` only, or `daily`), `provider` |
 | `GET /ai-gateway/analytics/providers` | Per-provider models, requests, tokens, latency, users | `dateRange` |
+| `GET /ai-gateway/analytics/users` | Per user, most requests first: requests (today's too), tokens, latency, errors, guardrail firings, compliance, trend, last active, name and email. Paged | `dateRange`, `appId`, `limit`, `cursor` |
+| `GET /ai-gateway/analytics/users/:id` | One user: totals, per model, per day and weekday, by hour, calling workloads, error types, guardrail records | `dateRange`, `appId` |
 
-All analytics routes need scope `ai-gateway:read`.
+All analytics routes need scope `ai-gateway:read`. Without `appId` the per-user
+routes count whom you may count (an admin everyone, an organization admin its
+members, anyone else themself). With `appId` they count the calls made through
+that app, every user's and nothing else of theirs: for the app's owner and a
+platform admin; to anyone else the app does not exist (404). An app reading its
+own users' usage calls them signed in as its owner.
 
 ---
 
