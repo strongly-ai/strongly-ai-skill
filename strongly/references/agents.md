@@ -89,7 +89,8 @@ or `operatingPromptName`, `referenceKey` (e.g. `"atlas"`), `responseFormat`
 `memory|rules|skills|tasks|prompts|artifacts|preferences|computer|code_execution`,
 default is ALL disabled; `readOnlyFamilies` lists enabled families the agent may only
 read: `skills`, so it reads and follows skills and never creates, changes, deletes or
-restores one), and `workspace` (a persistent code-execution workspace,
+restores one; an agent is given tasks, `training.tasks` included, only with `tasks` enabled,
+else `409 invalid-state`), and `workspace` (a persistent code-execution workspace,
 provisioned at start).
 
 To let an agent call one of its owner's Strongly apps, add the `api-caller`
@@ -243,7 +244,8 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
 `maxIterations`, `temperature` (0 to 2), `maxTokens` (at most the model's
 per-reply limit, `modelMaxOutputTokens` in `GET /agents/:id/config`; changing the
 model sets it to that limit), `responseFormat`,
-`builtInTools`, `knowledgeBaseIds`, and the runtime: `onDemandMode` `always-on` (one
+`builtInTools` (`tasks` cannot be disabled while the agent or a clone of it has an open or
+fired task: `409 invalid-state`; complete or delete them first), `knowledgeBaseIds`, and the runtime: `onDemandMode` `always-on` (one
 replica stays up) or `on-demand` (it sleeps after `idleTimeoutSeconds`, at least 60,
 without a message and wakes on the next message, a scheduled task, or its user
 signing in, so it is usually warm by their first question). Unchosen, an agent runs
