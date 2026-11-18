@@ -321,6 +321,12 @@ curl -s "${auth[@]}" "$BASE/agents/$AGENT_ID/logs?lines=200" | jq -r '.data'
 Chat is scoped to a **thread**. Create one first, then run a message in it.
 `POST /agents/:agentId/threads/:id/runs` streams the response as
 **Server-Sent Events** and requires `message` (string, 100000 chars max).
+`message` is the user's own words. What your code gives with them (facts about
+the user, the page they are on) goes in `context` (string, 100000 chars max), sent
+with every message it applies to: the agent gets it in that run's prompt, while
+its skills, memories, rules, preferences and tools are chosen on `message` alone,
+and the thread keeps only the message. Never prepend a context block to
+`message`: the agent's top 5 skills would then be chosen by the block.
 
 ```bash
 # 1) create a thread
@@ -331,6 +337,13 @@ THREAD_ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 # 2) chat (SSE: use -N and read data: lines until data: [DONE])
 curl -sN -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"message":"Summarize the notes in the shared folder."}' \
+  "$BASE/agents/$AGENT_ID/threads/$THREAD_ID/runs"
+```
+
+```bash
+# with context beside the user's words
+curl -sN -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"message":"Is this dose too high?","context":"Person: Maya, 41. Medications: lisinopril 10 mg daily."}' \
   "$BASE/agents/$AGENT_ID/threads/$THREAD_ID/runs"
 ```
 
