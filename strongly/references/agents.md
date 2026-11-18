@@ -85,9 +85,11 @@ or `operatingPromptName`, `referenceKey` (e.g. `"atlas"`), `responseFormat`
 (`json_object` | `text`; a `json_object` agent always answers JSON and never asks a clarifying question), `fallbackModelIds[]`, `contextPolicy`, `sessionPolicy`,
 `heartbeat` (`{ enabled, cron, timezone }` for autonomous wakeups),
 `connectors[]`, `training` (`{ memory[], rules[], skills[], tasks[] }`),
-`sharedLinkedIds[]`, `builtInTools` (`{ disabled: [...] }` over families
+`sharedLinkedIds[]`, `builtInTools` (`{ disabled: [...], readOnlyFamilies: [...] }` over families
 `memory|rules|skills|tasks|prompts|artifacts|preferences|computer|code_execution`,
-default is ALL disabled), and `workspace` (a persistent code-execution workspace,
+default is ALL disabled; `readOnlyFamilies` lists enabled families the agent may only
+read: `skills`, so it reads and follows skills and never creates, changes, deletes or
+restores one), and `workspace` (a persistent code-execution workspace,
 provisioned at start).
 
 To let an agent call one of its owner's Strongly apps, add the `api-caller`
@@ -259,7 +261,10 @@ text; write it about the agent's role and how it works, not about tool names. Th
 runtime adds one section per built-in family in `builtInTools` that the agent has
 (when and why to use it; each tool's description says how), and only those families'
 per-message context (relevant rules, memories, skills, preferences, the persist
-reminder, the new-thread recall). An agent with no families is told about none. To
+reminder, the new-thread recall). An agent with no families is told about none. A
+family in `readOnlyFamilies` gets only its read tools (skills: `skill_read`,
+`skill_list`, `skill_file_list`, `skill_file_get`) and is never told to save what it
+learns there; a base's clones carry the same setting. To
 make an agent keep facts, grant the `memory` family; do not write "call
 memory_ingest" into its prompt. If its families cannot be registered at start, the
 agent does not start and its logs say why.
