@@ -397,9 +397,10 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
 
 To apply the change to a live agent, restart it:
 
-- **Already running:** `POST /agents/:id/redeploy` (stops + starts the pod so
-  pending brain-config and model changes take effect). Redeploy is a NO-OP on a
-  draft or stopped agent.
+- **Already running:** `POST /agents/:id/redeploy` (restarts it in place so
+  pending brain-config and model changes take effect: a rolling restart, the
+  agent keeps answering until the restarted pod is ready). Redeploy is a NO-OP
+  on a draft or stopped agent.
 - **Draft or stopped:** `POST /agents/:id/start`.
 
 After either, poll `GET /agents/:id/status` back to `healthy` (section 4).
