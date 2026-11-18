@@ -342,7 +342,8 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/models/$ID/guardrail-logs?limit=50" | jq 
 ## 6. Analytics
 
 Usage and performance for the gateway, in requests and tokens (no price is put
-on tokens). Every route requires `dateRange`: `24h`, `7d`, `30d` or `90d`.
+on tokens). Every range route requires `dateRange`: `24h`, `7d`, `30d` or `90d`; one
+caller's calls are counted from a time (`since`) instead.
 
 ```bash
 curl -s "${auth[@]}" "$BASE/ai-gateway/analytics/usage?dateRange=30d"                         | jq '.data'
@@ -352,6 +353,8 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/analytics/providers?dateRange=90d"       
 # Per user (paged), and one user's detail; appId: only the calls made through your app, every user's:
 curl -s "${auth[@]}" "$BASE/ai-gateway/analytics/users?dateRange=30d&appId=$APP_ID"           | jq '.data'
 curl -s "${auth[@]}" "$BASE/ai-gateway/analytics/users/$USER_ID?dateRange=30d&appId=$APP_ID"  | jq '.data'
+# One app's (agent's, workflow's) calls of named models since a time, per model:
+curl -s "${auth[@]}" "$BASE/ai-gateway/analytics/callers/$APP_ID?since=2026-11-18T09:00:00Z&modelIds=$ID,$ID2" | jq '.data.models'
 # One model's use by day (window 24h hourly, 7d or 30d daily), the requests you may count:
 curl -s "${auth[@]}" "$BASE/ai-gateway/models/$ID/time-series?window=30d"                    | jq '.data.points'
 ```
@@ -362,6 +365,7 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/models/$ID/time-series?window=30d"       
 | `GET /ai-gateway/analytics/performance` | Latency per model (avg, min, max, p95, p99) | `dateRange`, `modelId` |
 | `GET /ai-gateway/analytics/time-series` | Requests, tokens, latency, errors per provider per period | `dateRange`, `granularity` (required: `hourly` with `24h` only, or `daily`), `provider` |
 | `GET /ai-gateway/analytics/providers` | Per-provider models, requests, tokens, latency, users | `dateRange` |
+| `GET /ai-gateway/analytics/callers/:id` | One caller's (app, agent, workflow) calls since a time, per model: `requests`, `inputTokens`, `outputTokens`, `first`, `last` (a model it did not call is left out). An app's calls, whoever made them, for its owner or a platform admin (anyone else: 404); another caller's, the requests you may count. STAN tool `get_ai_usage_caller` | `since` (ISO 8601, required), `modelIds` (comma-separated, required) |
 | `GET /ai-gateway/analytics/users` | Per user, most requests first: requests (today's too), tokens, latency, errors, guardrail firings, compliance, trend, last active, name and email. Paged | `dateRange`, `appId`, `limit`, `cursor` |
 | `GET /ai-gateway/analytics/users/:id` | One user: totals, per model, per day and weekday, by hour, calling workloads, error types, guardrail records | `dateRange`, `appId` |
 
