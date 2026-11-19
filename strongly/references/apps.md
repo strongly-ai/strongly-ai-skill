@@ -478,7 +478,9 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$A
   "enabled": true, "slug": "client-portal", "signupEnabled": true,
   "access": "approval", "allowedDomains": ["example.com"] }'
 # -> data.auth.pages = { signIn, signUp, forgotPassword, signOut }; share signIn.
-# GET /apps/:id returns the same under data.auth (logo omitted; hasLogo).
+# GET /apps/:id returns the same under data.auth. The logo is never returned: hasLogo says
+# whether one is set, logoSha256 is the SHA-256 (hex) of the stored logo data URL (absent
+# without a logo): compare it with the logo you hold before sending it again.
 # The pages' look: primaryColor (buttons and links), buttonTextColor, backgroundColor
 # (#RRGGBB; null = the platform's own) and headingFont (a Google Fonts family). The
 # button text on the button and the links on the background must meet WCAG AA (4.5:1)
