@@ -57,9 +57,9 @@ never on a bare origin, in both places it runs:
 
 | Where | Base path |
 |---|---|
-| Deployed (Apps), no apps domain | `/api/proxy/<app id>/` (`X-Forwarded-Prefix` and `STRONGLY_URL` `/api/proxy/<app id>`) |
-| Deployed, on a platform with an apps domain | the root `/` of `https://<slug>.<apps domain>/` and of each active custom domain `https://<hostname>/`; paths pass through unchanged. `X-Forwarded-Prefix` and `STRONGLY_URL` are `''`; `<base href="/">` is injected into HTML pages without a `<base>`; the platform's pages are `/_strongly/sign-out`, `/_strongly/sign-out.js`, `/_strongly/session` |
-| Running in a workspace while you build it | `/api/workspace-proxy/<workspace id>/port/<port>/` |
+| Deployed (Apps), no apps domain | `/api/proxy/<app id>/` (`STRONGLY_URL` is `/api/proxy/<app id>`) |
+| Deployed, on a platform with an apps domain | the root `/` of `https://<slug>.<apps domain>/` and of each active custom domain `https://<hostname>/`; paths pass through unchanged. `STRONGLY_URL` is `''`; `<base href="/">` is injected into HTML pages without a `<base>`; the platform's pages are `/_strongly/sign-out`, `/_strongly/sign-out.js`, `/_strongly/session` |
+| Running in a workspace while you build it | `/api/workspace-proxy/<workspace id>/port/<port>/` (a workspace sets no `STRONGLY_URL`) |
 
 Where a deployed app opens is `address` from `GET /apps/:id`; never build it. On a
 platform with an apps domain (the admin's `APPS_DOMAIN`) every app is its own
@@ -87,24 +87,26 @@ app's own host, `/api/proxy/<app id>/x` still names the app path `/x`: a page lo
 is redirected (`308`) to `/x`, any other request is served at `/x` (an app built
 with the old prefix keeps loading its assets until rebuilt).
 
-Never hard-code `/api/proxy/<app id>`: take the base per request from
-`X-Forwarded-Prefix` (missing or empty = the root) or from `STRONGLY_URL` (`''`
-with an apps domain), or use relative URLs. An empty `STRONGLY_URL` means "served
-at the root", not "missing": test for `undefined`, never falsy.
+Never hard-code `/api/proxy/<app id>`: build every link, asset path, router
+basename, redirect and client API base from `STRONGLY_URL` only; the platform
+sets it. It is set right for the install at image build time (build arg) and at
+run time (pod env): `''` (empty) on a platform with an apps domain (the app is
+served at the root of its own host), `/api/proxy/<app id>` without one. An empty
+`STRONGLY_URL` means "served at the root", not "missing". `STRONGLY_HOST` is the
+platform URL and `STRONGLY_APP_ID` the app id. A value your app or a client sets
+for any of these three is overwritten by the platform.
 
 Facts that drive everything:
 
 - The proxy **strips its prefix** before the request reaches your app: the
   browser asks for `/api/proxy/app-xyz/assets/x.js`, your app receives
   `/assets/x.js`. (At the root of the app's own host there is no prefix to strip.)
-- The proxy sends the prefix it stripped as the **`X-Forwarded-Prefix`** request
-  header (e.g. `/api/proxy/app-xyz`; `''` at the root of the app's host). Build
-  every URL from it, per request; then the same build works deployed (either
-  mode) and in the workspace. (A deployed app also gets
-  `STRONGLY_URL`, `STRONGLY_HOST` and `STRONGLY_APP_ID` env vars; a workspace
-  sets none of them, so don't depend on them for paths. Every workspace, job and
+- Use `STRONGLY_URL`; the platform sets it. Read it once at startup and build
+  every URL from it. A workspace sets no `STRONGLY_URL`, `STRONGLY_HOST` or
+  `STRONGLY_APP_ID`; there the app runs at
+  `/api/workspace-proxy/<workspace id>/port/<port>/`. Every workspace, job and
   app has `STRONGLY_API_URL` for API calls and `STRONGLY_BASE_URL`, the public
-  address, for full links.)
+  address, for full links.
 - Calls to platform services (`STRONGLY_API_URL`, the gateway) go through the
   pod's auth-proxy, which keeps HTTP/1.1 connections open (idle 600s, says
   `Connection: close` whenever it closes one): use the HTTP client's normal
@@ -132,27 +134,24 @@ export default defineConfig({ base: './', /* … */ });
 `base: './'` makes Vite emit **relative** asset URLs (`./assets/x.js`) instead of
 `/assets/x.js`, so they resolve under any prefix.
 
-### 1b. Client: derive the base from the URL you're actually at, no fallbacks
+### 1b. Client: take the base from STRONGLY_URL, served by your server
 
 Do **not** read `import.meta.env.BASE_URL` for runtime paths (it is `'./'` and
-silently produces a blank app). Derive the prefix from the browser location, one
-source of truth for the router basename, API base, and any link prefix:
+silently produces a blank app), and do not parse it out of `location.pathname`.
+The server (1c) puts `STRONGLY_URL` into the page as `window.__RUNTIME_CONFIG__.BASE_PATH`;
+that one value is the router basename, the API base and every link prefix:
 
 ```ts
-// runtimeBase.ts  (from kanban, copy it)
-// Deployed: /api/proxy/<app>, or '' at the root of the app's own host (apps
-// domain). In a workspace: /api/workspace-proxy/<ws>/port/<n>.
-const PROXY_PREFIX = /^(\/api\/proxy\/[^/]+|\/api\/workspace-proxy\/[^/]+\/port\/\d+)/;
-export const getRuntimeBase = (p = location.pathname) => (p.match(PROXY_PREFIX)?.[1] ?? '');
-export const getBasename = (p = location.pathname) => getRuntimeBase(p) || '/';   // router
-export const getApiBase  = (p = location.pathname) => `${getRuntimeBase(p)}/api`; // fetch base
+// runtimeBase.ts
+export const BASE = window.__RUNTIME_CONFIG__.BASE_PATH;  // STRONGLY_URL: '' or /api/proxy/<app id>
+export const BASENAME = BASE || '/';                     // router
+export const API_BASE = `${BASE}/api`;                   // fetch base
 ```
 
 ```tsx
-<BrowserRouter basename={getBasename()}>…</BrowserRouter>
-// fetch(`${getApiBase()}/boards`)  ->  /api/proxy/app-xyz/api/boards deployed,
-//   /api/workspace-proxy/ws-1/port/3000/api/boards in a workspace, /api/boards at
-//   the root of the app's own host (apps domain) or with no proxy
+<BrowserRouter basename={BASENAME}>…</BrowserRouter>
+// fetch(`${API_BASE}/boards`)  ->  /api/proxy/app-xyz/api/boards without an apps
+//   domain, /api/boards at the root of the app's own host
 ```
 
 ### 1c. Server: serve assets, require the prefix, don't hand HTML to the module loader
@@ -167,10 +166,9 @@ app.use('/assets', express.static(path.join(pub, 'assets'), { maxAge: '1d', etag
 app.use(express.static(pub, { index: false }));           // favicon, etc.
 app.use('/api', apiLimiter, authMiddleware, apiRouter);   // API auth AFTER static
 
-// The prefix the proxy stripped, per request: /api/proxy/<app> deployed without
-// an apps domain, '' at the root of the app's own host, /api/workspace-proxy/
-// <ws>/port/<n> in a workspace. Missing (no proxy in front) or empty = the root.
-const prefixOf = (req) => (req.get('X-Forwarded-Prefix') || '').replace(/\/$/, '');
+// The base path, read once at startup. The platform sets STRONGLY_URL: '' at the
+// root of the app's own host (apps domain), /api/proxy/<app id> without one.
+const BASE = process.env.STRONGLY_URL ?? '';
 
 // A static-looking path that reaches the SPA fallback does NOT exist on disk.
 // Returning index.html (HTML) for a `.js` request is what makes the browser throw
@@ -182,19 +180,16 @@ app.get('*', (req, res, next) =>
   (req.path.startsWith('/assets/') || STATIC.test(req.path))
     ? res.status(404).type('text/plain').send('Not found') : next());
 
-// SPA fallback: inject a <base href> + rewrite asset paths to the prefix, and
+// SPA fallback: hand the base to the client, rewrite asset paths to it, and
 // NEVER cache the shell (it names hashed chunks; a cached shell + new build = the
 // stale-shell error above). The hashed chunks themselves stay immutably cached.
 app.get('*', (req, res) => {
-  const base = prefixOf(req);
   let html = fs.readFileSync(path.join(pub, 'index.html'), 'utf8');
-  const cfg = JSON.stringify({ BASE_PATH: base, API_URL: '/api' })
-                   .replace(/</g, '\\u003c');
+  const cfg = JSON.stringify({ BASE_PATH: BASE }).replace(/</g, '\\u003c');
   html = html
     .replace('</head>', `<script>window.__RUNTIME_CONFIG__=${cfg}</script></head>`)
-    .replace('<head>', `<head><base href="${base}/">`)
-    .replace(/(src|href)="\.?\/assets\//g, `$1="${base}/assets/`)
-    .replace(/href="\.?\/favicon/g, `href="${base}/favicon`);
+    .replace(/(src|href)="\.?\/assets\//g, `$1="${BASE}/assets/`)
+    .replace(/href="\.?\/favicon/g, `href="${BASE}/favicon`);
   res.set('Cache-Control', 'no-store').send(html);
 });
 ```
@@ -208,10 +203,10 @@ app.listen(Number(process.env.PORT || 3000), '0.0.0.0');
 ### 1c checklist (why each line exists)
 - `base: './'` → assets are relative, not root-absolute.
 - Static served at `/assets`, **before** auth → CSS/JS load without a login.
-- Prefix from `X-Forwarded-Prefix` per request → the same build works deployed and in a workspace.
+- Base from `STRONGLY_URL` (the platform sets it), read once at startup → never a hard-coded `/api/proxy/<app id>`.
 - `PORT`, else 3000 → 8080 is VS Code's in a workspace.
 - 404 static-looking paths in the fallback → kills "module script failed".
-- `<base href>` + asset rewrite → every relative URL resolves under the prefix.
+- Asset paths rewritten to `STRONGLY_URL` → every asset resolves under the base.
 - `Cache-Control: no-store` on the shell → no stale-shell after redeploy.
 
 ### 1d. Build pitfalls that fail a deploy
@@ -1027,7 +1022,7 @@ one; `strongly.manifest.yaml` is the file the build reads.
 ## Checklist
 - [ ] Vite `base: './'`; client base derived from the URL (no `import.meta.env.BASE_URL`).
 - [ ] `strongly.manifest.yaml` in the app root with a `type` the builder accepts.
-- [ ] Server: listen on `PORT`, else 3000; base from `X-Forwarded-Prefix` per request; static `/assets` before auth; 404 static-looking paths in the SPA fallback; `<base href>` + asset rewrite; `Cache-Control: no-store` on the shell.
+- [ ] Server: listen on `PORT`, else 3000; base from `STRONGLY_URL` (the platform sets it), read once at startup; static `/assets` before auth; 404 static-looking paths in the SPA fallback; asset paths rewritten to `STRONGLY_URL`; `Cache-Control: no-store` on the shell.
 - [ ] `GET /health → 200`.
 - [ ] Identity by reading `X-Strongly-User-Token` **or** `Authorization: Bearer`; verify-if-secret-else-decode; no invented user.
 - [ ] Services from `STRONGLY_SERVICES`, matched on `configId`, internal addons hidden.

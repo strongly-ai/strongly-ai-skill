@@ -212,7 +212,7 @@ curl -s -X DELETE "${auth[@]}" "$BASE/marketplace/deployments/$DEPLOYMENT_ID"   
 
 When `status` is `complete`, the full deployment payload's `result.appId` is the
 new app. From there it behaves like any Strongly app: it is served behind the
-proxy (its prefix arrives as `X-Forwarded-Prefix`), reads the signed-in user from
+proxy (its base path is `STRONGLY_URL`, which the platform sets), reads the signed-in user from
 a JWT, and gets wired connections via `STRONGLY_SERVICES`. Manage it (status,
 logs, env, start/stop, versions) with the `/apps` routes, and follow the
 proxy/asset, identity and manifest guidance in **`references/apps.md`** (the

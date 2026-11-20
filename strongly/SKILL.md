@@ -153,12 +153,13 @@ If the task involves **apps**, three platform mechanics matter. Full detail is i
   while a workload inside the platform always calls
   `$STRONGLY_API_URL/api/proxy/<app>/`, in every mode);
   `/api/workspace-proxy/<workspace>/port/<port>/` while running in a workspace.
-  The proxy strips its prefix and sends it as `X-Forwarded-Prefix` (`''` at the
-  root of the app's host; `STRONGLY_URL` likewise `''` there); apps build every
-  URL from it per request or use relative URLs (this is the usual cause of a
-  blank React screen), never hard-code `/api/proxy/<app>`, treat a missing or
-  empty prefix as the root, and listen on `PORT`, else 3000. The proxy is also
-  the trust boundary.
+  The proxy strips its prefix. Apps build every link, asset path, router
+  basename, redirect and client API base from `STRONGLY_URL` only (use
+  `STRONGLY_URL`; the platform sets it: `''` at the root of the app's own host,
+  `/api/proxy/<app>` without an apps domain; empty means the root, not missing);
+  getting this wrong is the usual cause of a blank React screen. Never hard-code
+  `/api/proxy/<app>`. A workspace sets no `STRONGLY_URL`. Listen on `PORT`, else
+  3000. The proxy is also the trust boundary.
 - **Identity via one header.** The proxy injects the signed-in user as a JWT in
   `X-Strongly-User-Token` (and convenience `X-Strongly-User-*` headers). Apps
   **decode** it (they never see the signing secret) to know who the user is, with
