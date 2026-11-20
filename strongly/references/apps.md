@@ -450,13 +450,13 @@ already a user of the app cannot register. Turn sign-up on only when the user as
 | Invitation only (the default) | `signupEnabled: false` | only people an app admin invites |
 
 **App admins.** An app admin is a user whose role in the app is `admin` (the
-`appRole` claim in `X-Strongly-User-Token`). The app's owner is always an app
-admin (`appRole: "admin"`). Make someone an app admin on the Permissions tab
+`appRole` claim in `X-Strongly-User-Token`). The app's owner is `appRole: "owner"`
+(never `admin`); a platform admin who does not own the app is `appRole: "admin"`. Make someone an app admin on the Permissions tab
 (Users, role selector), with `PATCH /apps/:id/users/:id {"role":"admin"}`, or by
 inviting them with `"role": "admin"`. The owner, app admins and platform
 admins (multi-tenant: also the admins of the app's organization) may invite,
 resend, revoke, approve waiting users, change roles, add existing users and
-reset passwords. The app reads `appRole === "admin"` for its own admin
+reset passwords. The app reads `appRole` `"owner"` or `"admin"` for its own admin
 features; never an `ADMIN_EMAILS` env var.
 
 **Invitations.** An invitation emails the person the app's name and logo and a
@@ -763,9 +763,11 @@ app.use('/api', (req, _res, next) => {
 
 Convenience headers also exist (`X-Strongly-User-Id/Email/Name/Roles`,
 `X-Strongly-Org-Id`); the JWT is canonical. The user claim carries two roles,
-never interchangeable: **`appRole`**, the user's role IN THIS APP (`admin`,
-`user`, `viewer`; the app's owner and its app admins are `admin`): gate the
-app's features on it, and its admin features on `appRole === "admin"` (never an
+never interchangeable: **`appRole`**, the user's role IN THIS APP (`owner` for
+the app's owner, never `admin`; `admin` for an app user given the admin role or a
+platform admin who does not own it; otherwise exactly the role granted: `user`,
+`viewer`): gate the app's features on it, and its admin features on `appRole`
+`"owner"` or `"admin"` (never an
 `ADMIN_EMAILS` env var); and **`role`**, their
 PLATFORM role (`admin`, `developer`, `app`), which only the platform reads. An
 app admin who signed up through the branded page is `role: "app"`,
