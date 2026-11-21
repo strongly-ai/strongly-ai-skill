@@ -513,6 +513,37 @@ curl -s "${auth[@]}" "$BASE/apps/$APP_ID/analytics/users?range=30d&sort=-minutes
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID?include=analytics&range=30d"  # detail with the summary
 ```
 
+### The app's own mail (SMTP server and sender)
+
+Every email the platform sends for an app (sign-up and sign-in codes, password resets, the
+notice to an address that already has an account, invitations, paid-access team invites) leaves
+from the platform's own address. Give the app mail settings and ALL of them go through the app's
+own SMTP server from its own address instead; remove them and they go back. No Reply-To is
+added. The connection is always TLS: `starttls` (upgraded, a server without TLS is refused,
+usually port 587) or `tls` (implicit, usually port 465), the certificate verified. The password
+is write-only: stored encrypted, never returned (`passwordSet` says whether one is stored), never
+in an error. Only the app's owner, its app admins and administrators read or change it (the
+people who configure its sign-in). Ask the user for the SMTP details: never invent them.
+
+```bash
+# First save: every field but fromName (the name shown; absent = the app's name).
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/mail" -d '{
+  "smtpHost": "smtp.example.com", "smtpPort": 587, "security": "starttls",
+  "username": "mailer@example.com", "password": "<smtp password>",
+  "fromAddress": "hello@example.com", "fromName": "Field Notes" }'
+# -> data = { appId, mail: { appId, smtpHost, smtpPort, security, username, passwordSet: true,
+#             fromAddress, fromName, updatedAt, updatedBy } }
+# Later PATCHes send only what changes (a password replaces the stored one; left out keeps it;
+# "fromName": null removes the name). A bad field is 400 with errors: [{ field, message }].
+curl -s "${auth[@]}" "$BASE/apps/$APP_ID/mail"                     # data.mail: the settings, or null (platform address)
+curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/mail/test"         # one email to YOUR address through the saved settings
+# -> { appId, delivered: true, to, from, response } or { ..., delivered: false, error: "<SMTP error>" }
+curl -s -X DELETE "${auth[@]}" "$BASE/apps/$APP_ID/mail"            # 204: back to the platform's address
+```
+
+STAN / agent tools: `get_app_mail`, `update_app_mail`, `delete_app_mail`, `send_app_test_email`.
+Python SDK: `client.apps.mail`, `update_mail`, `delete_mail`, `send_test_email`.
+
 ### Charging for access (the owner's own Stripe account)
 
 **Needs the Stripe App Payments plugin.** Paid access exists only while the Stripe App Payments marketplace plugin is installed and on for the organization (`POST /plugins/instances` with `pluginId` `stripe-app-payments`, admin; in multi-tenant an organization developer). Without it every paid-access endpoint answers `409 plugin-not-installed` and the app's Permissions tab shows no Paid access card. The plugin refuses to be turned off or uninstalled while any app still charges (`409 invalid-state`).
