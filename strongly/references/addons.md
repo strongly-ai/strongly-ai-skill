@@ -9,8 +9,8 @@ workflows consume an addon by id; they never manage the pod.
 Read this when the task is: choosing and provisioning a managed store,
 starting/stopping/scaling one, fetching its connection string or credentials,
 scheduling it to save cost, backing it up or restoring a backup, wiring it
-into an app, giving an app a least-privilege database role, or connecting
-over verified TLS (section 13).
+into an app, giving an app a least-privilege database role, or turning on
+the PostgreSQL TLS option and connecting over verified TLS (section 13).
 
 **Auth** follows `SKILL.md`. Outside Strongly send `X-API-Key` to `$HOST/api/v1`;
 inside Strongly the base is `$STRONGLY_API_URL/api/v1` and the bearer is
@@ -360,10 +360,13 @@ the owner connection as before.
 
 ### TLS (postgres)
 
-New PostgreSQL add-ons run TLS and require it. `PATCH /addons/:id` with
-`{"requireTls": true|false}` turns the requirement on or off (running apps using
-the add-on restart); an existing add-on gets TLS at its next restart. Once TLS
-is active the entry has `connection.ssl = { mode: "verify-full", root_cert_path:
+TLS is an option, off by default: a new PostgreSQL add-on accepts plain
+connections and the platform never turns TLS on by itself. Turn it on only when
+the user asks: `PATCH /addons/:id` with `{"tlsEnabled": true}` serves TLS
+(`false` turns it off and stops requiring it); `{"requireTls": true|false}`, a
+second choice available only with TLS on, refuses or accepts plain logins. Each
+change restarts the add-on and the running apps using it. Once TLS is active the
+entry has `connection.ssl = { mode: "verify-full", root_cert_path:
 "/etc/strongly/addon-ca/ca.crt" }` and the connection string already carries
 `sslmode=verify-full&sslrootcert=/etc/strongly/addon-ca/ca.crt`. The CA file is
 mounted in every pod that gets `STRONGLY_SERVICES`. Always connect from the
@@ -399,7 +402,7 @@ const pool = new pg.Pool({ host: c.host, port: c.port, database: c.database,
 | GET | `/addons/stats` | The list's counts with its filters: `{ total, byStatus[{status, total}], byType[{type, total}] }` (`requested`: deploy not yet accepted), most first, not a page | `addons:read` |
 | POST | `/addons` | Create an addon (`label`, `type`, `cpu`, `memory`, `disk`, `description?`) | `addons:write` |
 | GET | `/addons/:id` | Get one addon's stored config | `addons:read` |
-| PATCH | `/addons/:id` | Update label / description / resources / `requireTls` (postgres) | `addons:write` |
+| PATCH | `/addons/:id` | Update label / description / resources / `tlsEnabled`, `requireTls` (postgres, off by default) | `addons:write` |
 | DELETE | `/addons/:id` | Delete the addon and its K8s resources | `addons:write` |
 | POST | `/addons/:id/start` | Start a stopped addon | `addons:deploy` |
 | POST | `/addons/:id/stop` | Stop a running addon (keeps data) | `addons:deploy` |
@@ -443,6 +446,6 @@ const pool = new pg.Pool({ host: c.host, port: c.port, database: c.database,
 - [ ] After start / restart / recover / a resource update, poll back to running.
 - [ ] Wire into an app by passing the addon id at deploy time (preferred) or `connect/:appId`; the app reads it from `STRONGLY_SERVICES` (see `references/apps.md`).
 - [ ] Bind apps to a `read-write` role; give `adminConnection` only to the app that runs migrations (migrate with `admin_connection`, serve with `connection_string`).
-- [ ] Connect to PostgreSQL with verify-full from the entry's `connection.ssl` (CA `/etc/strongly/addon-ca/ca.crt`), never a hard-coded host.
+- [ ] PostgreSQL TLS is off by default; turn it on (`tlsEnabled`) only when asked. With it on, connect with verify-full from the entry's `connection.ssl` (CA `/etc/strongly/addon-ca/ca.crt`), never a hard-coded host.
 - [ ] On a failed addon: read `logs`, then `recover`. No fabricated success.
 - [ ] Delete only after disconnecting from any app; deletion is permanent.

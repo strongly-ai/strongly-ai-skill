@@ -910,7 +910,8 @@ const wf = s.workflows?.available_workflows?.[0];   // POST its input to wf.endp
 - An addon entry for an app bound to a database role carries `role: { id, name,
   preset }` with the role's connection, plus `admin_connection` (the owner) only
   when the binding enables it: serve with `connection.connection_string`, run
-  migrations with `admin_connection`. A PostgreSQL entry with TLS active has
+  migrations with `admin_connection`. A PostgreSQL entry whose owner turned the
+  TLS option on (off by default) has
   `connection.ssl = { mode: "verify-full", root_cert_path:
   "/etc/strongly/addon-ca/ca.crt" }`. See `references/addons.md` section 13.
 
