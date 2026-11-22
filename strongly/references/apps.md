@@ -502,7 +502,10 @@ curl -s -X DELETE "${auth[@]}" "$BASE/apps/$APP_ID/users/$USER_ID"              
 # Invitations (the app's admins only; branded sign-in pages on)
 curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' "$BASE/apps/$APP_ID/users/invitations" \
   -d '{ "email": "pat@example.com", "name": "Pat Lee", "role": "user" }'   # 201; role admin | user (default user)
-# -> { id, appId, email, name, role, status: "pending", expiresAt, invitedBy, invitedByName, createdAt, acceptedAt: null }
+# optional: "returnPath": "/invitations/123?token=abc" (where in the app they land once they have chosen a password: a path inside the app
+#   starting with one "/", never a full URL or another host, 400 otherwise; default the app's start page) and
+#   "invitedByName": "Dana Lee" (who the email says invited them, plain text <= 100; default the calling account's name). A resend keeps both.
+# -> { id, appId, email, name, role, status: "pending", expiresAt, invitedBy, invitedByName, returnPath, createdAt, acceptedAt: null }
 curl -s "${auth[@]}" "$BASE/apps/$APP_ID/users/invitations?status=pending&limit=50"  # status pending | accepted | revoked | expired (omitted = all); next page: &cursor=<nextCursor>
 curl -s -X POST "${auth[@]}" "$BASE/apps/$APP_ID/users/invitations/$INVITATION_ID/resend"  # new link, fresh 7 days; the old link stops working
 curl -s -X DELETE "${auth[@]}" "$BASE/apps/$APP_ID/users/invitations/$INVITATION_ID"       # 204, revoked; its link stops working
