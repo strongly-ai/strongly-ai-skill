@@ -8,8 +8,9 @@ workflows consume an addon by id; they never manage the pod.
 
 Read this when the task is: choosing and provisioning a managed store,
 starting/stopping/scaling one, fetching its connection string or credentials,
-scheduling it to save cost, backing it up or restoring a backup, or wiring it
-into an app.
+scheduling it to save cost, backing it up or restoring a backup, wiring it
+into an app, giving an app a least-privilege database role, or connecting
+over verified TLS (section 13).
 
 **Auth** follows `SKILL.md`. Outside Strongly send `X-API-Key` to `$HOST/api/v1`;
 inside Strongly the base is `$STRONGLY_API_URL/api/v1` and the bearer is
@@ -171,13 +172,17 @@ rolls out with the change at once with no downtime (`STRONGLY_SERVICES` is built
 from the set at every rollout); a stopped app gets it when it starts. For how the app consumes the connection at runtime, see
 `references/apps.md` section 4 (it appears under `services.addons.<type>`).
 
+By default the app connects as the add-on's owner. For PostgreSQL, DuckDB, MySQL
+and MongoDB add-ons, bind the app to a read-write database role instead and
+turn on the owner connection only where it runs migrations (section 13).
+
 ---
 
 ## 8. Update and scale
 
 ```bash
 # Change label, description, or resources (cpu, memory, disk). Send only the fields you want to change.
-curl -s -X PUT "${auth[@]}" -H 'Content-Type: application/json' \
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"cpu":"1","memory":"2Gi","disk":"25Gi"}' \
   "$BASE/addons/$ADDON_ID" | jq '.data'
 ```
@@ -296,6 +301,95 @@ longer exists.
 
 ---
 
+## 13. Database roles and TLS
+
+### Roles (postgres, duckdb, mysql, mongodb)
+
+A role is a database login on the add-on with a fixed preset. There are two
+presets and no others (never a superuser):
+
+| Preset | Allows | Does not allow |
+|---|---|---|
+| `read-only` | Read every table (PostgreSQL/DuckDB: every schema, sessions read-only; MySQL: `SELECT`; MongoDB: built-in `read`) | Any write, any schema change |
+| `read-write` | Read, insert, update and delete rows (MongoDB: find, insert, update, remove) | Creating, altering or dropping tables, indexes or schemas; `TRUNCATE`; creating roles or databases; superuser |
+
+Name: lowercase, `^[a-z][a-z0-9_]{2,62}$`, not starting `pg_` or `clone_`, not
+the add-on's owner user or a reserved name (`postgres`, `root`, `admin`, ...).
+The add-on must be running. Other add-on types are refused (409).
+
+```bash
+# Create: the password is in this answer ONCE and is never returned again.
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d '{"name":"orders_app","preset":"read-write"}' \
+  "$BASE/addons/$ADDON_ID/roles" | jq '.data'           # -> the role (_id, name, preset, ...) with its password
+curl -s "${auth[@]}" "$BASE/addons/$ADDON_ID/roles" | jq '.data'            # roles + boundApps, no passwords
+curl -s "${auth[@]}" "$BASE/addons/$ADDON_ID/roles/$ROLE_ID" | jq '.data'
+
+# New password (shown once); running apps bound to the role restart to pick it up.
+curl -s -X POST "${auth[@]}" "$BASE/addons/$ADDON_ID/roles/$ROLE_ID/rotate-password" | jq '.data'
+# Re-apply the preset's grants (picks up schemas created since the role was made).
+curl -s -X POST "${auth[@]}" "$BASE/addons/$ADDON_ID/roles/$ROLE_ID/apply-privileges" | jq '.data'
+# Delete (refused with 409 naming the apps while any app is bound to it).
+curl -s -X DELETE "${auth[@]}" "$BASE/addons/$ADDON_ID/roles/$ROLE_ID"
+```
+
+Tables created by the owner later are covered automatically on PostgreSQL;
+after the owner creates a new schema, call `apply-privileges`.
+
+### Bind an app to a role; owner connection only for migrations
+
+```bash
+# Connect with a role (and, for the app that runs migrations, the owner connection too).
+curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  -d "{\"appId\":\"$APP_ID\",\"roleId\":\"$ROLE_ID\",\"adminConnection\":true}" \
+  "$BASE/addons/$ADDON_ID/connections" | jq '.data'
+# Change the binding of an app already connected (roleId null = owner connection again).
+curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
+  -d "{\"roleId\":\"$ROLE_ID\",\"adminConnection\":false}" \
+  "$BASE/addons/$ADDON_ID/connections/$APP_ID" | jq '.data'
+```
+
+For a bound app the `STRONGLY_SERVICES` entry's `connection.connection_string`,
+`connection.uri` and `auth.credentials` are the role's, and the entry carries
+`role: { id, name, preset }`. With `adminConnection` it also carries
+`admin_connection: { connection_string, uri, username, password }` (the owner).
+The pattern: serve traffic with `connection.connection_string` (a `read-write`
+role cannot change the schema), run migrations with `admin_connection`, and
+turn `adminConnection` off for apps that do not migrate. An unbound app gets
+the owner connection as before.
+
+### TLS (postgres)
+
+New PostgreSQL add-ons run TLS and require it. `PATCH /addons/:id` with
+`{"requireTls": true|false}` turns the requirement on or off (running apps using
+the add-on restart); an existing add-on gets TLS at its next restart. Once TLS
+is active the entry has `connection.ssl = { mode: "verify-full", root_cert_path:
+"/etc/strongly/addon-ca/ca.crt" }` and the connection string already carries
+`sslmode=verify-full&sslrootcert=/etc/strongly/addon-ca/ca.crt`. The CA file is
+mounted in every pod that gets `STRONGLY_SERVICES`. Always connect from the
+entry, never a hard-coded host:
+
+```python
+import json, os, psycopg
+pg = json.loads(os.environ["STRONGLY_SERVICES"])["services"]["addons"]["postgres"][0]
+conn = psycopg.connect(pg["connection"]["connection_string"])     # verify-full already in it
+# Migrations only (adminConnection on): psycopg.connect(pg["admin_connection"]["connection_string"])
+```
+
+```js
+import fs from 'node:fs';
+import pg from 'pg';
+const s = JSON.parse(process.env.STRONGLY_SERVICES).services.addons.postgres[0];
+const c = s.connection;
+const ssl = c.ssl ? { ca: fs.readFileSync(c.ssl.root_cert_path, 'utf8'), servername: c.host,
+                      rejectUnauthorized: true } : undefined;
+// node-postgres: pass ssl as an object; do not also pass sslmode in the string.
+const pool = new pg.Pool({ host: c.host, port: c.port, database: c.database,
+  user: s.auth.credentials.username, password: s.auth.credentials.password, ssl });
+```
+
+---
+
 ## Endpoint reference
 
 | Method | Path | What it does | Scope |
@@ -305,7 +399,7 @@ longer exists.
 | GET | `/addons/stats` | The list's counts with its filters: `{ total, byStatus[{status, total}], byType[{type, total}] }` (`requested`: deploy not yet accepted), most first, not a page | `addons:read` |
 | POST | `/addons` | Create an addon (`label`, `type`, `cpu`, `memory`, `disk`, `description?`) | `addons:write` |
 | GET | `/addons/:id` | Get one addon's stored config | `addons:read` |
-| PATCH | `/addons/:id` | Update label / description / resources | `addons:write` |
+| PATCH | `/addons/:id` | Update label / description / resources / `requireTls` (postgres) | `addons:write` |
 | DELETE | `/addons/:id` | Delete the addon and its K8s resources | `addons:write` |
 | POST | `/addons/:id/start` | Start a stopped addon | `addons:deploy` |
 | POST | `/addons/:id/stop` | Stop a running addon (keeps data) | `addons:deploy` |
@@ -324,8 +418,15 @@ longer exists.
 | POST | `/addons/:addonId/backups/:id/restore` | Restore a succeeded backup into the addon (202 with the restore) | `addons:write` |
 | GET | `/addons/:id/restores` | Restores, newest first, cursor-paged (status, error) | `addons:read` |
 | GET | `/addons/:addonId/restores/:id` | One restore (follow one you started) | `addons:read` |
-| POST | `/addons/:id/connections` | Attach the addon to an app (`appId`) | `addons:write` |
+| POST | `/addons/:id/connections` | Attach the addon to an app (`appId`, `roleId?`, `adminConnection?`) | `addons:write` |
+| PATCH | `/addons/:addonId/connections/:id` | Change an app's binding (`roleId` or null, `adminConnection`) | `addons:write` |
 | DELETE | `/addons/:addonId/connections/:id` | Detach the addon from an app | `addons:write` |
+| GET | `/addons/:addonId/roles` | Database roles with the apps bound to each (no passwords) | `addons:read` |
+| POST | `/addons/:addonId/roles` | Create a role (`name`, `preset`); answers the password once | `addons:write` |
+| GET | `/addons/:addonId/roles/:id` | One role (no password) | `addons:read` |
+| DELETE | `/addons/:addonId/roles/:id` | Delete a role (409 while an app is bound to it) | `addons:write` |
+| POST | `/addons/:addonId/roles/:id/rotate-password` | New password, shown once; bound running apps restart | `addons:write` |
+| POST | `/addons/:addonId/roles/:id/apply-privileges` | Re-apply the preset's grants | `addons:write` |
 | GET/PATCH | `/addons/:id/permissions` | Who can reach it / set `visibility` | `addons:read` / `addons:write` |
 | POST | `/addons/:id/permissions/members` | Share with a user (`userId`, `role`) | `addons:write` |
 | DELETE | `/addons/:addonId/permissions/members/:userId` | Stop sharing with a user | `addons:write` |
@@ -341,5 +442,7 @@ longer exists.
 - [ ] Fetch credentials / connection string only after running; treat the output as secret, never log it.
 - [ ] After start / restart / recover / a resource update, poll back to running.
 - [ ] Wire into an app by passing the addon id at deploy time (preferred) or `connect/:appId`; the app reads it from `STRONGLY_SERVICES` (see `references/apps.md`).
+- [ ] Bind apps to a `read-write` role; give `adminConnection` only to the app that runs migrations (migrate with `admin_connection`, serve with `connection_string`).
+- [ ] Connect to PostgreSQL with verify-full from the entry's `connection.ssl` (CA `/etc/strongly/addon-ca/ca.crt`), never a hard-coded host.
 - [ ] On a failed addon: read `logs`, then `recover`. No fabricated success.
 - [ ] Delete only after disconnecting from any app; deletion is permanent.

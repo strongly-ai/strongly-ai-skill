@@ -907,6 +907,12 @@ const wf = s.workflows?.available_workflows?.[0];   // POST its input to wf.endp
 - Connections live under `service.connection` (`connection_string`/`uri`, `host`,
   `port`, `database`, ...), secrets under `service.auth.credentials`. Degrade
   honestly if a service is absent; don't fabricate one.
+- An addon entry for an app bound to a database role carries `role: { id, name,
+  preset }` with the role's connection, plus `admin_connection` (the owner) only
+  when the binding enables it: serve with `connection.connection_string`, run
+  migrations with `admin_connection`. A PostgreSQL entry with TLS active has
+  `connection.ssl = { mode: "verify-full", root_cert_path:
+  "/etc/strongly/addon-ca/ca.crt" }`. See `references/addons.md` section 13.
 
 You choose what's wired at create time by declaring ids in the `addons`,
 `dataSources`, `aiModels`, `workflows` arrays (discover via `GET $BASE/addons`,
