@@ -371,9 +371,16 @@ Inside a run the context is compacted again whenever it nears the budget, and on
 more (to a fifth; `window`: half dropped) when the model reports an overflow; summaries use the headings
 Goal, State, Next, Resources. A newer read of the same thing (same tool, same
 arguments) replaces the older copy with an "outdated" note. A run has no time
-limit. Loop guards: the same non-read call with the same arguments a 3rd and 4th
-time in a row is not run (the model is warned), a 5th ends the run with its best
-answer; a tool failing 4 times in a row gets a notice, 8 disables it for the run.
+limit. Loop guards, per turn: a call identical to one already made in the turn
+(same tool, same arguments, whatever came between) is not run again. A tool that
+declares `readOnlyHint: true` is answered with its earlier result and a note; any
+other tool that ran is refused (`output.already_done: true`), so declare every
+tool that only reads, or a repeated read is refused instead of answered. A call
+that changes something makes the turn's earlier reads stale (a read after it runs
+again); a call that failed may be tried again, its 3rd and 4th try are not run
+(the model is warned); the 5th identical call ends the run with its best answer.
+The `computer` tool counts only an unbroken row of the same action (screenshots
+8 / 10). A tool failing 4 times in a row gets a notice, 8 disables it for the run.
 Every call of the reply the guard stops gets a `thread.run.tool_result`
 (`status: failed`, `output.loop_stopped: true`), so no tool card stays running.
 
