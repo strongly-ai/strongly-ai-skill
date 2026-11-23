@@ -372,13 +372,19 @@ more (to a fifth; `window`: half dropped) when the model reports an overflow; su
 Goal, State, Next, Resources. A newer read of the same thing (same tool, same
 arguments) replaces the older copy with an "outdated" note. A run has no time
 limit. Loop guards, per turn: a call identical to one already made in the turn
-(same tool, same arguments, whatever came between) is not run again. A tool that
-declares `readOnlyHint: true` is answered with its earlier result and a note; any
-other tool that ran is refused (`output.already_done: true`), so declare every
-tool that only reads, or a repeated read is refused instead of answered. A call
-that changes something makes the turn's earlier reads stale (a read after it runs
-again); a call that failed may be tried again, its 3rd and 4th try are not run
-(the model is warned); the 5th identical call ends the run with its best answer.
+(same tool, same arguments, whatever came between) is not run again, except a
+poll. A tool that declares `readOnlyHint: true` and `stableHint: true` (a read
+whose answer changes only when the agent changes something) is answered with its
+earlier result and a note. A tool that declares only `readOnlyHint: true` reports
+state that changes on its own (a status, progress, logs, a list of running
+things): repeated, it runs again with a fresh result, at least 10 s after its
+previous run, and the 5th call after the identical result 4 times in a row ends
+the run. Any other tool that ran is refused (`output.already_done: true`), so
+declare every tool that only reads, and add `stableHint` only when its answer
+cannot change without the agent. A call that changes something makes the turn's
+earlier reads stale (a read after it runs again); a call that failed may be tried
+again, its 3rd and 4th try are not run (the model is warned); the 5th identical
+call ends the run with its best answer.
 The `computer` tool counts only an unbroken row of the same action (screenshots
 8 / 10). A tool failing 4 times in a row gets a notice, 8 disables it for the run.
 Every call of the reply the guard stops gets a `thread.run.tool_result`
