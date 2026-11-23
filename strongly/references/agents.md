@@ -81,7 +81,9 @@ AGENT_ID=$(curl -s -X POST "${auth[@]}" -H 'Content-Type: application/json' \
 Notable optional fields on the wizard body: `description` (what the agent is
 for, shown in the agent list and on its Overview; ask the user for one),
 `personality`, `operatingPromptId`
-or `operatingPromptName`, `referenceKey` (e.g. `"atlas"`), `responseFormat`
+or `operatingPromptName`, `stanAware` (recommend STAN for things the agent can't do;
+default `false`: the agent says plainly what it can't do and never mentions STAN, right
+for any agent whose users are not the platform's builders), `referenceKey` (e.g. `"atlas"`), `responseFormat`
 (`json_object` | `text`; a `json_object` agent always answers JSON and never asks a clarifying question), `fallbackModelIds[]`, `contextPolicy`, `sessionPolicy`,
 `heartbeat` (`{ enabled, cron, timezone }` for autonomous wakeups),
 `connectors[]`, `training` (`{ memory[], rules[], skills[], tasks[] }`),
@@ -239,7 +241,8 @@ curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
   "$BASE/agents/$AGENT_ID/config"
 ```
 
-`PATCH /agents/:id/config` accepts `personality`, `operatingPromptId`, `contextPolicy`,
+`PATCH /agents/:id/config` accepts `personality`, `operatingPromptId`, `stanAware`
+(boolean, `false` by default; `GET` returns it), `contextPolicy`,
 `sessionPolicy`, `heartbeatEnabled`, `heartbeatCron`, `heartbeatTimezone`,
 `maxIterations`, `temperature` (0 to 2), `maxTokens` (at most the model's
 per-reply limit, `modelMaxOutputTokens` in `GET /agents/:id/config`; changing the
