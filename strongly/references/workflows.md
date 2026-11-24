@@ -270,7 +270,12 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
   `metadata.loop_node_id` (a map's items the same way). A node span starts
   when the node does (its code load included). Which spans a run records is
   the workflow's tracing level (`settings.spanLevel`): at `error` only failed
-  steps and the loops' own spans are recorded.
+  steps and the loops' own spans are recorded. At `off` spans and node
+  payloads are not kept; only the workflow's result is stored: the run's
+  `outputs` holds each end node's output (a node no connection leaves) and,
+  for every other step, an `outputWithheld: true` entry with its success,
+  branch, item counts and error class. At `error` the same, plus each failed
+  step's whole output. A failed run at `off`/`error` cannot be resumed.
 - Loop Pod Scaling works in draft and deployed runs alike; the trace has a
   `DISTRIBUTED` span for the loop (at every tracing level but off), every body
   span is drawn under it by worker pod and item, and the accumulator collects
