@@ -372,7 +372,9 @@ cannot be made fails the run with that error.
 or titles carried for older history, the kept history and the new message. Leave it out (the default) and
 the agent gets 70% of its model's context window as AI Gateway records it; set it only to cap the agent
 lower, never above the model's window. An agent cannot use a model that has no context window recorded
-(set it on the model's page in AI Gateway). A large tool result is summarised in parts sized by the
+(set it on the model's page in AI Gateway). On `PATCH /agents/:id/config` the policy replaces the stored
+one whole: send `{ "kind": ..., "keepRecent": ... }` without `tokenBudget` to clear a stored budget, or
+`"contextPolicy": null` to remove the whole policy (window, keepRecent 20, no budget). A large tool result is summarised in parts sized by the
 model's window, several at once.
 Inside a run the context is compacted again whenever it nears the budget, and once
 more (to a fifth; `window`: half dropped) when the model reports an overflow; summaries use the headings
