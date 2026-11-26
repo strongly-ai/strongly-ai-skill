@@ -369,7 +369,11 @@ tiers (verbatim tail, summarised middle `contextSummary`, titles-only
 `contextDeepHistory`). A kind other than these three is refused. A summary that
 cannot be made fails the run with that error.
 `tokenBudget` caps each request to the model: the agent's system prompt, its tool definitions, the summary
-or titles carried for older history, the kept history and the new message.
+or titles carried for older history, the kept history and the new message. Leave it out (the default) and
+the agent gets 70% of its model's context window as AI Gateway records it; set it only to cap the agent
+lower, never above the model's window. An agent cannot use a model that has no context window recorded
+(set it on the model's page in AI Gateway). A large tool result is summarised in parts sized by the
+model's window, several at once.
 Inside a run the context is compacted again whenever it nears the budget, and once
 more (to a fifth; `window`: half dropped) when the model reports an overflow; summaries use the headings
 Goal, State, Next, Resources. A newer read of the same thing (same tool, same
