@@ -237,14 +237,17 @@ it returns the config):
 
 ```bash
 curl -s -X PATCH "${auth[@]}" -H 'Content-Type: application/json' \
-  -d '{"personality":"Terse and factual.","temperature":0.3,"maxIterations":8}' \
+  -d '{"personality":"Terse and factual.","temperature":0.3}' \
   "$BASE/agents/$AGENT_ID/config"
 ```
 
 `PATCH /agents/:id/config` accepts `personality`, `operatingPromptId`, `stanAware`
 (boolean, `false` by default; `GET` returns it), `contextPolicy`,
 `sessionPolicy`, `heartbeatEnabled`, `heartbeatCron`, `heartbeatTimezone`,
-`maxIterations`, `temperature` (0 to 2), `maxTokens` (at most the model's
+`maxIterations` (an optional step limit per run, a positive integer; not set by
+default, when the agent takes as many steps as the task needs and stops at its
+answer, and a run that keeps repeating itself is ended; set it only when the user
+asks for a cap; `null` removes a stored one), `temperature` (0 to 2), `maxTokens` (at most the model's
 per-reply limit, `modelMaxOutputTokens` in `GET /agents/:id/config`; changing the
 model sets it to that limit), `responseFormat`,
 `builtInTools` (`tasks` cannot be disabled while the agent or a clone of it has an open or
