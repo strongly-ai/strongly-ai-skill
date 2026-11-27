@@ -163,6 +163,12 @@ Related namespaces: `client.ai.models` (catalog of available models),
 (usage). The `model` you pass is a model id from `client.ai.models.list()`; do
 not assume one exists, list first.
 
+A response's usage model carries the vendor's real token counts, streamed or not:
+`prompt_tokens`, `completion_tokens`, `total_tokens` and, each only when the vendor
+reported it, `prompt_tokens_details` (its `cached_tokens`: input tokens read from the
+vendor's prompt cache, a part of `prompt_tokens`) and `cache_creation_input_tokens`
+(input tokens written to it).
+
 ---
 
 ## 4. Workflows: batch and streaming
@@ -368,6 +374,17 @@ for event in client.agents.chat("wf_abc123", "thread_123", "Find last week's mee
 With `interactive=True` the run pauses before a tool that declares it deletes or sends
 (`thread.run.confirmation_required`); answer with `client.agents.approve_run(agent_id, run_id,
 tool_call_id)` or `client.agents.cancel_run(agent_id, run_id)`. Without it the run never waits.
+
+Read what a run did after the fact, with no need to capture its stream (the same methods,
+awaited, on the async client's `client.agents`):
+
+```python
+runs = client.agents.list_thread_runs("wf_abc123", "thread_123")   # the thread's runs, newest first
+run = client.agents.get_run("wf_abc123", run_id)                   # one run: status, usage, tool calls in order
+```
+
+A run's usage is the AI Gateway's usage object summed over its model calls
+(`references/agents.md` section 5).
 
 Agents answer from knowledge bases (`references/agents.md` section 8):
 

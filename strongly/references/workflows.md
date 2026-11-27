@@ -296,7 +296,9 @@ Pass `"workflowType": "streaming"` to build a streaming graph (see section 6).
   `/workflows/-/executions/:id/spans`, at the level the node gave. Nothing else is
   a metric. A run's tokens are the AI Gateway's:
   `GET /workflows/-/executions/:id/ai-usage` (requests, input/output/total
-  tokens, per model).
+  tokens, per model; beside `inputTokens`, `cachedInputTokens` and
+  `cacheCreationInputTokens`, the input tokens read from and written to the
+  vendor's prompt cache, `null` when no call reported one).
 
 ### Create or edit incrementally
 

@@ -369,6 +369,19 @@ curl -s "${auth[@]}" "$BASE/ai-gateway/models/$ID/time-series?window=30d"       
 | `GET /ai-gateway/analytics/users` | Per user, most requests first: requests (today's too), tokens, latency, errors, guardrail firings, compliance, trend, last active, name and email. Paged | `dateRange`, `appId`, `limit`, `cursor` |
 | `GET /ai-gateway/analytics/users/:id` | One user: totals, per model, per day and weekday, by hour, calling workloads, error types, guardrail records | `dateRange`, `appId` |
 
+**Token counts and the prompt cache.** Every model call through the gateway,
+streamed or not, reports the vendor's real token counts in one `usage` shape for
+every vendor: `prompt_tokens`, `completion_tokens`, `total_tokens` and, each only
+when the vendor reported it, `prompt_tokens_details.cached_tokens` (input tokens
+read from the vendor's prompt cache, a part of `prompt_tokens`) and
+`cache_creation_input_tokens` (input tokens written to it). An agent run's `usage`
+sums them over the run's model calls (`references/agents.md` section 5). The
+analytics return them wherever they count input tokens, as `cachedInputTokens` and
+`cacheCreationInputTokens` beside `inputTokens` (`promptTokens` in
+`/analytics/usage`): `usage`, `users`, `users/:id`, `callers/:id`, a model's and an
+agent's `time-series`, and a workflow run's `ai-usage`. Each is `null` when no
+request counted reported one: not reported, which is not 0.
+
 All analytics routes need scope `ai-gateway:read`. Without `appId` the per-user
 routes count whom you may count (an admin everyone, an organization admin its
 members, anyone else themself). With `appId` they count the calls made through

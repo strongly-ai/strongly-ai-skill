@@ -421,6 +421,52 @@ thread must belong to this agent and to the caller, or chat returns 404/403.
 Manage threads with `GET /agents/:id/threads` (list) and
 `DELETE /agents/:agentId/threads/:id` (delete one).
 
+**What a run did, read after the fact.** No need to capture a run's stream:
+`GET /agents/:agentId/threads/:id/runs` lists a thread's runs, newest first
+(cursor-paged: `limit`, `cursor`), and `GET /agents/:agentId/runs/:id` reads one
+(its id is the `run_id` of `thread.run.created` and the `runId` of its answer in
+the thread). Scope `agents:read`; STAN tools `list_agent_thread_runs` and
+`get_agent_run`.
+
+```bash
+curl -s "${auth[@]}" "$BASE/agents/$AGENT_ID/threads/$THREAD_ID/runs?limit=20" | jq '.data'
+curl -s "${auth[@]}" "$BASE/agents/$AGENT_ID/runs/$RUN_ID" \
+  | jq '.data | {status, usage, calls: [.toolCalls[] | {name, status, durationMs, resultTokens}]}'
+```
+
+A run: `_id`, `threadId`, `agentId`, `userId`, `triggerSource`, `status`,
+`iterations`, `maxIterationsReached`, `endedReason`, `startedAt`, `endedAt`,
+`usage`, `error`, `private`, and `toolCalls` in call order. A field a run does not
+have is left out.
+
+| `toolCalls[]` field | Meaning |
+|---|---|
+| `id`, `name`, `arguments` | The call's id (as in its `thread.run.tool_call` event), the tool, and what it was called with (the tool's own keys) |
+| `status`, `durationMs` | `completed` or `failed`, and how long it took |
+| `iteration` | The model turn that asked for it |
+| `notRun` | Why it was answered without running: `not_executed` or `rule_refused` |
+| `resultChars`, `resultTokens` | The result's size as the model got it |
+| `resultSummarised`, `fullResultChars` | A summary stood in for a result too large for the context, and the whole result's size |
+
+`usage` is the AI Gateway's usage object, as the run's `thread.run.completed`
+event carries it, summed over the run's model calls, with the gateway's own keys:
+`prompt_tokens`, `completion_tokens`, `total_tokens` and, when the vendor reported
+them, `prompt_tokens_details.cached_tokens` (input tokens read from the vendor's
+prompt cache, a part of `prompt_tokens`) and `cache_creation_input_tokens` (input
+tokens written to it). A failed run has its usage too.
+
+- Failed and cancelled runs show their tool calls with arguments too. Runs
+  recorded before arguments were kept show calls without `arguments` (and without
+  `id` and the result sizes).
+- A run is read through its conversation: whoever may read the thread reads its
+  runs; anyone else gets 404.
+- On an agent that encrypts conversations, `arguments` and `error` open only for
+  the conversation's person (`private: false`); other readers get `private: true`,
+  no `arguments`, and `"Private to the user"` as the `error`.
+- Deleting a conversation (or its person, or an app user's data) removes the
+  arguments and error text of its runs: those runs then answer 404 and only their
+  counts remain in the agent's analytics. Deleting the agent deletes its runs.
+
 ---
 
 ## 6. Change the model, then redeploy
@@ -547,7 +593,7 @@ problem details: read `code` and `detail`.
   `POST /library/artifacts` (`title`, `content`, `linkedIds: [agentId]`),
   `DELETE /library/artifacts/:id`.
 - **Analytics:** `GET /agents/:id/analytics?days=30` (1 to 365).
-- **Model calls over time:** `GET /agents/:id/time-series?window=30d` (`24h` hourly, `7d`/`30d` daily): requests, errors, tokens and mean latency of the agent's AI Gateway calls. Its cost is FinOps': `GET /finops/costs/trends?workload=<agent id>`.
+- **Model calls over time:** `GET /agents/:id/time-series?window=30d` (`24h` hourly, `7d`/`30d` daily): requests, errors, tokens (beside `inputTokens`, `cachedInputTokens` and `cacheCreationInputTokens`: the input tokens read from and written to the vendor's prompt cache, `null` when not reported) and mean latency of the agent's AI Gateway calls. Its cost is FinOps': `GET /finops/costs/trends?workload=<agent id>`.
 
 ---
 
@@ -595,6 +641,8 @@ Agents can message each other. These routes are scoped by agent authorization
 | GET | `/agents/:agentId/threads/:id` | One thread with its messages (role, content, createdAt; an answer's runId, tokens, toolCalls) |
 | DELETE | `/agents/:agentId/threads/:id` | Delete a thread |
 | POST | `/agents/:agentId/threads/:id/runs` | Send a message (SSE stream) |
+| GET | `/agents/:agentId/threads/:id/runs` | A thread's runs, newest first (paged): status, usage, tool calls in order |
+| GET | `/agents/:agentId/runs/:id` | One run: status, usage, each tool call's arguments, status, duration and result size |
 | POST | `/agents/:agentId/runs/:id/approve` | Confirm the delete or send an interactive run waits on (`toolCallId`) |
 | POST | `/agents/:agentId/runs/:id/cancel` | Stop a run (a waiting delete or send never runs) |
 | GET | `/agents/:id/analytics` | Usage analytics (`days`) |
