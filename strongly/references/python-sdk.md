@@ -380,7 +380,7 @@ awaited, on the async client's `client.agents`):
 
 ```python
 runs = client.agents.list_thread_runs("wf_abc123", "thread_123")   # the thread's runs, newest first
-run = client.agents.get_run("wf_abc123", run_id)                   # one run: status, usage, tool calls in order
+run = client.agents.retrieve_run("wf_abc123", run_id)              # one run: status, usage, tool calls in order
 ```
 
 A run's usage is the AI Gateway's usage object summed over its model calls
